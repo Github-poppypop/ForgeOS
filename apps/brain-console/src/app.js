@@ -378,15 +378,104 @@ function renderConfig() {
   });
 }
 
+// ===================== RFC-0000: COMMAND CENTER (primary landing) =====================
+async function renderCommand() {
+  crumb([["ForgeOS", "#/command"], ["Command Center"]]);
+  $("#main").innerHTML = `<div class="skeleton" style="height:200px"></div>`;
+  const [s, roles, gov, vault, fed] = await Promise.all([
+    safe(api.status).catch(() => null),
+    safe(api.roles).catch(() => ({ roles: [] })),
+    safe(() => api.gov()).catch(() => null),
+    safe(api.vault).catch(() => null),
+    safe(api.federation).catch(() => null),
+  ]);
+  const brainOk = s && s.gbrain_health && s.gbrain_health.status === "ok";
+  const ollamaOk = s && s.ollama;
+  const seeded = (roles.roles || []).filter(r => r.exists).length;
+  const stdCount = (gov && gov.tree && gov.tree.standards) ? gov.tree.standards.length : 0;
+  const rfcs = (gov && gov.tree && gov.tree.rfcs) ? gov.tree.rfcs.length : 0;
+
+  // RFC-mandated Command Center widgets
+  const widget = (title, val, sub, cls="") => `<div class="card ${cls}"><h2>${title}</h2><p style="font-size:30px;font-weight:800">${val}</p><p class="muted">${sub||""}</p></div>`;
+
+  $("#main").innerHTML = `
+    <h1>Command Center</h1>
+    <p class="muted">The control room of the ForgeOS engineering organization. RFC-0000.</p>
+    <div class="row" style="margin:12px 0">
+      ${brainOk ? `<span class="pill ok"><span class="dot"></span> brain owned</span>` : `<span class="pill bad"><span class="dot"></span> brain down</span>`}
+      ${ollamaOk ? `<span class="pill ok"><span class="dot"></span> embeddings (local)</span>` : `<span class="pill warn"><span class="dot"></span> ollama off</span>`}
+      <span class="pill">${stdCount} FES standards</span>
+      <span class="pill">${rfcs} RFC(s)</span>
+      <span class="pill">vault: ${vault && vault.files ? vault.files.length : 0} pages</span>
+    </div>
+    <div class="grid cols-3">
+      ${widget("System Health", brainOk ? "OK" : "DOWN", s && s.gbrain_health ? s.gbrain_health.engine : "—")}
+      ${widget("Engineering Health", seeded + "/7", "C-suite roles seeded")}
+      ${widget("Current Mission", "RFC-0000", "Constitution & Platform Evolution", "hl")}
+      ${widget("Current Project", "PoolLeague", "governed test project (apps/poolleague)", "")}
+      ${widget("Recent RFCs", rfcs, gov && gov.tree && gov.tree.rfcs ? gov.tree.rfcs.join(", ") : "—")}
+      ${widget("Brain Status", brainOk ? "owned" : "off", s && s.isolation ? "isolated @ C:\\ForgeOS" : "—")}
+      ${widget("Embeddings", ollamaOk ? "mxbai 1024d" : "off", "local, free")}
+      ${widget("Federation", "read-down", fed ? "no lateral mingle" : "—")}
+      ${widget("Sacred /governance", "ACTIVE", `<a class="link" href="#/governance">view source of truth</a>`)}
+    </div>
+    <div class="card" style="margin-top:16px"><h2>What is ForgeOS doing?</h2>
+      <ul class="mono" style="line-height:1.8">
+        <li>Building the governance foundation (RFC-0000) — Constitution, 12 FES, laws, roadmap.</li>
+        <li>Governing PoolLeague as the first test project (slim backend live on :3001, web on :3000).</li>
+        <li>Pending decision: reconcile PoolLeague full backend (E1, proposed).</li>
+      </ul>
+      <h2 style="margin-top:12px">Suggested actions</h2>
+      <div class="row">
+        <a class="btn primary" href="#/governance">Open Governance</a>
+        <a class="btn secondary" href="#/decisions">Decisions</a>
+        <a class="btn secondary" href="#/page/decisions/forgeos-poolleague-full-backend">Review E1</a>
+      </div>
+    </div>`;
+}
+
+// ===================== RFC-0000: GOVERNANCE (sacred source of truth) =====================
+async function renderGovernance() {
+  crumb([["ForgeOS", "#/command"], ["Governance"]]);
+  $("#main").innerHTML = `<div class="skeleton" style="height:200px"></div>`;
+  const gov = await safe(() => api.gov()).catch(() => null);
+  if (!gov) { $("#main").innerHTML = empty("Could not read /governance (console offline)."); return; }
+  const section = (title, key, base) => {
+    const files = (gov.tree && gov.tree[key]) || [];
+    return `<div class="card"><h2>${title}</h2>
+      <p class="muted mono">${base}</p>
+      <ul class="mono" style="line-height:1.9">${files.length ? files.map(f => `<li><a class="link" href="#/page/${encodeURIComponent(key + "/" + f.replace(/\.md$/, ""))}">${escapeHtml(f)}</a></li>`).join("") : "<li class='muted'>—</li>"}</ul>
+    </div>`;
+  };
+  $("#main").innerHTML = `
+    <h1>Governance <span class="pill ok"><span class="dot"></span> sacred</span></h1>
+    <p class="muted">Single source of truth. Immutable except by constitutional amendment.
+      Authority: <span class="mono">${escapeHtml(gov.authority || "")}</span></p>
+    <div class="grid cols-3">
+      ${section("Constitution", "constitution", "governance/constitution/")}
+      ${section("Engineering Standards", "standards", "governance/standards/")}
+      ${section("RFCs", "rfcs", "governance/rfcs/")}
+      ${section("Laws", "laws", "governance/laws/")}
+      ${section("Roadmap", "roadmap", "governance/roadmap/")}
+    </div>
+    <div class="card" style="margin-top:16px"><h2>Linked brain pages</h2>
+      <div class="row">
+        <a class="btn secondary" href="#/page/governance/index">governance/index</a>
+        <a class="btn secondary" href="#/page/engineering-organization">engineering-organization</a>
+        <a class="btn secondary" href="#/page/decision-ledger">decision-ledger</a>
+      </div>
+    </div>`;
+}
+
 // ===================== ROUTER =====================
 const NAV = [
-  ["Dashboard", "dashboard"], ["Roles", "roles"], ["Org chart", "org"], ["Search", "search"],
+  ["Command Center", "command"], ["Governance", "governance"], ["Dashboard", "dashboard"], ["Roles", "roles"], ["Org chart", "org"], ["Search", "search"],
   ["Capture", "capture"], ["Decisions", "decisions"], ["MCP", "mcp"], ["Vault", "vault"],
   ["Embeddings", "embed"], ["Federation", "federation"], ["Audit", "audit"], ["Schema", "schema"], ["Config", "config"],
 ];
 
 const routes = {
-  dashboard: renderDashboard, roles: renderRoles, org: renderOrg, search: renderSearch,
+  command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, search: renderSearch,
   capture: renderCapture, decisions: renderDecisions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
   embed: renderEmbed, federation: renderFederation, audit: renderAudit, schema: renderSchema, config: renderConfig,
 };
@@ -398,13 +487,12 @@ async function guard(fn, slug) {
 }
 
 // ---------- (5) 404 route ----------
-const KNOWN = new Set(["dashboard","roles","org","search","capture","decisions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page"]);
+const KNOWN = new Set(["command","governance","dashboard","roles","org","search","capture","decisions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page"]);
 
-// ---------- (10) favicon/title per panel ----------
-const TITLES = { dashboard:"Console", roles:"Roles", org:"Org", search:"Search", capture:"Capture", decisions:"Decisions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page" };
+// ---------- (10) favicon/title per panel ----------\nconst TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", search:"Search", capture:"Capture", decisions:"Decisions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page" };
 
 // ---------- (11) restore last panel ----------
-function lastPanel() { return localStorage.getItem("forgeos-last") || "dashboard"; }
+function lastPanel() { return localStorage.getItem("forgeos-last") || "command"; }
 
 async function route() {
   let hash = location.hash.slice(2) || lastPanel();

@@ -15,6 +15,7 @@ export const api = {
   schema: () => req("/api/schema"),
   audit: () => req("/api/audit"),
   federation: () => req("/api/federation"),
+  gov: () => req("/api/governance"),
   vault: () => req("/api/vault"),
   capture: (slug, type, body) =>
     req("/api/capture", { method: "POST", body: JSON.stringify({ slug, type, body }) }),

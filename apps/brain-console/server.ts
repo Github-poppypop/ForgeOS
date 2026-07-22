@@ -209,6 +209,20 @@ const server = serve({
         return json({ root: "ForgeOS (C:\\ForgeOS\\.gbrain)", model: "federated: read-down only, write-up governance only, no lateral mingle", children: ["apps/lifeos (isolated child brain)"], see: "knowledge-universe/BRAIN-FEDERATION.md" });
       }
 
+      // ---- (RFC-0000) sacred /governance source of truth ----
+      if (p === "/api/governance") {
+        const govBase = `${import.meta.dir}/../..`; // apps/brain-console -> repo root
+        const tree: Record<string, string[]> = {};
+        for (const sub of ["constitution", "standards", "rfcs", "laws", "roadmap"]) {
+          const dir = `${govBase}/governance/${sub}`;
+          try {
+            const fs = await import("node:fs");
+            tree[sub] = fs.readdirSync(dir).filter((f: string) => f.endsWith(".md")).sort();
+          } catch { tree[sub] = []; }
+        }
+        return json({ base: "C:\\Projects\\ForgeOS\\governance", sacred: true, authority: "Constitution > Laws > Standards > RFCs > Missions > Code", tree });
+      }
+
       if (p === "/api/vault") {
         return json({ base: "C:\\ForgeOS\\vault", files: listVault("C:\\ForgeOS\\vault"), git: "branch master (untracked role pages)" });
       }
@@ -241,8 +255,13 @@ const server = serve({
       }
 
       if (p === "/api/embed" && req.method === "POST") {
-        const r = await runGbrain(["embed", "--all"], { timeoutMs: 120000 });
-        return json({ out: r.out, err: r.err });
+        try {
+          const r = await runGbrain(["embed", "--all"], { timeoutMs: 110000 });
+          return json({ out: r.out, err: r.err });
+        } catch (e: any) {
+          // OOM / PGLite can crash the CLI under load; degrade gracefully
+          return json({ out: "partial", err: "embed incomplete: " + String(e?.message ?? e), note: "retry in smaller batches or after freeing memory" }, 200);
+        }
       }
 
       const r = json({ error: "unknown api route: " + p }, 404);
