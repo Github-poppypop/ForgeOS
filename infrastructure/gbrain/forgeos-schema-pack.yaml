@@ -1,0 +1,79 @@
+# ForgeOS schema pack — `forgeos`
+# Authoring stub for the org schema pack that shapes the ForgeOS org brain.
+# Install path: ~/.gbrain/schema-packs/forgeos/pack.yaml
+# Activate:     gbrain schema use forgeos
+#
+# Extends gbrain-base (the canonical 15-type taxonomy) with org/governance
+# types + ForgeOS link verbs. Mirrors gbrain's own pack format.
+
+name: forgeos
+version: 1.0.0
+extends: gbrain-base
+description: >
+  Schema pack for the ForgeOS autonomous org. Defines C-suite/team entities,
+  governance record types, and the reporting-line relationship verbs used by
+  the delegation protocol (ORG.md §3).
+
+# --- Page types (org/governance layer) -------------------------------
+types:
+  - name: org
+    home: org/
+    desc: "Charter + governance compiled truth (ORG.md, MISSION, VISION)."
+    above_line: [summary, principles, structure]
+    below_line: [timeline]
+
+  - name: role                         # Board / CEO / C-suite / team
+    home: "*/"                         # lives under its slice dir
+    desc: "An org role/agent with a reporting line and mandate."
+    frontmatter: [reports_to, owner_domain, tier, status]
+    facts: [mandate_allowed, mandate_forbidden]
+
+  - name: decision
+    home: decisions/
+    desc: "Material decision (ORG §3.5): goal, owner, authority, rationale."
+    frontmatter: [owner, authority, date, status]
+    facts: [rationale, outcome]
+
+  - name: incident
+    home: incidents/
+    desc: "Escalation / post-mortem record."
+    frontmatter: [severity, escalated_to, status]
+    facts: [root_cause, resolution]
+
+  - name: capability
+    home: capabilities/
+    desc: "Marketplace skillpack listing (app/service/skill)."
+    frontmatter: [type, owner, visibility, pricing_ref, revocable]
+
+  - name: app                          # a child brain instance (federation)
+    home: apps-feed/
+    desc: "An app brain's governance uplink (decisions/incidents/kpi only)."
+    frontmatter: [instance, read_token, write_up_types]
+    facts: [kpi_delta, last_escalation]
+
+# --- Link verbs (relationship graph) ---------------------------------
+# Typed edges enabling graph queries gbrain grep can't reach.
+link_verbs:
+  - reports_to          # role -> role (reporting structure, ORG §4)
+  - owns               # role -> domain/slice
+  - escalated_to       # incident -> role (escalation path)
+  - derived_from       # goal -> mission ; slice -> dna
+  - parent_of          # goal -> goal (goal graph)
+  - publishes           # role -> capability (marketplace)
+  - reports_up_to      # app-ceo -> forgeos-ceo (federation uplink, governance only)
+
+# --- Resolution rules (MECE) -----------------------------------------
+# Agent must read RESOLVER.md before filing. Each rule: condition -> target.
+resolver:
+  - rule: "governance or charter change"
+    target: org/
+  - rule: "a role or agent definition"
+    target: "its slice dir (role)"
+  - rule: "a material decision with rationale"
+    target: decisions/
+  - rule: "an escalation or failure"
+    target: incidents/
+  - rule: "a publishable capability"
+    target: capabilities/
+  - rule: "nothing matches"
+    target: inbox/

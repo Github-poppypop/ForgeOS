@@ -1,0 +1,31 @@
+# ── ForgeOS repo .gitignore ──
+# The isolated brain lives OUTSIDE this repo at C:\ForgeOS (never committed).
+
+# dependencies
+node_modules/
+
+# secrets / local env
+.env
+.env.*
+*.local
+
+# logs
+*.log
+console.log
+/tmp/
+
+# build output (none currently — served as plain JS)
+dist/
+public/app.js
+
+# OS
+.DS_Store
+Thumbs.db
+
+# tests / playwright artifacts
+test-results/
+playwright-report/
+.cache/
+
+# pidfile for the daemon launcher
+apps/brain-console/.console.pid

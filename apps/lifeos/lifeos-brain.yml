@@ -1,0 +1,49 @@
+# LifeOS Brain — gbrain config (federated child instance)
+# LifeOS runs as a SEPARATE gbrain instance under the ForgeOS federation.
+# It replicates the ForgeOS hierarchy internally but is SUBORDINATE to the
+# ForgeOS root brain. See knowledge-universe/BRAIN-FEDERATION.md.
+#
+# Place at: apps/lifeos/lifeos-brain.yml
+
+storage:
+  db_tracked:
+    - board/               # LifeOS's OWN Board (replicated, subordinate)
+    - ceo/                 # LifeOS CEO
+    - cto/                 # LifeOS CTO
+    - cpo/                 # LifeOS CPO
+    - coo/                 # LifeOS COO
+    - cmo/                 # LifeOS CMO
+    - cfo/                 # LifeOS CFO
+    - teams/
+    - people/me/           # Brain DNA (traits, values, CONSTRAINTS)
+    - slices/              # Brain Slices
+    - missions/
+    - goals/
+    - memories/
+    - capabilities/        # imported Marketplace skillpacks
+    - decisions/           # LifeOS-local decisions
+    - incidents/           # LifeOS-local escalations
+  db_only:
+    - agents/logs/
+
+schema:
+  pack: forgeos            # replicated hierarchy (same roles + verbs as ForgeOS)
+
+# Federation: this instance's relationship to the ForgeOS root.
+federation:
+  parent: forgeos
+  # ForgeOS holds a READ token to THIS brain (oversight). We hold NONE for root/siblings.
+  read_token_held_by: forgeos
+  # We may WRITE governance records UP only, to this path on the root brain.
+  write_up_path: apps-feed/lifeos
+  write_up_types: [decision, incident, kpi]   # allow-list, enforced server-side
+
+# Scoped slices WITHIN this LifeOS brain (company-brain model, local).
+scopes:
+  lifeos-board: { tier: admin,  slices: [board] }
+  lifeos-ceo:   { tier: admin,  slices: [ceo, decisions, incidents] }
+  lifeos-cto:   { tier: write,  slices: [cto, teams/*] }
+  lifeos-cpo:   { tier: write,  slices: [cpo] }
+  lifeos-coo:   { tier: write,  slices: [coo] }
+  lifeos-cmo:   { tier: write,  slices: [cmo] }
+  lifeos-cfo:   { tier: write,  slices: [cfo] }

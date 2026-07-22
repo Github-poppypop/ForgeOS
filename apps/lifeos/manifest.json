@@ -1,0 +1,29 @@
+{
+  "id": "lifeos",
+  "name": "LifeOS",
+  "version": "1.0.0",
+  "owner": "CPO",
+  "engineering_owner": "CTO",
+  "status": "design",
+  "description": "A personal operating system that models a human mind as Brain DNA, slices it into Brain Slices, and runs Memory, Mission, Goal, and Agent engines on top of the Knowledge Universe and Marketplace.",
+  "capabilities": [
+    "brain-dna",
+    "brain-slices",
+    "memory-engine",
+    "mission-engine",
+    "goal-engine",
+    "agent-engine",
+    "knowledge-universe",
+    "marketplace"
+  ],
+  "dependencies": {
+    "services": [],
+    "marketplace": ["knowledge-universe-core", "agent-runtime"]
+  },
+  "domains": {
+    "product": "CPO",
+    "engineering": "CTO",
+    "ops": "COO"
+  },
+  "docs": "apps/lifeos/docs"
+}

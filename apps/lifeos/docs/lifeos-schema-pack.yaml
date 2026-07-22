@@ -1,0 +1,80 @@
+# LifeOS schema pack — `lifeos`
+# Shapes a *user's* LifeOS brain (a private gbrain instance) on top of the
+# `forgeos` org pack. Activate after forgeos:
+#   gbrain schema use forgeos
+#   gbrain schema use lifeos   (user-scoped extension)
+# Install: ~/.gbrain/schema-packs/lifeos/pack.yaml
+
+name: lifeos
+version: 1.0.0
+extends: forgeos
+description: >
+  LifeOS personal-brain extension: Brain DNA, Slices, Memory, Mission, Goal,
+  Agent engine types + link verbs, mapped onto gbrain primitives.
+  Inherits the `forgeos` role types + link verbs (including `reports_up_to`),
+  so the LifeOS brain REPLICATES the ForgeOS hierarchy internally while staying
+  a separate, subordinate instance. See BRAIN-FEDERATION.md.
+
+# --- Page types (LifeOS layer) -------------------------------------
+types:
+  - name: brain_dna
+    home: people/me/
+    desc: "The user's identity root (traits, values, preferences, CONSTRAINTS)."
+    frontmatter: [version, constraints_immutable]
+    facts: [traits, values, preferences, constraints]   # constraints = hard facts
+
+  - name: brain_slice
+    home: slices/
+    desc: "Topic-scoped, visibility-tagged view of the brain."
+    frontmatter: [topic, dna_ref, visibility]
+    facts: [memory_refs, summary]
+
+  - name: memory
+    home: memories/
+    desc: "episodic | semantic | procedural record."
+    frontmatter: [kind, source]
+    facts: [content, embeddings]
+
+  - name: mission
+    home: missions/
+    desc: "Purpose + principles + horizon."
+    frontmatter: [horizon]
+    facts: [statement, principles]
+
+  - name: goal
+    home: goals/
+    desc: "Objective in the goal graph."
+    frontmatter: [status, mission_ref]
+    facts: [title, sub_goals, agent_refs]
+
+  - name: agent
+    home: agents/
+    desc: "A LifeOS agent bound to DNA + goals (gbrain Minion)."
+    frontmatter: [dna_ref, status]
+    facts: [mandate_allowed, mandate_forbidden, goal_refs]
+
+# --- Link verbs (LifeOS graph) -------------------------------------
+link_verbs:
+  - dna_of             # slice/agent -> brain_dna
+  - slice_of           # memory -> brain_slice
+  - derived_from       # goal -> mission ; slice -> dna
+  - parent_of          # goal -> goal (goal graph)
+  - runs               # agent -> goal
+  - imports            # brain_slice -> capability (marketplace)
+
+# --- Resolver (MECE) -----------------------------------------------
+resolver:
+  - rule: "identity / traits / constraints"
+    target: people/me/
+  - rule: "topic-scoped context view"
+    target: slices/
+  - rule: "a remembered event/fact/howto"
+    target: memories/
+  - rule: "purpose or principles"
+    target: missions/
+  - rule: "an objective to achieve"
+    target: goals/
+  - rule: "an autonomous agent definition"
+    target: agents/
+  - rule: "nothing matches"
+    target: inbox/

@@ -1,0 +1,56 @@
+# ForgeOS Brain Federation — gbrain config
+# Federated topology: ForgeOS ROOT brain + one isolated child instance per app.
+# See knowledge-universe/BRAIN-FEDERATION.md.
+#
+# Place at: infrastructure/gbrain/forgeos-brain.yml
+# Apply:    gbrain schema use forgeos
+
+# ── ROOT BRAIN (ForgeOS) ───────────────────────────────────────────
+# The root instance. Holds the org hierarchy + the write-up uplink tree.
+storage:
+  db_tracked:
+    - org/                 # ORG.md charter + governance (compiled truth)
+    - board/               # Board agent scope (admin)
+    - exec/                # CEO scope (admin over all)
+    - cto/                 # CTO slice
+    - cpo/                 # CPO slice
+    - coo/                 # COO slice
+    - cmo/                 # CMO slice
+    - cfo/                 # CFO slice
+    - teams/               # team scopes
+    - decisions/           # org-level material decisions (ORG §3.5)
+    - incidents/           # org-level escalations
+    # WRITE-UP UPLINK: apps push governance records here, never raw memory.
+    - apps-feed/           # one sub-tree per app (read by ForgeOS only)
+  db_only:
+    - agents/logs/
+    - sync/
+
+schema:
+  pack: forgeos
+
+# ForgeOS holds READ tokens to child brains (oversight). Children hold NONE
+# for the root or siblings. Separate instances => no cross-mingle.
+federation:
+  root: forgeos
+  children:                # each = a separate gbrain instance (own DB)
+    - app: lifeos
+      instance: lifeos-brain      # isolated DB (PGLite or Postgres)
+      read_token: forgeos->lifeos # ForgeOS reads down (oversight)
+      write_up_path: apps-feed/lifeos   # app writes gov records up only
+      write_up_types: [decision, incident, kpi]  # allow-list, enforced server-side
+    # - app: <next-app>
+    #   instance: <next>-brain
+    #   read_token: forgeos-><next>
+    #   write_up_path: apps-feed/<next>
+    #   write_up_types: [decision, incident, kpi]
+
+# Scoped slices within the ROOT brain (company-brain model).
+scopes:
+  board:  { tier: admin, slices: [board] }
+  ceo:    { tier: admin, slices: [exec, org, decisions, incidents, apps-feed] }
+  cto:    { tier: write,  slices: [cto, teams/platform] }
+  cpo:    { tier: write,  slices: [cpo, teams/product, teams/marketplace] }
+  coo:    { tier: write,  slices: [coo, teams/delivery, teams/sre, teams/knowledge] }
+  cmo:    { tier: write,  slices: [cmo, teams/growth, teams/content] }
+  cfo:    { tier: write,  slices: [cfo, teams/finance] }
