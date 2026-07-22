@@ -26,15 +26,21 @@ case "${1:-start}" in
     [ -n "$OLD" ] && taskkill /PID "$OLD" /F >/dev/null 2>&1 || true
     sleep 1
     cd "$DIR"
-    # setsid + nohup => fully detached from this shell
-    setsid bash -c "PORT=$PORT bun run server.ts > '$LOG' 2>&1" </dev/null &
-    echo $! > "$PIDF"
+    # Detach so it survives the spawning shell.
+    # Preferred on Windows/MSYS: cmd /c start (own conhost/session).
+    # Fallback (Linux): nohup ... & + disown.
+    if command -v cmd.exe >/dev/null 2>&1; then
+      cmd.exe /c "start \"\" /min bash -c \"cd /d $(cygpath -w "$DIR") && PORT=$PORT bun run server.ts > $(cygpath -w "$LOG") 2>&1\""
+    else
+      PORT=$PORT nohup bun run server.ts > "$LOG" 2>&1 &
+      echo $! > "$PIDF"
+    fi
     # wait for readiness
-    for i in $(seq 1 20); do
-      if is_up; then echo "up on http://localhost:$PORT (pid $(cat "$PIDF"))"; exit 0; fi
+    for i in $(seq 1 25); do
+      if is_up; then echo "up on http://localhost:$PORT"; exit 0; fi
       sleep 1
     done
-    echo "FAILED to start — tail of log:"; tail -20 "$LOG"; exit 1
+    echo "FAILED to start — tail of log:"; tail -20 "$LOG" 2>/dev/null; exit 1
     ;;
   stop)
     if [ -f "$PIDF" ]; then kill "$(cat "$PIDF")" 2>/dev/null || true; rm -f "$PIDF"; fi
