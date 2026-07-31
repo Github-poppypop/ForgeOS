@@ -170,8 +170,18 @@ function startEdit(slug, body) {
 
 // ---------- (22) org chart as tree ----------
 async function renderOrg() {
-  crumb([["ForgeOS", "#/dashboard"], ["Org chart"]]);
+  crumb([["ForgeOS", "#/dashboard"], ["Organization"]]);
   $("#main").innerHTML = `<div class="skeleton" style="height:200px"></div>`;
+  const org = await safe(() => api.org()).catch(() => null);
+  if (org && org.roles) {
+    const byId = Object.fromEntries(org.roles.map(r => [r.id, r]));
+    const kidsOf = (id) => org.roles.filter(r => r.reportsTo === id).map(r => `<div class="node"><div class="node-title">${escapeHtml(r.title)} <span class="muted">${escapeHtml(r.id)}</span></div><div class="muted">${(r.responsibilities||[]).map(x=>`<span class="pill mono" style="margin:2px">${escapeHtml(x)}</span>`).join(" ")}</div></div>`).join("");
+    const ceo = org.roles.find(r => !r.reportsTo);
+    $("#main").innerHTML = `<h1>Organization</h1>
+      <div class="card"><h2>${escapeHtml(org.name || "ForgeOS Engineering Organization")}</h2>
+      <div class="tree">${ceo ? `<div class="node"><div class="node-title">${escapeHtml(ceo.title)} <span class="muted">${escapeHtml(ceo.id)}</span></div><div class="muted">${(ceo.responsibilities||[]).map(x=>`<span class="pill mono" style="margin:2px">${escapeHtml(x)}</span>`).join(" ")}</div>${kidsOf(ceo.id)}</div>` : ""}</div></div>`;
+    return;
+  }
   const { roles } = await safe(api.roles).catch(() => ({ roles: [] }));
   const bySlug = Object.fromEntries(roles.map(r => [r.slug, r]));
   const link = (slug) => `<a class="link" href="#/page/${encodeURIComponent(slug)}">${escapeHtml((bySlug[slug] && bySlug[slug].role) || slug)}</a>`;
@@ -252,6 +262,37 @@ async function renderDecisions() {
   $("#main").innerHTML = `<h1>Decisions & Incidents</h1>
     <div class="card"><p class="muted">Capture with slug <span class="mono">decisions/…</span> or <span class="mono">incidents/…</span>. Each incident opens a page before remediation (COO policy).</p>
     <a class="btn secondary" href="#/capture">Go to Capture →</a></div>`;
+}
+
+async function renderTimeline() {
+  crumb([["ForgeOS", "#/command"], ["Timeline"]]);
+  $("#main").innerHTML = `<div class="skeleton" style="height:160px"></div>`;
+  const r = await safe(() => api.timeline()).catch(() => ({ timeline: [] }));
+  const items = Array.isArray(r.timeline) ? r.timeline : [];
+  $("#main").innerHTML = `<h1>Timeline Engine</h1>
+    <div class="card"><h2>Milestones</h2>
+    <div class="timeline">${items.map(i => `<div class="tl-item ${i.status==='done'?'done':i.status==='in-progress'?'active':''}">
+      <div class="tl-date">${escapeHtml(i.date)}</div>
+      <div class="tl-body"><div class="tl-title">${escapeHtml(i.title)}</div>
+      <div class="tl-meta">${escapeHtml(i.owner)} · <span class="pill ${i.status==='done'?'ok':i.status==='in-progress'?'warn':''}">${escapeHtml(i.status)}</span></div>
+      </div></div>`).join("")}</div></div>`;
+}
+
+async function renderLedger() {
+  crumb([["ForgeOS", "#/command"], ["Decision Ledger"]]);
+  $("#main").innerHTML = `<div class="skeleton" style="height:160px"></div>`;
+  const r = await safe(() => api.ledger()).catch(() => ({ ledger: [] }));
+  const entries = Array.isArray(r.ledger) ? r.ledger : [];
+  $("#main").innerHTML = `<h1>Decision Ledger</h1>
+    <div class="card"><h2>Recent decisions</h2>
+    <table class="tbl"><thead><tr><th>Date</th><th>Title</th><th>Type</th><th>Mission</th><th>Outcome</th></tr></thead>
+    <tbody>${entries.map(e => `<tr>
+      <td class="mono">${escapeHtml(e.date)}</td>
+      <td>${escapeHtml(e.title)}</td>
+      <td><span class="pill">${escapeHtml(e.type)}</span></td>
+      <td class="mono">${escapeHtml(e.mission)}</td>
+      <td>${escapeHtml(e.outcome)}</td>
+    </tr>`).join("")}</tbody></table></div>`;
 }
 
 async function renderMissions() {
@@ -531,14 +572,14 @@ async function renderGovernance() {
 
 // ===================== ROUTER =====================
 const NAV = [
-  ["Command Center", "command"], ["Governance", "governance"], ["Dashboard", "dashboard"], ["Roles", "roles"], ["Org chart", "org"], ["Search", "search"],
-  ["Capture", "capture"], ["Decisions", "decisions"], ["Missions", "missions"], ["MCP", "mcp"], ["Vault", "vault"],
+  ["Command Center", "command"], ["Governance", "governance"], ["Dashboard", "dashboard"], ["Roles", "roles"], ["Org", "org"], ["Timeline", "timeline"], ["Ledger", "ledger"],
+  ["Search", "search"], ["Capture", "capture"], ["Decisions", "decisions"], ["Missions", "missions"], ["MCP", "mcp"], ["Vault", "vault"],
   ["Embeddings", "embed"], ["Federation", "federation"], ["Audit", "audit"], ["Schema", "schema"], ["Config", "config"],
 ];
 
 const routes = {
-  command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, search: renderSearch,
-  capture: renderCapture, decisions: renderDecisions, missions: renderMissions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
+  command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, timeline: renderTimeline, ledger: renderLedger,
+  search: renderSearch, capture: renderCapture, decisions: renderDecisions, missions: renderMissions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
   embed: renderEmbed, federation: renderFederation, audit: renderAudit, schema: renderSchema, config: renderConfig,
 };
 
@@ -714,9 +755,9 @@ function statTile(label, value, delta, deltaDir="up") {
 // =====================================================================
 
 // ---------- (5) 404 route ----------
-const KNOWN = new Set(["command","governance","dashboard","roles","org","search","capture","decisions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page","missions"]);
+const KNOWN = new Set(["command","governance","dashboard","roles","org","timeline","ledger","search","capture","decisions","missions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page"]);
 // ---------- (10) favicon/title per panel ----------
-const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", search:"Search", capture:"Capture", decisions:"Decisions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page", missions:"Missions" };
+const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", timeline:"Timeline", ledger:"Decision Ledger", search:"Search", capture:"Capture", decisions:"Decisions", missions:"Missions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page" };
 
 // ---------- (11) restore last panel ----------
 function lastPanel() { return localStorage.getItem("forgeos-last") || "command"; }

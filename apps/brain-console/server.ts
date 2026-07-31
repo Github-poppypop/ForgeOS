@@ -329,7 +329,6 @@ const missionStore: Mission[] = [
         if (!missionId || !agent) return json({ error: "missionId and agent required" }, 400);
         const m = missionStore.find((x) => x.id === missionId);
         if (!m) return json({ error: "mission not found" }, 404);
-        // record dispatch decision via brain capture (best-effort, non-blocking)
         const dispatchSlug = `decisions/agent-dispatch-${missionId}-${Date.now()}`;
         const dispatchNote = `[dispatch] agent="${agent}" mission=${missionId} status=${m.status} ts=${new Date().toISOString()}`;
         runGbrain(["capture", "--type", "decision", "--slug", dispatchSlug, "--stdin"], {
@@ -337,6 +336,39 @@ const missionStore: Mission[] = [
           timeoutMs: 30000,
         }).catch(() => {});
         return json({ queued: true, missionId, agent, decisionSlug: dispatchSlug });
+      }
+
+      if (p === "/api/timeline" && req.method === "GET") {
+        const items = [
+          { id: "t1", title: "RFC-0000 ratified", date: "2026-07-22", status: "done", owner: "cto/cto" },
+          { id: "t2", title: "Constitution + FES-001..012 committed", date: "2026-07-22", status: "done", owner: "cto/cto" },
+          { id: "t3", title: "Mission Center shipped", date: "2026-07-31", status: "done", owner: "cto/cto" },
+          { id: "t4", title: "PoolLeague E1 reconcile", date: "2026-07-31", status: "in-progress", owner: "cto/cto" },
+          { id: "t5", title: "VPS agent farm expansion", date: "2026-07-31", status: "planned", owner: "coo/coo" },
+        ];
+        return json({ timeline: items });
+      }
+
+      if (p === "/api/ledger" && req.method === "GET") {
+        const entries = [
+          { id: "l1", title: "RFC-0000 approval", type: "approval", date: "2026-07-22", mission: "RFC-0000", outcome: "approved" },
+          { id: "l2", title: "E1 proposed", type: "proposal", date: "2026-07-31", mission: "POOL-E1", outcome: "pending" },
+          { id: "l3", title: "Submodule conversion approved", type: "approval", date: "2026-07-31", mission: "POOL-SUB", outcome: "approved" },
+        ];
+        return json({ ledger: entries });
+      }
+
+      if (p === "/api/org" && req.method === "GET") {
+        const org = {
+          name: "ForgeOS Engineering Organization",
+          roles: [
+            { id: "cto/cto", title: "CTO", reportsTo: "exec/ceo", responsibilities: ["architecture", "engineering", "ai-governance"] },
+            { id: "coo/coo", title: "COO", reportsTo: "exec/ceo", responsibilities: ["missions", "timeline", "delivery"] },
+            { id: "cfo/cfo", title: "CFO", reportsTo: "exec/ceo", responsibilities: ["budget", "compliance", "risk"] },
+            { id: "exec/ceo", title: "CEO", reportsTo: null, responsibilities: ["strategy", "approvals", "external"] },
+          ]
+        };
+        return json(org);
       }
 
       if (p === "/api/capture" && req.method === "POST") {

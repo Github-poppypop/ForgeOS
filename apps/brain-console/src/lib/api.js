@@ -25,4 +25,7 @@ export const api = {
   capture: (slug, type, body) =>
     req("/api/capture", { method: "POST", body: JSON.stringify({ slug, type, body }) }),
   embed: () => req("/api/embed", { method: "POST" }),
+  timeline: () => req("/api/timeline"),
+  ledger: () => req("/api/ledger"),
+  org: () => req("/api/org"),
 };
