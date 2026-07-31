@@ -1,0 +1,3 @@
+[submodule "apps/poolleague"]
+	path = apps/poolleague
+	url = https://github.com/Github-poppypop/PoolLeague.git
