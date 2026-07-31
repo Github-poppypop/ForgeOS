@@ -715,8 +715,8 @@ function statTile(label, value, delta, deltaDir="up") {
 
 // ---------- (5) 404 route ----------
 const KNOWN = new Set(["command","governance","dashboard","roles","org","search","capture","decisions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page","missions"]);
-
-// ---------- (10) favicon/title per panel ----------\nconst TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", search:"Search", capture:"Capture", decisions:"Decisions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page", missions:"Missions" };
+// ---------- (10) favicon/title per panel ----------
+const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", search:"Search", capture:"Capture", decisions:"Decisions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page", missions:"Missions" };
 
 // ---------- (11) restore last panel ----------
 function lastPanel() { return localStorage.getItem("forgeos-last") || "command"; }

@@ -22,8 +22,9 @@ const RATE = Number(process.env.RATE_PER_MIN ?? 120);  // (42)
 const GBRAIN_ENV: Record<string, string> = {
   ...process.env,
   GBRAIN_HOME,
-  OLLAMA_BASE_URL: "http://localhost:11434/v1",
-  GBRAIN_EMBEDDING_DIMENSIONS: "1024",
+  OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL || "http://localhost:11434/v1",
+  OLLAMA_MODELS: process.env.OLLAMA_MODELS || "D:\\ollama",
+  GBRAIN_EMBEDDING_DIMENSIONS: process.env.GBRAIN_EMBEDDING_DIMENSIONS || "1024",
 };
 delete GBRAIN_ENV.DATABASE_URL; // host Postgres pool breaks PGLite
 
