@@ -84,7 +84,9 @@ async function serveStatic(pathname: string) {
   if (await f.exists()) {
     const ext = pathname.split(".").pop() ?? "";
     const ct: Record<string, string> = { ts: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", json: "application/json; charset=utf-8", svg: "image/svg+xml" };
-    return new Response(f, { headers: { "content-type": ct[ext] ?? "application/octet-stream" } });
+    // no-cache so module/script changes are picked up immediately (the SPA is
+    // hand-edited; without this the browser serves a stale cached app.js).
+    return new Response(f, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache" } });
   }
   return new Response(Bun.file(`${PUBLIC}/index.html`)); // SPA fallback
 }
@@ -244,6 +246,96 @@ const server = serve({
         const bundle = Buffer.from(JSON.stringify({ base, files: entries, ts: Date.now() }));
         const gz = Bun.gzipSync(bundle);
         return new Response(gz, { headers: { "content-type": "application/gzip", "content-disposition": 'attachment; filename="forgeos-brain.json.gz"' } });
+      }
+
+const ADVANCE: Record<string, string> = {
+  proposed: "approved",
+  approved: "executing",
+  executing: "review",
+  review: "done",
+};
+
+// ---------- (missions) in-memory mission store ----------
+type Mission = {
+  id: string;
+  title: string;
+  status: string;
+  phase: string;
+  progress: number;
+  eta: string;
+  dependencies: string[];
+  owner: string;
+};
+const missionStore: Mission[] = [
+  {
+    id: "RFC-0000",
+    title: "RFC-0000 governance build",
+    status: "done",
+    phase: "foundation",
+    progress: 100,
+    eta: "2025-01-01T00:00:00Z",
+    dependencies: [],
+    owner: "cto/cto",
+  },
+  {
+    id: "POOL-E1",
+    title: "PoolLeague E1 backend reconcile",
+    status: "proposed",
+    phase: "backend",
+    progress: 0,
+    eta: "2025-06-01T00:00:00Z",
+    dependencies: ["RFC-0000"],
+    owner: "cto/cto",
+  },
+  {
+    id: "POOL-SUB",
+    title: "PoolLeague submodule conversion",
+    status: "approved",
+    phase: "toolchain",
+    progress: 10,
+    eta: "2025-07-01T00:00:00Z",
+    dependencies: ["RFC-0000"],
+    owner: "coo/coo",
+  },
+];
+
+      if (p === "/api/missions" && req.method === "GET") {
+        return json({ missions: missionStore });
+      }
+
+      if (p.startsWith("/api/missions/") && req.method === "PATCH") {
+        const id = decodeURIComponent(p.slice("/api/missions/".length));
+        const m = missionStore.find((x) => x.id === id);
+        if (!m) return json({ error: "mission not found" }, 404);
+        // markdown/body must be a JSON Merge Patch-style body: { status, progress, phase }
+        let patchData: Record<string, unknown> = {};
+        try { patchData = await req.json(); } catch { return json({ error: "invalid JSON body" }, 400); }
+        if (patchData.status) {
+          const next = ADVANCE[m.status] || patchData.status;
+          if (!ADVANCE[m.status] && next === m.status)
+            return json({ error: `cannot advance from "${m.status}" (terminal or bad status)` }, 400);
+          m.status = next;
+        }
+        if (typeof patchData.progress === "number") m.progress = Math.min(100, Math.max(0, patchData.progress));
+        if (patchData.phase) m.phase = String(patchData.phase);
+        return json(m);
+      }
+
+      if (p === "/api/agent/dispatch" && req.method === "POST") {
+        const body = await req.json();
+        const missionId = String(body.missionId ?? "");
+        const agent = String(body.agent ?? "");
+        if (!missionId || !agent) return json({ error: "missionId and agent required" }, 400);
+        const m = missionStore.find((x) => x.id === missionId);
+        if (!m) return json({ error: "mission not found" }, 404);
+        // record dispatch decision via brain capture (best-effort, non-blocking)
+        const dispatchSlug = `decisions/agent-dispatch-${missionId}-${Date.now()}`;
+        const dispatchNote = `[dispatch] agent="${agent}" mission=${missionId} status=${m.status} ts=${new Date().toISOString()}`;
+        runGbrain(["capture", "--type", "decision", "--slug", dispatchSlug, "--stdin"], {
+          stdin: dispatchNote,
+          timeoutMs: 30000,
+        }).catch(() => {});
+        return json({ queued: true, missionId, agent, decisionSlug: dispatchSlug });
       }
 
       if (p === "/api/capture" && req.method === "POST") {

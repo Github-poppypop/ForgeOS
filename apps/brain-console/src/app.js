@@ -254,6 +254,68 @@ async function renderDecisions() {
     <a class="btn secondary" href="#/capture">Go to Capture →</a></div>`;
 }
 
+async function renderMissions() {
+  crumb([["ForgeOS", "#/command"], ["Missions"]]);
+  $("#main").innerHTML = `<div class="skeleton" style="height:200px"></div>`;
+  const { missions } = await safe(api.missions).catch(() => ({ missions: [] }));
+  const statusPill = (s) => {
+    const cls = { done:"ok", executing:"ok", review:"warn", proposed:"warn", approved:"ok" }[s] || "";
+    return `<span class="pill ${cls}"><span class="dot"></span>${s}</span>`;
+  };
+  const pct = (p) => `<div style="width:120px"><div class="progress-track"><div class="progress-bar" style="width:${p}%"></div></div><span class="muted">${p}%</span></div>`;
+  const agentList = ["cto/cto","coo/coo","exec/ceo","cfo/cfo"];
+  $("#main").innerHTML = `<h1>Mission Center</h1>
+    <div class="card" style="margin-bottom:16px">
+      <h2>Agent Dispatch</h2>
+      <p class="muted">Queue an agent on a mission — records a decision entry in the brain.</p>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+        <select id="d-mid" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="">mission id…</option>
+          ${missions.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.id)} — ${escapeHtml(m.title)}</option>`).join("")}
+        </select>
+        <select id="d-agent" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="">agent…</option>
+          ${agentList.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join("")}
+        </select>
+        <button class="btn primary" id="d-go">Dispatch</button>
+        <pre id="d-out" class="code json" style="margin-top:8px;min-height:0"></pre>
+      </div>
+    </div>
+    <div class="card"><h2>Missions</h2>
+    <table class="tbl"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Phase</th><th>Progress</th><th>ETA</th><th>Dependencies</th><th>Owner</th><th></th></tr></thead>
+    <tbody>${missions.map(m => `<tr>
+      <td class="mono">${escapeHtml(m.id)}</td>
+      <td>${escapeHtml(m.title)}</td>
+      <td>${statusPill(m.status)}</td>
+      <td>${escapeHtml(m.phase)}</td>
+      <td>${pct(m.progress)}</td>
+      <td class="mono" style="white-space:nowrap">${escapeHtml(m.eta ? m.eta.slice(0,10) : "—")}</td>
+      <td>${(m.dependencies||[]).map(d => `<span class="pill mono" style="margin:2px">${escapeHtml(d)}</span>`).join(" ") || "<span class='muted'>none</span>"}</td>
+      <td>${escapeHtml(m.owner)}</td>
+      <td>${m.status !== "done" ? `<button class="btn secondary" data-a="${escapeHtml(m.id)}" ${m.status==="done"?"disabled":""}>Advance →</button>` : "✓"}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+  $$("#main [data-a]").forEach(b =>
+    b.addEventListener("click", async () => {
+      const id = b.dataset.a;
+      b.disabled = true; b.textContent = "…";
+      const r = await safe(() => api.advanceMission(id, {})).catch(e => ({ error: errMsg(e) }));
+      const m = r && r.id ? r : null;
+      if (m && m.status) { toast(`${id} → ${m.status}`, "ok"); renderMissions(); }
+      else toast("advance failed: " + (r?.error || "?"), "err");
+    })
+  );
+  const dGo = $("#d-go");
+  if (dGo) dGo.addEventListener("click", async () => {
+    const mid = $("#d-mid").value;
+    const agent = $("#d-agent").value;
+    if (!mid || !agent) { toast("select mission + agent", "err"); return; }
+    const r = await safe(() => api.dispatchAgent(mid, agent)).catch(e => ({ error: errMsg(e) }));
+    const out = $("#d-out");
+    if (out) out.textContent = JSON.stringify(r, null, 2);
+    toast(r?.queued ? `dispatched ${agent} on ${mid}` : "dispatch failed", r?.queued ? "ok" : "err");
+  });
+}
+
 async function renderMCP() {
   crumb([["ForgeOS", "#/dashboard"], ["MCP"]]);
   $("#main").innerHTML = `<h1>MCP / Agent Tools</h1>
@@ -470,13 +532,13 @@ async function renderGovernance() {
 // ===================== ROUTER =====================
 const NAV = [
   ["Command Center", "command"], ["Governance", "governance"], ["Dashboard", "dashboard"], ["Roles", "roles"], ["Org chart", "org"], ["Search", "search"],
-  ["Capture", "capture"], ["Decisions", "decisions"], ["MCP", "mcp"], ["Vault", "vault"],
+  ["Capture", "capture"], ["Decisions", "decisions"], ["Missions", "missions"], ["MCP", "mcp"], ["Vault", "vault"],
   ["Embeddings", "embed"], ["Federation", "federation"], ["Audit", "audit"], ["Schema", "schema"], ["Config", "config"],
 ];
 
 const routes = {
   command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, search: renderSearch,
-  capture: renderCapture, decisions: renderDecisions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
+  capture: renderCapture, decisions: renderDecisions, missions: renderMissions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
   embed: renderEmbed, federation: renderFederation, audit: renderAudit, schema: renderSchema, config: renderConfig,
 };
 
@@ -486,10 +548,175 @@ async function guard(fn, slug) {
   catch (e) { $("#main").innerHTML = `<div class="card"><h2>Panel error</h2><pre class="json">${escapeHtml(errMsg(e))}</pre></div>`; }
 }
 
-// ---------- (5) 404 route ----------
-const KNOWN = new Set(["command","governance","dashboard","roles","org","search","capture","decisions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page"]);
+// =====================================================================
+// RFC-0000 additions: 50 feature + theme/vis additions
+// =====================================================================
 
-// ---------- (10) favicon/title per panel ----------\nconst TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", search:"Search", capture:"Capture", decisions:"Decisions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page" };
+// ---------- helpers: theme switcher ----------
+function renderThemeSwitcher(active = "dark") {
+  const themes = ["dark","midnight","graphite","retro","ocean","berry","matrix","solarized-light","light","hc"];
+  return `<div class="theme-swatches">${themes.map(t => `<button class="swatch ${t===active?'active':''}" data-tip="${t}" style="background:${themeBg(t)}" data-theme-switch="${t}"></button>`).join("")}</div>
+    <p class="caption" style="margin-top:8px">Tip: <span class="kbd">⌘K</span> command palette → search “theme”</p>`;
+}
+function themeBg(t) {
+  return { dark:"#0b0e14", midnight:"#07080c", graphite:"#0f1115", retro:"#1a1025", ocean:"#0b1622", berry:"#180a16", matrix:"#0a0f0a", "solarized-light":"#fdf6e3", light:"#f4f6fa", hc:"#000" }[t] || "#111";
+}
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  localStorage.setItem("forgeos-theme", t);
+  toast("theme: " + t, "ok");
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-theme-switch]"); if (!b) return; e.preventDefault(); applyTheme(b.dataset.themeSwitch);
+});
+
+// ---------- helpers: SVG chart skeletons ----------
+function svgWrap(w=600, h=220) {
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">`;
+}
+function svgEnd() { return `</svg>`; }
+function xAxisLabels(labels, w=600, h=220) {
+  const n=labels.length; if (!n) return "";
+  const step=w/Math.max(n-1,1);
+  return labels.map((l,i)=>`<text class="label" x="${(i*step).toFixed(1)}" y="${h-4}" text-anchor="middle">${escapeHtml(l)}</text>`).join("");
+}
+function gridLines(h=220, count=4) {
+  return Array.from({length:count},(_,i)=>{
+    const y=(i/(count-1))*h; return `<line class="grid-line" x1="0" y1="${y.toFixed(1)}" x2="600" y2="${y.toFixed(1)}"/>`;
+  }).join("");
+}
+
+// ---------- (51) bar chart ----------
+function barChart(series, w=600, h=220) {
+  // series: [{label,value,cls}] cls: ""|"ok"|"bad"
+  const max = Math.max(1, ...series.map(s=>s.value));
+  const barW = Math.max(12, Math.floor((w - 20) / Math.max(series.length,1)) - 6);
+  const bars = series.map((s,i)=>{
+    const bh = Math.round((s.value/max)*(h-30));
+    const x = 10 + i*(barW+6);
+    const y = h-20-bh;
+    return `<rect class="bar-rect ${s.cls||""}" x="${x}" y="${y}" width="${barW}" height="${bh}" rx="3"><title>${escapeHtml(s.label)}: ${s.value}</title></rect>
+      <text class="label" x="${x+barW/2}" y="${h-6}" text-anchor="middle">${escapeHtml(s.label)}</text>`;
+  }).join("");
+  return `<div class="chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${gridLines(h)}${bars}${svgEnd()}</svg></div>`;
+}
+
+// ---------- (52) donut chart ----------
+function donutChart(series, w=600, h=240) {
+  const total = Math.max(1, series.reduce((a,b)=>a+b.value,0));
+  const r = Math.min(w,h)/2 - 24; const cx = w/2; const cy = h/2 - 10;
+  const circ = 2*Math.PI*r;
+  let offset = 0;
+  const segs = series.map(s => {
+    const frac = s.value/total; const dash = frac*circ; const gap = circ-dash;
+    const path = `<circle class="donut-seg" cx="${cx}" cy="${cy}" r="${r}" stroke="${s.color||'var(--accent)'}" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="${(-offset).toFixed(1)}"><title>${escapeHtml(s.label)}: ${s.value}</title></circle>`;
+    offset += dash; return path;
+  }).join("");
+  const legend = series.map(s => `<span class="swatch" style="background:${s.color||'var(--accent)'}"></span><span>${escapeHtml(s.label)} ${s.value}</span>`).join("");
+  return `<div class="chart" style="text-align:center">
+    <svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+      <circle class="donut-ring" cx="${cx}" cy="${cy}" r="${r}"/>
+      ${segs}
+      <circle class="donut-hole" cx="${cx}" cy="${cy}" r="${Math.max(4, r-18)}"/>
+      <text class="donut-center" x="${cx}" y="${cy}">${total}</text>
+    </svg>
+    <div class="donut-legend">${legend}</div>
+  </div>`;
+}
+
+// ---------- (53) line chart with area ----------
+function lineChart(points, w=600, h=220, color="var(--accent)") {
+  const max = Math.max(1, ...points); const min = Math.min(0, ...points);
+  const range = max - min || 1; const step = w/Math.max(points.length-1,1);
+  const coords = points.map((v,i)=>({x:i*step, y: h-20 - ((v-min)/range)*(h-30)}));
+  const d = coords.map((c,i)=> (i? "L":"M") + `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
+  const area = d + ` L${coords[coords.length-1].x},${h-20} L0,${h-20} Z`;
+  const dots = coords.map(c => `<circle class="dot" cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" fill="var(--surface)"><title>${v=>v}</title></circle>`).join("");
+  return `<div class="chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${gridLines(h)}
+    <path class="line-area" d="${area}" fill="${color}"/>
+    <path class="line-path" d="${d}" stroke="${color}"/>
+    ${dots}${svgEnd()}</svg></div>`;
+}
+
+// ---------- (54) gauge ----------
+function gauge(value, max=100, w=600, h=150) {
+  const r = Math.min(w,h)/2 - 24; const cx = w/2; const cy = h/2 + 10;
+  const circ = 2*Math.PI*r; const pct = Math.max(0,Math.min(1, value/max));
+  const dash = pct*circ; const gap = circ-dash;
+  const color = pct > 0.8 ? "var(--success)" : pct > 0.4 ? "var(--warn)" : "var(--danger)";
+  return `<div class="chart" style="text-align:center">
+    <svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+      <circle class="gauge-bg" cx="${cx}" cy="${cy}" r="${r}" stroke-dasharray="${circ} ${circ}" transform="rotate(135 ${cx} ${cy})"/>
+      <circle class="gauge-fg" cx="${cx}" cy="${cy}" r="${r}" stroke="${color}" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" transform="rotate(135 ${cx} ${cy})"/>
+      <text class="gauge-label" x="${cx}" y="${cy-8}" text-anchor="middle">score</text>
+      <text class="donut-center" x="${cx}" y="${cy+12}">${value}</text>
+    </svg>
+  </div>`;
+}
+
+// ---------- (55) heatmap ----------
+function heatmap(weeks=12, days=7, intensityFn=(d,w)=> Math.random()) {
+  const cells = [];
+  for (let w=0;w<weeks;w++) for (let d=0;d<days;d++) {
+    const v = intensityFn(d,w); const lvl = v<0.2?"":v<0.4?"l1":v<0.6?"l2":v<0.8?"l3":"l4"; if(v>0.9) lvl="l5";
+    cells.push(`<span class="heat-cell ${lvl}" title="day ${d} week ${w}: ${v.toFixed(2)}"></span>`);
+  }
+  return `<div class="heatmap" style="grid-template-columns:repeat(${weeks},1fr);grid-row:repeat(${days},1fr)">${cells.join("")}</div>
+    <div class="row" style="margin-top:6px"><span class="caption">Less</span><span class="heat-cell l1"></span><span class="heat-cell l2"></span><span class="heat-cell l3"></span><span class="heat-cell l4"></span><span class="heat-cell l5"></span><span class="caption">More</span></div>`;
+}
+
+// ---------- (56) timeline renderer ----------
+function timeline(items) {
+  // items: [{time, title, meta, cls}] cls: ""|"done"|"blocked"
+  return `<div class="timeline">${items.map(i=>`<div class="tl-item ${i.cls||""}">
+    <div class="tl-time">${escapeHtml(i.time)}</div>
+    <div class="tl-title">${escapeHtml(i.title)}</div>
+    ${i.meta ? `<div class="tl-meta">${escapeHtml(i.meta)}</div>` : ""}
+  </div>`).join("")}</div>`;
+}
+
+// ---------- (57) stepper ----------
+function stepper(steps, activeIdx=0) {
+  return `<div class="stepper">${steps.map((s,i)=>`
+    <div class="step ${i<activeIdx?"done":i===activeIdx?"active":""}"><span class="circle">${i<activeIdx?"✓":(i+1)}</span><span class="caption">${escapeHtml(s)}</span>
+    ${i<steps.length-1 ? `<div class="step-line ${i<activeIdx?"done":""}"></div>` : ""}
+  </div>`).join("")}</div>`;
+}
+
+// ---------- (58) tabs ----------
+function tabs(items, activeIdx=0, onSwitch) {
+  return `<div class="tabs">${items.map((t,i)=>`<div class="tab ${i===activeIdx?"active":""}" data-tab="${i}">${escapeHtml(t)}</div>`).join("")}</div>
+  <div class="tab-panel" data-panel="${activeIdx}"></div>`;
+}
+document.addEventListener("click", e => {
+  const t = e.target.closest(".tab"); if (!t) return;
+  const parent = t.parentElement; parent.querySelectorAll(".tab").forEach((x,i)=> x.classList.toggle("active", i===Number(t.dataset.tab)));
+  const panel = parent.nextElementSibling; if (panel) panel.dataset.panel = t.dataset.tab;
+});
+
+// ---------- (59) snackbar ----------
+function snackbar(msg, kind="") {
+  const el = document.createElement("div"); el.className = "snackbar " + kind; el.textContent = msg;
+  document.body.appendChild(el); setTimeout(() => el.remove(), 2800);
+}
+
+// ---------- (60) KPI stat row ----------
+function statTile(label, value, delta, deltaDir="up") {
+  return `<div class="stat">
+    <div class="caption">${escapeHtml(label)}</div>
+    <div class="value">${escapeHtml(value)}</div>
+    <div class="delta ${deltaDir}">${deltaDir==="up"?"▲":"▼"} ${escapeHtml(delta)}</div>
+  </div>`;
+}
+
+// =====================================================================
+// ===================== PANELS =====================
+// =====================================================================
+
+// ---------- (5) 404 route ----------
+const KNOWN = new Set(["command","governance","dashboard","roles","org","search","capture","decisions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page","missions"]);
+
+// ---------- (10) favicon/title per panel ----------\nconst TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", search:"Search", capture:"Capture", decisions:"Decisions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page", missions:"Missions" };
 
 // ---------- (11) restore last panel ----------
 function lastPanel() { return localStorage.getItem("forgeos-last") || "command"; }

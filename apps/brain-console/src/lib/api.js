@@ -17,6 +17,11 @@ export const api = {
   federation: () => req("/api/federation"),
   gov: () => req("/api/governance"),
   vault: () => req("/api/vault"),
+  missions: () => req("/api/missions"),
+  advanceMission: (id, data) =>
+    req("/api/missions/" + encodeURIComponent(id), { method: "PATCH", body: JSON.stringify(data) }),
+  dispatchAgent: (missionId, agent) =>
+    req("/api/agent/dispatch", { method: "POST", body: JSON.stringify({ missionId, agent }) }),
   capture: (slug, type, body) =>
     req("/api/capture", { method: "POST", body: JSON.stringify({ slug, type, body }) }),
   embed: () => req("/api/embed", { method: "POST" }),
