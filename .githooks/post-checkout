@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Auto-bootstrap worktree-pr workflow in sibling repos under /c/Projects.
+# Runs after any checkout; skips if already set up.
+set -euo pipefail
+
+REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+SCRIPT="$REPO_DIR/scripts/worktree-auto-setup.sh"
+
+if [ -x "$SCRIPT" ]; then
+  "$SCRIPT" >/dev/null 2>&1 || true
+fi
