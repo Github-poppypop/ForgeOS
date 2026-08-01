@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+  echo "FATAL: not inside a git repo" >&2; exit 1
+}
+cd "$REPO_DIR"
+
+BRANCH_PREFIX="${BRANCH_PREFIX:-feat}"
+BRANCH=""
+DESCRIPTION="${WORKTREE_DESCRIPTION:-}"
+NO_CD=0
+AUTO_PR=0
+AUTO_MERGE=0
+PR_TITLE=""
+PR_BODY=""
+REMOTE="${GIT_REMOTE:-origin}"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --branch) BRANCH="$2"; shift 2 ;;
+    --description) DESCRIPTION="$2"; shift 2 ;;
+    --no-cd) NO_CD=1; shift ;;
+    --pr) AUTO_PR=1; shift ;;
+    --merge) AUTO_MERGE=1; shift ;;
+    --title) PR_TITLE="$2"; shift 2 ;;
+    --body) PR_BODY="$2"; shift 2 ;;
+    --remote) REMOTE="$2"; shift 2 ;;
+    --help|-h)
+      cat <<USAGE
+Usage: $(basename "$0") [OPTIONS] [BRANCH]
+
+Options:
+  --branch BRANCH     Branch name (required if not passed as arg)
+  --description DESC  Work description for PR body
+  --no-cd             Create worktree but don't cd into it
+  --pr                Auto-create PR after push
+  --merge             Enable auto-merge on PR
+  --title TITLE       PR title (default: auto from branch)
+  --body BODY         PR body (default: auto-generated)
+  --remote REMOTE     Git remote (default: origin)
+  --help              Show this help
+
+Branch prefixes: feat/, fix/, test/, chore/
+USAGE
+      exit 0
+      ;;
+    *) shift ;;
+  esac
+done
+
+if [ -z "$BRANCH" ]; then
+  echo "Branch prefixes: feat/, fix/, test/, chore/"
+  read -r -p "Enter branch name (without prefix): " BRANCH_SUFFIX
+  BRANCH="${BRANCH_PREFIX}/${BRANCH_SUFFIX}"
+fi
+
+if ! echo "$BRANCH" | grep -qE '^(feat|fix|test|chore)/[a-zA-Z0-9][-a-zA-Z0-9_/]*$'; then
+  echo "ERROR: Branch must match ^(feat|fix|test|chore)/[a-zA-Z0-9][-a-zA-Z0-9_/]*" >&2
+  exit 1
+fi
+
+WORKTREE_DIR="$REPO_DIR/.worktrees/${BRANCH//\//_}"
+BASE_BRANCH="${BASE_BRANCH:-main}"
+
+if [ -d "$WORKTREE_DIR" ]; then
+  echo "Worktree already exists: $WORKTREE_DIR"
+  echo "Remove it first: git worktree remove $WORKTREE_DIR"
+  exit 1
+fi
+
+if git rev-parse --verify "$BRANCH" >/dev/null 2>&1; then
+  echo "Branch already exists locally: $BRANCH"
+  exit 1
+fi
+if git ls-remote --exit-code --heads "$REMOTE" "$BRANCH" >/dev/null 2>&1; then
+  echo "Branch already exists on remote: $BRANCH"
+  exit 1
+fi
+
+echo "==> Creating worktree for branch: $BRANCH"
+echo "==> Fetching $REMOTE/$BASE_BRANCH..."
+git fetch "$REMOTE" "$BASE_BRANCH" --quiet
+
+echo "==> Creating worktree at: $WORKTREE_DIR"
+git worktree add -b "$BRANCH" "$WORKTREE_DIR" "$REMOTE/$BASE_BRANCH"
+
+cd "$WORKTREE_DIR"
+git config user.name "GitHub-poppypop"
+git config user.email "pop@example.com"
+git remote set-url origin "$(git -C "$REPO_DIR" remote get-url "$REMOTE" 2>/dev/null || git -C "$REPO_DIR" remote get-url origin)"
+
+if [ ! -d node_modules ]; then
+  echo "==> Installing dependencies..."
+  npm ci --silent 2>/dev/null || npm install --silent
+fi
+
+cat <<BANNER
+
+╔════════════════════════════════════════════════════════════╗
+║                  ✅ Worktree Ready                         ║
+╚════════════════════════════════════════════════════════════╝
+
+  Branch:    $BRANCH
+  Base:      $REMOTE/$BASE_BRANCH
+  Worktree:  $WORKTREE_DIR
+  Repo:      $REPO_DIR
+
+Next steps:
+  1. cd $WORKTREE_DIR
+  2. Make your changes
+  3. Run: npm run typecheck && npm run lint && npm run test
+  4. Commit: git add . && git commit -m 'feat: description'
+  5. Push & PR: git push origin $BRANCH && gh pr create --base main
+
+Rules:
+  • NEVER push directly to main
+  • NEVER edit files in $REPO_DIR directly
+  • ALWAYS create a PR for changes
+  • ALWAYS run tests before PR
+
+BANNER
+
+if [ "$NO_CD" -eq 1 ]; then
+  echo "Worktree created at: $WORKTREE_DIR"
+else
+  cd "$WORKTREE_DIR"
+  echo "Changed directory to: $WORKTREE_DIR"
+fi
+
+if [ "$AUTO_PR" -eq 1 ]; then
+  echo ""
+  echo "==> Auto-PR mode enabled"
+
+  CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+  if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
+    echo "ERROR: Not on expected branch $BRANCH (current: $CURRENT_BRANCH)" >&2
+    exit 1
+  fi
+
+  echo "==> Running pre-flight checks..."
+  npm run typecheck
+  npm run lint
+  npm run test
+
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "==> Committing changes..."
+    git add -A
+    git commit -m "$(git log -1 --format=%s 2>/dev/null || echo "wip")" || {
+      echo "ERROR: Commit failed" >&2; exit 1
+    }
+  fi
+
+  echo "==> Pushing branch to $REMOTE..."
+  git push -u "$REMOTE" "$BRANCH" || {
+    echo "ERROR: Push failed" >&2; exit 1
+  }
+
+  if [ -z "$PR_TITLE" ]; then
+    PR_TITLE="$(git log -1 --format=%s)"
+  fi
+
+  if [ -z "$PR_BODY" ]; then
+    PR_BODY="## Summary
+Auto-generated PR from worktree session.
+
+Branch: \`$BRANCH\`
+Worktree: \`$WORKTREE_DIR\`
+
+## Changes
+$(git log "$REMOTE/$BASE_BRANCH"..HEAD --oneline | sed 's/^/- /')
+
+## Test Plan
+- [x] TypeScript typecheck
+- [x] ESLint
+- [x] Vitest
+
+Generated by: \`scripts/worktree-session.sh\`"
+  fi
+
+  echo "==> Creating PR..."
+  gh pr create \
+    --repo "$(git -C "$REPO_DIR" remote get-url "$REMOTE" 2>/dev/null || echo 'Github-poppypop/RealtyIQ.io')" \
+    --base "$BASE_BRANCH" \
+    --title "$PR_TITLE" \
+    --body "$PR_BODY" \
+    --label "auto-pr" || {
+      echo "ERROR: PR creation failed" >&2; exit 1
+    }
+
+  if [ "$AUTO_MERGE" -eq 1 ]; then
+    echo "==> Enabling auto-merge..."
+    gh pr merge --auto --squash || echo "WARNING: Auto-merge enable failed"
+  fi
+
+  echo ""
+  echo "╔════════════════════════════════════════════════════════════╗"
+  echo "║                  🚀 PR Created                            ║"
+  echo "╚════════════════════════════════════════════════════════════╝"
+  echo ""
+  echo "  Branch: $BRANCH"
+  echo "  PR:     $(gh pr view --json number -q .number 2>/dev/null || echo 'unknown')"
+  echo "  URL:    $(gh pr view --json url -q .url 2>/dev/null || echo 'unknown')"
+  echo ""
+fi
