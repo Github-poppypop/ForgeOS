@@ -28,4 +28,29 @@ export const api = {
   timeline: () => req("/api/timeline"),
   ledger: () => req("/api/ledger"),
   org: () => req("/api/org"),
+  // Phase 6 — auth / state / backup / metrics
+  login: (username, password) =>
+    req("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+  state: () => req("/api/state"),
+  saveState: (data) =>
+    req("/api/state", { method: "POST", body: JSON.stringify(data) }),
+  backup: () => req("/api/backup", { method: "POST" }),
+  restore: (gzipB64) =>
+    req("/api/restore", { method: "POST", body: JSON.stringify({ gzip: gzipB64 }) }),
+  metrics: () => req("/api/metrics"),
+  // Phase 7 — agent workflows / messaging / marketplace / metrics
+  workflows: () => req("/api/agent/workflows"),
+  createWorkflow: (data) =>
+    req("/api/agent/workflows", { method: "POST", body: JSON.stringify(data) }),
+  marketplace: () => req("/api/agent/marketplace"),
+  sendMessage: (data) =>
+    req("/api/agent/message", { method: "POST", body: JSON.stringify(data) }),
+  messages: () => req("/api/agent/messages"),
+  agentMetrics: () => req("/api/agent/metrics"),
+  // Phase 8 — federation / webhooks / plugins
+  remoteBrains: () => req("/api/federation/remote"),
+  webhooks: () => req("/api/webhooks"),
+  createWebhook: (data) =>
+    req("/api/webhooks", { method: "POST", body: JSON.stringify(data) }),
+  plugins: () => req("/api/plugins"),
 };

@@ -813,17 +813,316 @@ async function renderGovernance() {
     </div>`;
 }
 
+// ---------- Phase 11: setup wizard ----------
+async function renderWizard() {
+  crumb([["ForgeOS", "#/dashboard"], ["Setup Wizard"]]);
+  const done = localStorage.getItem("forgeos-wizard-done");
+  document.body.classList.toggle("wizard-active", !done);
+  document.body.classList.toggle("wizard-done", !!done);
+  document.querySelector("main").innerHTML = `<h1>Setup Wizard</h1>
+    <div class="card">
+      <h2>Welcome to ForgeOS Brain Console</h2>
+      <p class="muted">This wizard will guide you through the initial configuration. Estimated time: 2 minutes.</p>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="wizard-start">Start Setup</button>
+      </div>
+    </div>
+    <div id="wizard-step" class="card" style="margin-top:16px;display:none"></div>`;
+
+  const step = (idx, title, body, nextLabel = "Next") => {
+    const el = document.querySelector("#wizard-step");
+    if (!el) return;
+    el.style.display = "block";
+    el.innerHTML = `<h2>${DOMPurify.sanitize(title)}</h2>
+      <div style="margin-top:8px">${body}</div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn secondary" id="wizard-skip">Skip</button>
+        <button class="btn primary" id="wizard-next">${DOMPurify.sanitize(nextLabel)}</button>
+      </div>`;
+    let stepIdx = idx;
+    document.querySelector("#wizard-next").addEventListener("click", () => {
+      stepIdx += 1;
+      runWizardStep(stepIdx);
+    });
+    document.querySelector("#wizard-skip").addEventListener("click", () => finishWizard());
+  };
+
+  const runWizardStep = (idx) => {
+    if (idx === 1) {
+      step(idx, "Console Configuration", `
+        <p class="muted">Set the port and token for your local console.</p>
+        <div class="row" style="margin-top:8px"><label>Port</label><input id="w-port" class="mono" value="7777" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>Token</label><input id="w-token" class="mono" placeholder="optional" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      `);
+    } else if (idx === 2) {
+      step(idx, "Brain & Model", `
+        <p class="muted">Configure your gbrain path and Ollama endpoint.</p>
+        <div class="row" style="margin-top:8px"><label>GBRAIN_HOME</label><input id="w-gbrain" class="mono" value="C:\ForgeOS" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>Ollama URL</label><input id="w-ollama" class="mono" value="http://localhost:11434/v1" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      `);
+    } else if (idx === 3) {
+      step(idx, "VPS Connection", `
+        <p class="muted">Connect to your VPS for agent orchestration.</p>
+        <div class="row" style="margin-top:8px"><label>Host</label><input id="w-host" class="mono" placeholder="host" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>SSH Port</label><input id="w-ssh" class="mono" value="2222" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      `);
+    } else if (idx === 4) {
+      step(idx, "First Mission", `
+        <p class="muted">Create your first mission and dispatch an agent.</p>
+        <div class="row" style="margin-top:8px"><label>Mission title</label><input id="w-title" class="mono" value="Demo mission" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      `, "Launch");
+    } else {
+      finishWizard();
+    }
+  };
+
+  const finishWizard = async () => {
+    localStorage.setItem("forgeos-wizard-done", "true");
+    document.body.classList.add("wizard-done");
+    document.body.classList.remove("wizard-active");
+    const port = (document.querySelector("#w-port")?.value || "").trim() || "7777";
+    const title = (document.querySelector("#w-title")?.value || "").trim() || "Demo mission";
+    if (title) {
+      try {
+        await safe(() => api.capture("missions/" + Date.now(), "mission", "# " + title));
+        toast("Created first mission", "ok");
+      } catch {}
+    }
+    location.hash = "#/projects";
+  };
+
+  document.querySelector("#wizard-start").addEventListener("click", () => runWizardStep(1));
+}
+
+// ---------- Phase 11: project management ----------
+async function renderProjects() {
+  crumb([["ForgeOS", "#/dashboard"], ["Projects"]]);
+  document.querySelector("main").innerHTML = `<h1>Project Management</h1>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>Work Items</h2>
+        <button class="btn primary" id="new-work">New Work Item</button>
+      </div>
+      <div id="project-board" class="grid cols-4" style="margin-top:12px">
+        ${["todo","in-progress","review","done"].map(status => `
+          <div class="card">
+            <h3>${DOMPurify.sanitize(status.replace("-"," "))}</h3>
+            <div id="col-${status}" class="project-col" data-status="${status}"></div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+    <div id="project-modal" class="modal-backdrop" style="display:none">
+      <div class="modal">
+        <h2>Work Item</h2>
+        <div class="row" style="margin-top:8px"><label>Title</label><input id="p-title" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>Assignee</label><input id="p-assignee" class="mono" value="agent-1" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>Priority</label><select id="p-priority" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="low">low</option><option value="medium" selected>medium</option><option value="high">high</option>
+        </select></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="p-save">Save</button>
+          <button class="btn secondary" id="p-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+
+  const STORE_KEY = "forgeos-work-items";
+  const load = () => JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+  const save = (items) => localStorage.setItem(STORE_KEY, JSON.stringify(items));
+
+  const renderBoard = () => {
+    const items = load();
+    ["todo","in-progress","review","done"].forEach(status => {
+      const col = document.querySelector(`#col-${status}`);
+      if (!col) return;
+      const list = items.filter(i => i.status === status);
+      col.innerHTML = list.map(i => `
+        <div class="card" data-id="${DOMPurify.sanitize(i.id)}">
+          <div class="row" style="justify-content:space-between">
+            <strong>${DOMPurify.sanitize(i.title)}</strong>
+            <span class="pill ${i.priority==="high"?"warn":""}">${DOMPurify.sanitize(i.priority)}</span>
+          </div>
+          <p class="muted mono">${DOMPurify.sanitize(i.assignee || "unassigned")}</p>
+          <div class="row" style="margin-top:8px;gap:6px">
+            ${status !== "todo" ? `<button class="btn secondary" data-move="${DOMPurify.sanitize(i.id)}" data-to="todo">←</button>` : ""}
+            ${status !== "done" ? `<button class="btn secondary" data-move="${DOMPurify.sanitize(i.id)}" data-to="${status==="todo"?"in-progress":status==="in-progress"?"review":"done"}">→</button>` : ""}
+            <button class="btn secondary" data-delete="${DOMPurify.sanitize(i.id)}">×</button>
+          </div>
+        </div>
+      `).join("") || `<p class="muted">no items</p>`;
+    });
+  };
+
+  renderBoard();
+  document.querySelector("#new-work").addEventListener("click", () => {
+    document.querySelector("#project-modal").style.display = "block";
+    document.querySelector("#p-title").value = "";
+    document.querySelector("#p-assignee").value = "agent-1";
+  });
+  document.querySelector("#p-cancel").addEventListener("click", () => { document.querySelector("#project-modal").style.display = "none"; });
+  document.querySelector("#p-save").addEventListener("click", () => {
+    const title = document.querySelector("#p-title").value.trim();
+    if (!title) return;
+    const items = load();
+    items.push({ id: String(Date.now()), title, status: "todo", priority: document.querySelector("#p-priority").value, assignee: document.querySelector("#p-assignee").value.trim() || "unassigned" });
+    save(items);
+    document.querySelector("#project-modal").style.display = "none";
+    renderBoard();
+    toast("work item created", "ok");
+  });
+  document.querySelector("#project-board").addEventListener("click", (e) => {
+    const moveBtn = e.target.closest("[data-move]");
+    const delBtn = e.target.closest("[data-delete]");
+    if (moveBtn) {
+      const items = load();
+      const item = items.find(i => i.id === moveBtn.dataset.move);
+      if (item) { item.status = moveBtn.dataset.to; save(items); renderBoard(); }
+    }
+    if (delBtn) {
+      const items = load().filter(i => i.id !== delBtn.dataset.delete);
+      save(items); renderBoard();
+    }
+  });
+}
+
+// ---------- Phase 11: settings ----------
+async function renderSettings() {
+  crumb([["ForgeOS", "#/dashboard"], ["Settings"]]);
+  document.querySelector("main").innerHTML = `<h1>Settings</h1>
+    <div class="card">
+      <h2>Environment</h2>
+      <p class="muted">These values are loaded from the server process. Changing them requires a server restart.</p>
+      <div id="settings-env" class="mono" style="margin-top:8px;line-height:1.8"></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Preferences</h2>
+      <div class="row" style="margin-top:8px">
+        <label>Theme</label>
+        <select id="s-theme" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="system">System</option>
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="hc">High contrast</option>
+          <option value="midnight">Midnight</option>
+          <option value="solarized-light">Solarized light</option>
+          <option value="retro">Retro</option>
+          <option value="matrix">Matrix</option>
+          <option value="ocean">Ocean</option>
+        </select>
+      </div>
+      <div class="row" style="margin-top:8px"><button class="btn primary" id="s-save">Save preferences</button></div>
+    </div>`;
+  try {
+    const s = await safe(api.status).catch(() => null);
+    const env = document.querySelector("#settings-env");
+    if (env && s) {
+      env.innerHTML = [
+        ["Port", s.console_port || "—"],
+        ["GBRAIN_HOME", s.gbrain_home || "C:\ForgeOS"],
+        ["Ollama", s.ollama ? "http://localhost:11434/v1" : "off"],
+        ["Auth", s.auth ? "enabled" : "disabled"],
+        ["Embedding model", s.embedding_model || "—"],
+      ].map(([k,v]) => `<div><span class="muted">${k}:</span> <span>${DOMPurify.sanitize(v)}</span></div>`).join("");
+    }
+  } catch {}
+  const saved = localStorage.getItem("forgeos-theme") || "system";
+  const themeSel = document.querySelector("#s-theme");
+  if (themeSel) themeSel.value = saved;
+  document.querySelector("#s-save").addEventListener("click", () => {
+    const val = document.querySelector("#s-theme").value;
+    localStorage.setItem("forgeos-theme", val);
+    applyTheme(val);
+    toast("preferences saved", "ok");
+  });
+}
+
+// ---------- Phase 11: workflows ----------
+async function renderWorkflows() {
+  crumb([["ForgeOS", "#/dashboard"], ["Workflows"]]);
+  document.querySelector("main").innerHTML = `<h1>Agent Workflows</h1>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>Workflows</h2>
+        <button class="btn primary" id="new-workflow">New workflow</button>
+      </div>
+      <pre id="workflow-out" class="code json" style="margin-top:12px"></pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.workflows).catch(() => ({ workflows: [] }));
+      const out = document.querySelector("#workflow-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      const out = document.querySelector("#workflow-out");
+      if (out) out.textContent = "workflow error: " + errMsg(e);
+    }
+  };
+  refresh();
+  document.querySelector("#new-workflow").addEventListener("click", async () => {
+    const title = prompt("Workflow title:");
+    if (!title) return;
+    const r = await safe(() => api.createWorkflow({ title, steps: [] })).catch(e => ({ error: errMsg(e) }));
+    toast(r.error ? "workflow failed: " + r.error : "workflow created", r.error ? "err" : "ok");
+    refresh();
+  });
+}
+
+// ---------- Phase 11: marketplace ----------
+async function renderMarketplace() {
+  crumb([["ForgeOS", "#/dashboard"], ["Marketplace"]]);
+  document.querySelector("main").innerHTML = `<h1>Agent Marketplace</h1>
+    <div class="card">
+      <h2>Discoverable agents</h2>
+      <pre id="market-out" class="code json" style="margin-top:12px"></pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.marketplace).catch(() => ({ marketplace: [] }));
+      const out = document.querySelector("#market-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      const out = document.querySelector("#market-out");
+      if (out) out.textContent = "marketplace error: " + errMsg(e);
+    }
+  };
+  refresh();
+}
+
+// ---------- Phase 11: plugins ----------
+async function renderPlugins() {
+  crumb([["ForgeOS", "#/dashboard"], ["Plugins"]]);
+  document.querySelector("main").innerHTML = `<h1>Plugins</h1>
+    <div class="card">
+      <h2>Loaded modules</h2>
+      <pre id="plugin-out" class="code json" style="margin-top:12px"></pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.plugins).catch(() => ({ plugins: [] }));
+      const out = document.querySelector("#plugin-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      const out = document.querySelector("#plugin-out");
+      if (out) out.textContent = "plugin error: " + errMsg(e);
+    }
+  };
+  refresh();
+}
+
 // ===================== ROUTER =====================
 const NAV = [
   ["Command Center", "command"], ["Governance", "governance"], ["Dashboard", "dashboard"], ["Roles", "roles"], ["Org", "org"], ["Timeline", "timeline"], ["Ledger", "ledger"],
   ["Search", "search"], ["Capture", "capture"], ["Decisions", "decisions"], ["Missions", "missions"], ["MCP", "mcp"], ["Vault", "vault"],
   ["Embeddings", "embed"], ["Federation", "federation"], ["Audit", "audit"], ["Schema", "schema"], ["Config", "config"],
+  ["Projects", "projects"], ["Wizard", "wizard"], ["Settings", "settings"], ["Workflows", "workflows"], ["Marketplace", "marketplace"], ["Plugins", "plugins"],
 ];
 
 const routes = {
   command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, timeline: renderTimeline, ledger: renderLedger,
   search: renderSearch, capture: renderCapture, decisions: renderDecisions, missions: renderMissions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
   embed: renderEmbed, federation: renderFederation, audit: renderAudit, schema: renderSchema, config: renderConfig,
+  projects: renderProjects, wizard: renderWizard, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins,
 };
 
 // ---------- (50) per-panel error boundary ----------
@@ -998,9 +1297,9 @@ function statTile(label, value, delta, deltaDir="up") {
 // =====================================================================
 
 // ---------- (5) 404 route ----------
-const KNOWN = new Set(["command","governance","dashboard","roles","org","timeline","ledger","search","capture","decisions","missions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page"]);
+const KNOWN = new Set(["command","governance","dashboard","roles","org","timeline","ledger","search","capture","decisions","missions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page","projects","wizard","settings","workflows","marketplace","plugins"]);
 // ---------- (10) favicon/title per panel ----------
-const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", timeline:"Timeline", ledger:"Decision Ledger", search:"Search", capture:"Capture", decisions:"Decisions", missions:"Missions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page" };
+const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", timeline:"Timeline", ledger:"Decision Ledger", search:"Search", capture:"Capture", decisions:"Decisions", missions:"Missions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page", projects:"Projects", wizard:"Setup Wizard", settings:"Settings", workflows:"Workflows", marketplace:"Marketplace", plugins:"Plugins" };
 
 // ---------- (11) restore last panel ----------
 function lastPanel() { return localStorage.getItem("forgeos-last") || "command"; }
