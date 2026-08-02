@@ -493,6 +493,7 @@ async function renderMissions() {
     const out = $("#d-out");
     if (out) out.textContent = JSON.stringify(r, null, 2);
     toast(r?.queued ? `dispatched ${agent} on ${mid}` : "dispatch failed", r?.queued ? "ok" : "err");
+    if (r?.queued) notify(`Agent ${agent} dispatched on ${mid}`, "ok");
   });
   
   // Auto-refresh missions every 5s
@@ -813,6 +814,24 @@ async function renderGovernance() {
     </div>`;
 }
 
+
+// ---------- Phase 11: notification system ----------
+function notify(msg, kind = "info") {
+  const key = "forgeos-notifications";
+  const list = JSON.parse(localStorage.getItem(key) || "[]");
+  list.unshift({ msg, kind, ts: Date.now() });
+  localStorage.setItem(key, JSON.stringify(list.slice(0, 50)));
+  toast(msg, kind);
+}
+
+// ---------- Phase 11: work item templates ----------
+const WORK_ITEM_TEMPLATES = {
+  "feature": { title: "Feature: [name]", status: "todo", priority: "medium", assignee: "agent-1" },
+  "bugfix": { title: "Bugfix: [description]", status: "todo", priority: "high", assignee: "agent-1" },
+  "mission": { title: "Mission: [objective]", status: "todo", priority: "medium", assignee: "agent-1" },
+  "review": { title: "Review: [artifact]", status: "review", priority: "low", assignee: "agent-1" },
+};
+
 // ---------- Phase 11: setup wizard ----------
 async function renderWizard() {
   crumb([["ForgeOS", "#/dashboard"], ["Setup Wizard"]]);
@@ -903,6 +922,7 @@ async function renderProjects() {
         <h2>Work Items</h2>
         <button class="btn primary" id="new-work">New Work Item</button>
       </div>
+      <div id="project-stats"></div>
       <div id="project-board" class="grid cols-4" style="margin-top:12px">
         ${["todo","in-progress","review","done"].map(status => `
           <div class="card">
@@ -917,6 +937,13 @@ async function renderProjects() {
         <h2>Work Item</h2>
         <div class="row" style="margin-top:8px"><label>Title</label><input id="p-title" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
         <div class="row" style="margin-top:8px"><label>Assignee</label><input id="p-assignee" class="mono" value="agent-1" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>Template</label><select id="p-template" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="">custom</option>
+          <option value="feature">Feature</option>
+          <option value="bugfix">Bugfix</option>
+          <option value="mission">Mission</option>
+          <option value="review">Review</option>
+        </select></div>
         <div class="row" style="margin-top:8px"><label>Priority</label><select id="p-priority" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
           <option value="low">low</option><option value="medium" selected>medium</option><option value="high">high</option>
         </select></div>
@@ -953,6 +980,39 @@ async function renderProjects() {
       `).join("") || `<p class="muted">no items</p>`;
     });
   };
+
+
+  // ---------- Phase 11: burndown + velocity ----------
+  const renderStats = () => {
+    const items = load();
+    const total = items.length;
+    const done = items.filter(i => i.status === "done").length;
+    const inProgress = items.filter(i => i.status === "in-progress").length;
+    const review = items.filter(i => i.status === "review").length;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    const stats = $(`#project-stats`);
+    if (stats) {
+      stats.innerHTML = `
+        <div class="grid cols-4" style="margin-top:12px">
+          <div class="card"><h3>${total}</h3><p class="muted">Total</p></div>
+          <div class="card"><h3>${inProgress}</h3><p class="muted">In Progress</p></div>
+          <div class="card"><h3>${review}</h3><p class="muted">Review</p></div>
+          <div class="card"><h3>${pct}%</h3><p class="muted">Complete</p></div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h3>Burndown</h3>
+          <div class="progress-track" style="height:24px;margin-top:8px">
+            <div class="progress-bar" style="width:${pct}%;height:100%"></div>
+          </div>
+          <p class="muted" style="margin-top:8px">${done} of ${total} items done</p>
+        </div>
+      `;
+    }
+  };
+
+  const originalRender = renderBoard;
+  renderBoard = () => { originalRender(); renderStats(); };
+
 
   renderBoard();
   document.querySelector("#new-work").addEventListener("click", () => {
