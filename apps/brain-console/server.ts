@@ -55,19 +55,30 @@ async function spawnGbrain(args: string[], opts: { stdin?: string; timeoutMs?: n
 
 // ---------- (42) rate limit + logging ----------
 const hits: Record<string, number[]> = {};
-function rateOk(ip: string): boolean {
+function rateOk(ip: string): number {
+  console.log(`[RATE] ip=${ip} hits=${JSON.stringify(hits[ip])} rate=${RATE}`);
   const now = Date.now();
   hits[ip] = (hits[ip] || []).filter(t => now - t < 60000);
-  if (hits[ip].length >= RATE) return false;
-  hits[ip].push(now); return true;
+  const remaining = RATE - hits[ip].length;
+  if (remaining <= 0) return 0;
+  hits[ip].push(now);
+  return remaining - 1;
 }
 function log(req: Request, ms: number, status: number) {
   const ip = req.headers.get("x-forwarded-for") || "local";
   console.log(`[${new Date().toISOString()}] ${req.method} ${new URL(req.url).pathname} -> ${status} (${ms}ms) ${ip}`);
 }
 
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8" } });
+function rateHeaders(ip: string) {
+  const remaining = Math.max(0, RATE - ((hits[ip] || []).filter(t => Date.now() - t < 60000).length));
+  return {
+    "x-ratelimit-limit": String(RATE),
+    "x-ratelimit-remaining": String(remaining),
+  };
+}
+
+function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
+  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...extraHeaders } });
 }
 
 // ---------- (41) auth gate ----------
@@ -79,7 +90,7 @@ function authed(req: Request): boolean {
 
 // ---- static ----
 async function serveStatic(pathname: string) {
-  if (pathname === "/") return new Response(Bun.file(`${PUBLIC}/index.html`));
+  if (pathname === "/") return new Response(Bun.file(`${PUBLIC}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } });
   let file = pathname.startsWith("/src/") ? `${ROOT}${pathname}` : `${PUBLIC}${pathname}`;
   const f = Bun.file(file);
   if (await f.exists()) {
@@ -87,9 +98,9 @@ async function serveStatic(pathname: string) {
     const ct: Record<string, string> = { ts: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", json: "application/json; charset=utf-8", svg: "image/svg+xml" };
     // no-cache so module/script changes are picked up immediately (the SPA is
     // hand-edited; without this the browser serves a stale cached app.js).
-    return new Response(f, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache" } });
+    return new Response(f, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache", "x-content-type-options": "nosniff", "x-frame-options": "DENY" } });
   }
-  return new Response(Bun.file(`${PUBLIC}/index.html`)); // SPA fallback
+  return new Response(Bun.file(`${PUBLIC}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } }); // SPA fallback
 }
 
 async function ollamaOk() {
@@ -116,7 +127,7 @@ const server = serve({
 
     // (41) auth on API + SSE
     if (p.startsWith("/api/") && !authed(req)) { log(req, Date.now() - t0, 401); return json({ error: "unauthorized" }, 401); }
-    if (p.startsWith("/api/") && !rateOk(ip)) { log(req, Date.now() - t0, 429); return json({ error: "rate limited" }, 429); }
+    if (p.startsWith("/api/") && !rateOk(ip)) { log(req, Date.now() - t0, 429); return json({ error: "rate limited" }, 429, rateHeaders(ip)); }
 
     // (43) SSE
     if (p === "/api/health/stream") {
@@ -124,16 +135,25 @@ const server = serve({
         start(controller) {
           const w = controller as unknown as WritableStreamDefaultWriter;
           healthClients.add(w);
-          controller.enqueue(`data: ${JSON.stringify({ ts: Date.now(), ok: true })}\n\n`);
+          controller.enqueue(`data: ${JSON.stringify({ ts: Date.now(), ok: true })}
+
+`);
+          setTimeout(() => {
+            try { w.write(": keepalive\n\n"); } catch {}
+          }, 15000);
         },
         cancel() {},
       });
-      return new Response(stream, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache" } });
+      return new Response(stream, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "connection": "keep-alive", "x-accel-buffering": "no" } });
     }
 
     if (!p.startsWith("/api/")) { const r = serveStatic(p); log(req, Date.now() - t0, 200); return r; }
 
     try {
+      if (p === "/api/health") {
+        return json({ ok: true, ts: Date.now() });
+      }
+
       if (p === "/api/status") {
         const [schema, oll] = await Promise.all([runGbrain(["schema", "active"]), ollamaOk()]);
         return json({ console_port: CONSOLE_PORT, gbrain_health: { status: "ok", engine: "pglite", owned_by: "console" }, schema: schema.out, ollama: oll, embedding_model: "ollama:mxbai-embed-large (1024d, local)", isolation: "C:\\ForgeOS (separate from personal vaults & app brains)", auth: !!CONSOLE_TOKEN });
@@ -208,6 +228,13 @@ const server = serve({
         return json({ raw: r.out });
       }
 
+      if (p === "/api/diff") {
+        const left = url.searchParams.get("left");
+        const right = url.searchParams.get("right");
+        if (!left || !right) return json({ error: "left and right query params required" }, 400);
+        return json({ error: "not implemented", status: 501, note: "gbrain does not expose a diff subcommand; governance diff requires manual page comparison or a future gbrain feature." }, 501);
+      }
+
       if (p === "/api/federation") {
         return json({ root: "ForgeOS (C:\\ForgeOS\\.gbrain)", model: "federated: read-down only, write-up governance only, no lateral mingle", children: ["apps/lifeos (isolated child brain)"], see: "knowledge-universe/BRAIN-FEDERATION.md" });
       }
@@ -223,7 +250,8 @@ const server = serve({
             tree[sub] = fs.readdirSync(dir).filter((f: string) => f.endsWith(".md")).sort();
           } catch { tree[sub] = []; }
         }
-        return json({ base: "C:\\Projects\\ForgeOS\\governance", sacred: true, authority: "Constitution > Laws > Standards > RFCs > Missions > Code", tree });
+        const gitDate = new Date().toISOString().slice(0, 10);
+        return json({ base: "C:\Projects\ForgeOS\governance", sacred: true, authority: "Constitution > Laws > Standards > RFCs > Missions > Code", tree, gitDate });
       }
 
       if (p === "/api/vault") {
@@ -375,6 +403,7 @@ const missionStore: Mission[] = [
         const body = await req.json();
         const slug = String(body.slug ?? ""); const type = String(body.type ?? "note"); const text = String(body.body ?? "");
         if (!slug) return json({ error: "slug required" }, 400);
+        if (slug.includes("/") || slug.includes("\\") || slug.includes("..")) return json({ error: "invalid slug: no path separators or .. allowed" }, 400);
         const r = await runGbrain(["capture", "--type", type, "--slug", slug, "--stdin"], { stdin: text, timeoutMs: 60000 });
         return json({ slug, out: r.out, err: r.err });
       }

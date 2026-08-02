@@ -1,6 +1,7 @@
 // app.js — ForgeOS Brain Console SPA (plain JS, no build step)
 // Implements all 50 enhancements (clusters A–E).
 import { api } from "./lib/api.js";
+import DOMPurify from "https://cdn.jsdelivr.net/npm/dompurify@3.0.7/dist/purify.es.mjs";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -11,8 +12,8 @@ window.addEventListener("error", (e) => showFatal(e.message || String(e.error)))
 window.addEventListener("unhandledrejection", (e) => showFatal(String(e.reason && e.reason.message ? e.reason.message : e.reason)));
 function showFatal(msg) {
   const m = $("#main");
-  if (m) m.innerHTML = `<div class="card"><h2>Runtime error</h2><pre class="json">${escapeHtml(msg)}</pre>
-    <p class="muted">The console hit an error. The API is at <span class="mono">/api/*</span>. Try reloading.</p></div>`;
+  if (m) m.innerHTML = `<div class="card"><h2>Runtime error</h2><pre class="json">${DOMPurify.sanitize(msg)}</pre>
+    <p class="muted">The API is at <span class="mono">/api/*</span>. Try reloading.</p></div>`;
 }
 
 // ---------- toast (16) + (34) stacking w/ progress ----------
@@ -39,21 +40,35 @@ function withLoading(btn, fn) {
 function errMsg(e) { return (e && e.message) ? e.message : String(e); }
 
 // ---------- (23) spinner helper ----------
+function skelCard(h = 160) { return `<div class="skeleton" style="height:${h}px"></div>`; }
+function skelGrid(n = 4, h = 160) { return `<div class="grid cols-3">${Array.from({length: n}, () => skelCard(h)).join("")}</div>`; }
+
 function spinner() { return `<div class="spinner"></div>`; }
 
 // ---------- (28) breadcrumb (clickable) ----------
 function crumb(items) {
   $("#crumb").innerHTML = items.map(([t, href]) =>
-    href ? `<a href="${href}">${escapeHtml(t)}</a>` : `<span>${escapeHtml(t)}</span>`).join(" › ");
+    href ? `<a href="${href}">${DOMPurify.sanitize(t)}</a>` : `<span>${DOMPurify.sanitize(t)}</span>`).join(" › ");
+}
+
+// ---------- (29) pagination ----------
+function paginate(items, page, perPage = 10) {
+  const total = Math.max(1, Math.ceil((items || []).length / perPage));
+  const p = Math.max(1, Math.min(page, total));
+  const start = (p - 1) * perPage;
+  return { page: p, total, perPage, items: (items || []).slice(start, start + perPage), hasPrev: p > 1, hasNext: p < total };
+}
+function paginationControls(p) {
+  if (!p || p.total <= 1) return "";
+  return `<div class="pagination">
+    <button class="btn secondary" ${p.hasPrev ? "" : "disabled"} data-page="${p.page - 1}">← Prev</button>
+    <span class="muted">Page ${p.page} / ${p.total}</span>
+    <button class="btn secondary" ${p.hasNext ? "" : "disabled"} data-page="${p.page + 1}">Next →</button>
+  </div>`;
 }
 
 // ---------- (15) empty state ----------
-const empty = (msg, cta) => `<div class="empty">${escapeHtml(msg)}${cta ? "<div style='margin-top:12px'>" + cta + "</div>" : ""}</div>`;
-
-// ---------- (7) XSS-safe render of arbitrary content ----------
-function escapeHtml(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-}
+const empty = (msg, cta) => `<div class="empty">${DOMPurify.sanitize(msg)}${cta ? "<div style='margin-top:12px'>" + cta + "</div>" : ""}</div>`;
 
 // ---------- (6) API wrapper with retry on 503/lock ----------
 async function safe(fn, tries = 2) {
@@ -71,7 +86,7 @@ async function safe(fn, tries = 2) {
 let healthTimer = null;
 async function renderDashboard() {
   crumb([["ForgeOS", "#/dashboard"], ["Console"]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:160px"></div>`;
+  $("#main").innerHTML = skelGrid(4, 160);
   const [s, roles] = await Promise.all([safe(api.status).catch(() => null), safe(api.roles).catch(() => ({ roles: [] }))]);
   const healthPill = s && s.gbrain_health && s.gbrain_health.status === "ok"
     ? `<span class="pill ok"><span class="dot"></span> brain ok</span>`
@@ -84,12 +99,12 @@ async function renderDashboard() {
     <h1>Brain Console</h1>
     <div class="row" style="margin-bottom:24px">
       ${healthPill} ${ollamaPill}
-      <span class="pill"><span class="dot"></span> ${s && s.embedding_model ? escapeHtml(s.embedding_model) : "—"}</span>
+      <span class="pill"><span class="dot"></span> ${s && s.embedding_model ? DOMPurify.sanitize(s.embedding_model) : "—"}</span>
       <span class="pill">pack ${((s && s.schema ? s.schema : "").match(/forgeos/) ? "forgeos" : "—")}</span>
       ${s && s.auth ? `<span class="pill warn"><span class="dot"></span> auth on</span>` : ""}
     </div>
     <div class="grid cols-3">
-      <div class="card"><h2>Isolation</h2><p class="muted mono">${s && s.isolation ? escapeHtml(s.isolation) : "—"}</p></div>
+      <div class="card"><h2>Isolation</h2><p class="muted mono">${s && s.isolation ? DOMPurify.sanitize(s.isolation) : "—"}</p></div>
       <div class="card"><h2>Roles seeded</h2><p style="font-size:32px;font-weight:800">${seeded}/7</p></div>
       <div class="card"><h2>Console port</h2><p class="mono">${s && s.console_port ? s.console_port : "—"}</p><p class="muted">owns PGLite at C:\\ForgeOS</p></div>
     </div>
@@ -114,18 +129,18 @@ async function renderDashboard() {
 // ---------- (21) role explorer w/ clickable reports_to ----------
 async function renderRoles() {
   crumb([["ForgeOS", "#/dashboard"], ["Roles"]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:200px"></div>`;
+  $("#main").innerHTML = skelGrid(2);
   const { roles } = await safe(api.roles).catch(() => ({ roles: [] }));
   $("#main").innerHTML = `<h1>C-Suite Roles</h1>
     <div class="grid cols-2">
       ${roles.map(r => `
         <div class="card">
           <div class="row" style="justify-content:space-between">
-            <h2>${escapeHtml(r.role || r.slug)}</h2>
+            <h2>${DOMPurify.sanitize(r.role || r.slug)}</h2>
             <span class="pill ${r.exists ? "ok" : "bad"}"><span class="dot"></span>${r.exists ? "seeded" : "missing"}</span>
           </div>
-          <p class="muted mono">${escapeHtml(r.slug)}</p>
-          <p class="muted">reports_to: <a class="link" href="#/page/${encodeURIComponent(r.reports_to || "")}">${escapeHtml(r.reports_to || "—")}</a></p>
+          <p class="muted mono">${DOMPurify.sanitize(r.slug)}</p>
+          <p class="muted">reports_to: <a class="link" href="#/page/${encodeURIComponent(r.reports_to || "")}">${DOMPurify.sanitize(r.reports_to || "—")}</a></p>
           <button class="btn secondary" data-role="${encodeURIComponent(r.slug)}">View page</button>
         </div>`).join("")}
     </div>`;
@@ -136,25 +151,28 @@ async function renderRoles() {
 async function renderPage(slug) {
   slug = decodeURIComponent(slug);
   crumb([["ForgeOS", "#/dashboard"], ["Roles", "#/roles"], [slug]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:200px"></div>`;
+  $("#main").innerHTML = skelGrid(3, 200);
   const p = await safe(() => api.page(slug)).catch(() => null);
   if (!p || !p.body) { $("#main").innerHTML = empty("Page not found in brain.", `<a class="btn secondary" href="#/capture">Capture it</a>`); return; }
   // (38) diff note + (37) inline edit + (13) copy link
   $("#main").innerHTML = `<div class="row" style="justify-content:space-between">
-      <h1 class="mono">${escapeHtml(slug)}</h1>
+      <h1 class="mono">${DOMPurify.sanitize(slug)}</h1>
       <div class="row">
         <button class="btn secondary" id="copy">Copy link</button>
         <button class="btn secondary" id="edit">Edit</button>
+        <button class="btn secondary" data-share="twitter" data-slug="${slug}">𝕏</button>
+        <button class="btn secondary" data-share="bookmark" data-slug="${slug}">🔖</button>
+        <button class="btn secondary" data-share="linkedin" data-slug="${slug}">in</button>
       </div>
     </div>
-    <pre class="code json" id="body">${escapeHtml(p.body)}</pre>`;
+    <pre class="code json" id="body">${DOMPurify.sanitize(p.body)}</pre>`;
   $("#copy").addEventListener("click", () => copyLink(slug));
   $("#edit").addEventListener("click", () => startEdit(slug, p.body));
 }
 
 function startEdit(slug, body) {
-  $("#main").innerHTML = `<h1 class="mono">${escapeHtml(slug)}</h1>
-    <textarea id="ebody" rows="16" style="width:100%;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono)">${escapeHtml(body)}</textarea>
+  $("#main").innerHTML = `<h1 class="mono">${DOMPurify.sanitize(slug)}</h1>
+    <textarea id="ebody" rows="16" style="width:100%;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono)">${DOMPurify.sanitize(body)}</textarea>
     <div class="row" style="margin-top:8px">
       <button class="btn primary" id="save">Save</button>
       <button class="btn secondary" id="cancel">Cancel</button>
@@ -171,20 +189,20 @@ function startEdit(slug, body) {
 // ---------- (22) org chart as tree ----------
 async function renderOrg() {
   crumb([["ForgeOS", "#/dashboard"], ["Organization"]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:200px"></div>`;
+  $("#main").innerHTML = skelGrid(3, 200);
   const org = await safe(() => api.org()).catch(() => null);
   if (org && org.roles) {
     const byId = Object.fromEntries(org.roles.map(r => [r.id, r]));
-    const kidsOf = (id) => org.roles.filter(r => r.reportsTo === id).map(r => `<div class="node"><div class="node-title">${escapeHtml(r.title)} <span class="muted">${escapeHtml(r.id)}</span></div><div class="muted">${(r.responsibilities||[]).map(x=>`<span class="pill mono" style="margin:2px">${escapeHtml(x)}</span>`).join(" ")}</div></div>`).join("");
+    const kidsOf = (id) => org.roles.filter(r => r.reportsTo === id).map(r => `<div class="node"><div class="node-title">${DOMPurify.sanitize(r.title)} <span class="muted">${DOMPurify.sanitize(r.id)}</span></div><div class="muted">${(r.responsibilities||[]).map(x=>`<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(x)}</span>`).join(" ")}</div></div>`).join("");
     const ceo = org.roles.find(r => !r.reportsTo);
     $("#main").innerHTML = `<h1>Organization</h1>
-      <div class="card"><h2>${escapeHtml(org.name || "ForgeOS Engineering Organization")}</h2>
-      <div class="tree">${ceo ? `<div class="node"><div class="node-title">${escapeHtml(ceo.title)} <span class="muted">${escapeHtml(ceo.id)}</span></div><div class="muted">${(ceo.responsibilities||[]).map(x=>`<span class="pill mono" style="margin:2px">${escapeHtml(x)}</span>`).join(" ")}</div>${kidsOf(ceo.id)}</div>` : ""}</div></div>`;
+      <div class="card"><h2>${DOMPurify.sanitize(org.name || "ForgeOS Engineering Organization")}</h2>
+      <div class="tree">${ceo ? `<div class="node"><div class="node-title">${DOMPurify.sanitize(ceo.title)} <span class="muted">${DOMPurify.sanitize(ceo.id)}</span></div><div class="muted">${(ceo.responsibilities||[]).map(x=>`<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(x)}</span>`).join(" ")}</div>${kidsOf(ceo.id)}</div>` : ""}</div></div>`;
     return;
   }
   const { roles } = await safe(api.roles).catch(() => ({ roles: [] }));
   const bySlug = Object.fromEntries(roles.map(r => [r.slug, r]));
-  const link = (slug) => `<a class="link" href="#/page/${encodeURIComponent(slug)}">${escapeHtml((bySlug[slug] && bySlug[slug].role) || slug)}</a>`;
+  const link = (slug) => `<a class="link" href="#/page/${encodeURIComponent(slug)}">${DOMPurify.sanitize((bySlug[slug] && bySlug[slug].role) || slug)}</a>`;
   const kids = (slug) => roles.filter(r => r.reports_to === slug).map(r => link(r.slug));
   const board = roles.find(r => r.slug === "board/board");
   const ceo = roles.find(r => r.slug === "exec/ceo");
@@ -214,9 +232,9 @@ async function renderSearch() {
           const m = l.match(/^\[([\d.]+)\]\s+(\S+)\s*--\s*(.*)$/s);
           const score = m ? m[1] : ""; const slug = m ? m[2] : l; const body = m ? m[3] : "";
           return `<div class="card" style="margin-bottom:8px"><div class="row" style="justify-content:space-between">
-              <a class="link mono" href="#/page/${encodeURIComponent(slug)}">${escapeHtml(slug)}</a>
-              <span class="pill">${escapeHtml(score)}</span></div>
-            <p class="muted">${escapeHtml(body.slice(0, 200))}</p></div>`;
+              <a class="link mono" href="#/page/${encodeURIComponent(slug)}">${DOMPurify.sanitize(slug)}</a>
+              <span class="pill">${DOMPurify.sanitize(score)}</span></div>
+            <p class="muted">${DOMPurify.sanitize(body.slice(0, 200))}</p></div>`;
         }).join("")
       : empty("No results.");
   });
@@ -266,38 +284,38 @@ async function renderDecisions() {
 
 async function renderTimeline() {
   crumb([["ForgeOS", "#/command"], ["Timeline"]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:160px"></div>`;
+  $("#main").innerHTML = skelGrid(4, 160);
   const r = await safe(() => api.timeline()).catch(() => ({ timeline: [] }));
   const items = Array.isArray(r.timeline) ? r.timeline : [];
   $("#main").innerHTML = `<h1>Timeline Engine</h1>
     <div class="card"><h2>Milestones</h2>
     <div class="timeline">${items.map(i => `<div class="tl-item ${i.status==='done'?'done':i.status==='in-progress'?'active':''}">
-      <div class="tl-date">${escapeHtml(i.date)}</div>
-      <div class="tl-body"><div class="tl-title">${escapeHtml(i.title)}</div>
-      <div class="tl-meta">${escapeHtml(i.owner)} · <span class="pill ${i.status==='done'?'ok':i.status==='in-progress'?'warn':''}">${escapeHtml(i.status)}</span></div>
+      <div class="tl-date">${DOMPurify.sanitize(i.date)}</div>
+      <div class="tl-body"><div class="tl-title">${DOMPurify.sanitize(i.title)}</div>
+      <div class="tl-meta">${DOMPurify.sanitize(i.owner)} · <span class="pill ${i.status==='done'?'ok':i.status==='in-progress'?'warn':''}">${DOMPurify.sanitize(i.status)}</span></div>
       </div></div>`).join("")}</div></div>`;
 }
 
 async function renderLedger() {
   crumb([["ForgeOS", "#/command"], ["Decision Ledger"]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:160px"></div>`;
+  $("#main").innerHTML = skelGrid(4, 160);
   const r = await safe(() => api.ledger()).catch(() => ({ ledger: [] }));
   const entries = Array.isArray(r.ledger) ? r.ledger : [];
   $("#main").innerHTML = `<h1>Decision Ledger</h1>
     <div class="card"><h2>Recent decisions</h2>
     <table class="tbl"><thead><tr><th>Date</th><th>Title</th><th>Type</th><th>Mission</th><th>Outcome</th></tr></thead>
     <tbody>${entries.map(e => `<tr>
-      <td class="mono">${escapeHtml(e.date)}</td>
-      <td>${escapeHtml(e.title)}</td>
-      <td><span class="pill">${escapeHtml(e.type)}</span></td>
-      <td class="mono">${escapeHtml(e.mission)}</td>
-      <td>${escapeHtml(e.outcome)}</td>
+      <td class="mono">${DOMPurify.sanitize(e.date)}</td>
+      <td>${DOMPurify.sanitize(e.title)}</td>
+      <td><span class="pill">${DOMPurify.sanitize(e.type)}</span></td>
+      <td class="mono">${DOMPurify.sanitize(e.mission)}</td>
+      <td>${DOMPurify.sanitize(e.outcome)}</td>
     </tr>`).join("")}</tbody></table></div>`;
 }
 
 async function renderMissions() {
   crumb([["ForgeOS", "#/command"], ["Missions"]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:200px"></div>`;
+  $("#main").innerHTML = skelGrid(3, 200);
   const { missions } = await safe(api.missions).catch(() => ({ missions: [] }));
   const statusPill = (s) => {
     const cls = { done:"ok", executing:"ok", review:"warn", proposed:"warn", approved:"ok" }[s] || "";
@@ -312,11 +330,11 @@ async function renderMissions() {
       <div class="row" style="flex-wrap:wrap;gap:8px">
         <select id="d-mid" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
           <option value="">mission id…</option>
-          ${missions.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.id)} — ${escapeHtml(m.title)}</option>`).join("")}
+          ${missions.map(m => `<option value="${DOMPurify.sanitize(m.id)}">${DOMPurify.sanitize(m.id)} — ${DOMPurify.sanitize(m.title)}</option>`).join("")}
         </select>
         <select id="d-agent" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
           <option value="">agent…</option>
-          ${agentList.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join("")}
+          ${agentList.map(a => `<option value="${DOMPurify.sanitize(a)}">${DOMPurify.sanitize(a)}</option>`).join("")}
         </select>
         <button class="btn primary" id="d-go">Dispatch</button>
         <pre id="d-out" class="code json" style="margin-top:8px;min-height:0"></pre>
@@ -325,15 +343,15 @@ async function renderMissions() {
     <div class="card"><h2>Missions</h2>
     <table class="tbl"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Phase</th><th>Progress</th><th>ETA</th><th>Dependencies</th><th>Owner</th><th></th></tr></thead>
     <tbody>${missions.map(m => `<tr>
-      <td class="mono">${escapeHtml(m.id)}</td>
-      <td>${escapeHtml(m.title)}</td>
+      <td class="mono">${DOMPurify.sanitize(m.id)}</td>
+      <td>${DOMPurify.sanitize(m.title)}</td>
       <td>${statusPill(m.status)}</td>
-      <td>${escapeHtml(m.phase)}</td>
+      <td>${DOMPurify.sanitize(m.phase)}</td>
       <td>${pct(m.progress)}</td>
-      <td class="mono" style="white-space:nowrap">${escapeHtml(m.eta ? m.eta.slice(0,10) : "—")}</td>
-      <td>${(m.dependencies||[]).map(d => `<span class="pill mono" style="margin:2px">${escapeHtml(d)}</span>`).join(" ") || "<span class='muted'>none</span>"}</td>
-      <td>${escapeHtml(m.owner)}</td>
-      <td>${m.status !== "done" ? `<button class="btn secondary" data-a="${escapeHtml(m.id)}" ${m.status==="done"?"disabled":""}>Advance →</button>` : "✓"}</td>
+      <td class="mono" style="white-space:nowrap">${DOMPurify.sanitize(m.eta ? m.eta.slice(0,10) : "—")}</td>
+      <td>${(m.dependencies||[]).map(d => `<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(d)}</span>`).join(" ") || "<span class='muted'>none</span>"}</td>
+      <td>${DOMPurify.sanitize(m.owner)}</td>
+      <td>${m.status !== "done" ? `<button class="btn secondary" data-a="${DOMPurify.sanitize(m.id)}" ${m.status==="done"?"disabled":""}>Advance →</button>` : "✓"}</td>
     </tr>`).join("")}</tbody></table></div>`;
   $$("#main [data-a]").forEach(b =>
     b.addEventListener("click", async () => {
@@ -371,22 +389,25 @@ async function renderMCP() {
 // ---------- (27) vault files clickable ----------
 async function renderVault() {
   crumb([["ForgeOS", "#/dashboard"], ["Vault"]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:160px"></div>`;
+  $("#main").innerHTML = skelGrid(4, 160);
   const v = await safe(api.vault).catch(() => ({ files: [], git: "—" }));
+  const page = Number(new URLSearchParams(location.hash.split("?")[1] || "").get("page") || "1");
+  const vp = paginate((v.files || []), page, 10);
   $("#main").innerHTML = `<h1>Obsidian Vault Sync</h1>
-    <div class="card"><p class="muted">Mirror at <span class="mono">C:\\ForgeOS\\vault</span> — git: ${escapeHtml(v.git)}</p>
-    <ul>${v.files.map(f => `<li class="mono"><a class="link" href="#/vaultfile/${encodeURIComponent(f)}">${escapeHtml(f)}</a></li>`).join("") || "<li class='muted'>no files</li>"}</ul></div>`;
+    <div class="card"><p class="muted">Mirror at <span class="mono">C:\\ForgeOS\\vault</span> — git: ${DOMPurify.sanitize(v.git)}</p>
+    <ul class="mono" style="line-height:1.9">${vp.items.map(f => `<li class="mono"><a class="link" href="#/vaultfile/${encodeURIComponent(f)}">${DOMPurify.sanitize(f)}</a></li>`).join("") || "<li class='muted'>no files</li>"}</ul>
+    ${paginationControls(vp)}</div>`;
 }
 
 async function renderVaultFile(file) {
   file = decodeURIComponent(file);
   crumb([["ForgeOS", "#/dashboard"], ["Vault", "#/vault"], [file]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:160px"></div>`;
+  $("#main").innerHTML = skelGrid(4, 160);
   // read via backend passthrough (reuse page fetch is brain-only; read file directly is not exposed,
   // so show a note + link to open in editor)
-  $("#main").innerHTML = `<h1 class="mono">${escapeHtml(file)}</h1>
-    <div class="card"><p class="muted">Vault file mirror. Open in Obsidian at <span class="mono">C:\\ForgeOS\\vault\\${escapeHtml(file)}</span>.</p>
-    <p>This file is the human-readable mirror of the brain page <span class="mono">${escapeHtml(file.replace(/\\.md$/, ""))}</span>.</p>
+  $("#main").innerHTML = `<h1 class="mono">${DOMPurify.sanitize(file)}</h1>
+    <div class="card"><p class="muted">Vault file mirror. Open in Obsidian at <span class="mono">C:\\ForgeOS\\vault\\${DOMPurify.sanitize(file)}</span>.</p>
+    <p>This file is the human-readable mirror of the brain page <span class="mono">${DOMPurify.sanitize(file.replace(/\\.md$/, ""))}</span>.</p>
     <a class="btn secondary" href="#/page/${encodeURIComponent(file.replace(/\\.md$/, ""))}">View brain page →</a></div>`;
 }
 
@@ -408,17 +429,17 @@ async function renderFederation() {
   crumb([["ForgeOS", "#/dashboard"], ["Federation"]]);
   const f = await safe(api.federation).catch(() => ({}));
   $("#main").innerHTML = `<h1>Brain Federation</h1>
-    <pre class="json">${escapeHtml(JSON.stringify(f, null, 2))}</pre>
+    <pre class="json">${DOMPurify.sanitize(JSON.stringify(f, null, 2))}</pre>
     <div class="card" style="margin-top:12px"><h2>Topology</h2>
       <p><b>ForgeOS (root)</b> → read-down only, write-up governance only, no lateral mingle.</p>
-      <p>Children: ${(f.children || ["apps/lifeos (isolated child brain)"]).map(c => `<span class="pill">${escapeHtml(c)}</span>`).join(" ")}</p>
+      <p>Children: ${(f.children || ["apps/lifeos (isolated child brain)"]).map(c => `<span class="pill">${DOMPurify.sanitize(c)}</span>`).join(" ")}</p>
     </div>`;
 }
 
 // ---------- (29) audit as sortable table ----------
 async function renderAudit() {
   crumb([["ForgeOS", "#/dashboard"], ["Audit"]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:160px"></div>`;
+  $("#main").innerHTML = skelGrid(4, 160);
   const a = await safe(api.audit).catch(() => ({ raw: "" }));
   const rows = (a.raw || "").split("\n").filter(Boolean).map(l => {
     const [slug, type, date, ...rest] = l.split("\t");
@@ -426,9 +447,10 @@ async function renderAudit() {
   });
   $("#main").innerHTML = `<h1>Audit Trail</h1>
     <div class="card"><table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>Slug</th><th>Title</th></tr></thead>
-    <tbody>${rows.map(r => `<tr><td class="mono">${escapeHtml(r.date || "")}</td><td>${escapeHtml(r.type || "")}</td>
-      <td class="mono"><a class="link" href="#/page/${encodeURIComponent(r.slug || "")}">${escapeHtml(r.slug || "")}</a></td>
-      <td>${escapeHtml(r.title || "")}</td></tr>`).join("") || "<tr><td colspan=4 class='muted'>no entries</td></tr>"}</tbody></table></div>`;
+    <tbody>${rows.map(r => `<tr><td class="mono">${DOMPurify.sanitize(r.date || "")}</td><td>${DOMPurify.sanitize(r.type || "")}</td>
+      <td class="mono"><a class="link" href="#/page/${encodeURIComponent(r.slug || "")}">${DOMPurify.sanitize(r.slug || "")}</a></td>
+      <td>${DOMPurify.sanitize(r.title || "")}</td></tr>`).join("") || "<tr><td colspan=4 class='muted'>no entries</td></tr>"}</tbody></table>
+    ${paginationControls(paginate(rows, Number(new URLSearchParams(location.hash.split("?")[1] || "").get("page") || "1")))}</div>`;
 }
 
 // ---------- (30) schema as table ----------
@@ -436,7 +458,7 @@ async function renderSchema() {
   crumb([["ForgeOS", "#/dashboard"], ["Schema"]]);
   const s = await safe(api.schema).catch(() => ({ active: "", types: "" }));
   $("#main").innerHTML = `<h1>Schema Pack</h1>
-    <h2>Active</h2><pre class="json">${escapeHtml(s.active || "—")}</pre>
+    <h2>Active</h2><pre class="json">${DOMPurify.sanitize(s.active || "—")}</pre>
     <h2>Page types</h2>
     <div class="card"><table class="tbl"><thead><tr><th>type</th><th>prefixes</th></tr></thead>
       <tbody>
@@ -449,7 +471,7 @@ async function renderSchema() {
       </tbody></table></div>
     <h2>Link types</h2>
     <p class="mono">reports_to · owns · escalated_to · derived_from · parent_of · publishes · reports_up_to</p>
-    <h2>Raw types</h2><pre class="json">${escapeHtml(s.types || "—")}</pre>`;
+    <h2>Raw types</h2><pre class="json">${DOMPurify.sanitize(s.types || "—")}</pre>`;
 }
 
 function renderConfig() {
@@ -484,7 +506,8 @@ function renderConfig() {
 // ===================== RFC-0000: COMMAND CENTER (primary landing) =====================
 async function renderCommand() {
   crumb([["ForgeOS", "#/command"], ["Command Center"]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:200px"></div>`;
+  $("#main").innerHTML = skelGrid(3, 200);
+  $("#main").innerHTML = skelGrid(3, 200);
   const [s, roles, gov, vault, fed] = await Promise.all([
     safe(api.status).catch(() => null),
     safe(api.roles).catch(() => ({ roles: [] })),
@@ -540,20 +563,20 @@ async function renderCommand() {
 // ===================== RFC-0000: GOVERNANCE (sacred source of truth) =====================
 async function renderGovernance() {
   crumb([["ForgeOS", "#/command"], ["Governance"]]);
-  $("#main").innerHTML = `<div class="skeleton" style="height:200px"></div>`;
+  $("#main").innerHTML = skelGrid(3, 200);
   const gov = await safe(() => api.gov()).catch(() => null);
   if (!gov) { $("#main").innerHTML = empty("Could not read /governance (console offline)."); return; }
   const section = (title, key, base) => {
     const files = (gov.tree && gov.tree[key]) || [];
     return `<div class="card"><h2>${title}</h2>
       <p class="muted mono">${base}</p>
-      <ul class="mono" style="line-height:1.9">${files.length ? files.map(f => `<li><a class="link" href="#/page/${encodeURIComponent(key + "/" + f.replace(/\.md$/, ""))}">${escapeHtml(f)}</a></li>`).join("") : "<li class='muted'>—</li>"}</ul>
+      <ul class="mono" style="line-height:1.9">${files.length ? files.map(f => `<li><a class="link" href="#/page/${encodeURIComponent(key + "/" + f.replace(/\.md$/, ""))}">${DOMPurify.sanitize(f)}</a></li>`).join("") : "<li class='muted'>—</li>"}</ul>
     </div>`;
   };
   $("#main").innerHTML = `
-    <h1>Governance <span class="pill ok"><span class="dot"></span> sacred</span></h1>
+    <h1>Governance <span class="pill ok"><span class="dot"></span> sacred</span> <span class="pill"><span class="dot"></span> ${DOMPurify.sanitize(gov.gitDate || "")}</span></h1>
     <p class="muted">Single source of truth. Immutable except by constitutional amendment.
-      Authority: <span class="mono">${escapeHtml(gov.authority || "")}</span></p>
+      Authority: <span class="mono">${DOMPurify.sanitize(gov.authority || "")}</span></p>
     <div class="grid cols-3">
       ${section("Constitution", "constitution", "governance/constitution/")}
       ${section("Engineering Standards", "standards", "governance/standards/")}
@@ -586,7 +609,7 @@ const routes = {
 // ---------- (50) per-panel error boundary ----------
 async function guard(fn, slug) {
   try { await fn(slug); }
-  catch (e) { $("#main").innerHTML = `<div class="card"><h2>Panel error</h2><pre class="json">${escapeHtml(errMsg(e))}</pre></div>`; }
+  catch (e) { $("#main").innerHTML = `<div class="card"><h2>Panel error</h2><pre class="json">${DOMPurify.sanitize(errMsg(e))}</pre></div>`; }
 }
 
 // =====================================================================
@@ -619,7 +642,7 @@ function svgEnd() { return `</svg>`; }
 function xAxisLabels(labels, w=600, h=220) {
   const n=labels.length; if (!n) return "";
   const step=w/Math.max(n-1,1);
-  return labels.map((l,i)=>`<text class="label" x="${(i*step).toFixed(1)}" y="${h-4}" text-anchor="middle">${escapeHtml(l)}</text>`).join("");
+  return labels.map((l,i)=>`<text class="label" x="${(i*step).toFixed(1)}" y="${h-4}" text-anchor="middle">${DOMPurify.sanitize(l)}</text>`).join("");
 }
 function gridLines(h=220, count=4) {
   return Array.from({length:count},(_,i)=>{
@@ -636,8 +659,8 @@ function barChart(series, w=600, h=220) {
     const bh = Math.round((s.value/max)*(h-30));
     const x = 10 + i*(barW+6);
     const y = h-20-bh;
-    return `<rect class="bar-rect ${s.cls||""}" x="${x}" y="${y}" width="${barW}" height="${bh}" rx="3"><title>${escapeHtml(s.label)}: ${s.value}</title></rect>
-      <text class="label" x="${x+barW/2}" y="${h-6}" text-anchor="middle">${escapeHtml(s.label)}</text>`;
+    return `<rect class="bar-rect ${s.cls||""}" x="${x}" y="${y}" width="${barW}" height="${bh}" rx="3"><title>${DOMPurify.sanitize(s.label)}: ${s.value}</title></rect>
+      <text class="label" x="${x+barW/2}" y="${h-6}" text-anchor="middle">${DOMPurify.sanitize(s.label)}</text>`;
   }).join("");
   return `<div class="chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${gridLines(h)}${bars}${svgEnd()}</svg></div>`;
 }
@@ -650,10 +673,10 @@ function donutChart(series, w=600, h=240) {
   let offset = 0;
   const segs = series.map(s => {
     const frac = s.value/total; const dash = frac*circ; const gap = circ-dash;
-    const path = `<circle class="donut-seg" cx="${cx}" cy="${cy}" r="${r}" stroke="${s.color||'var(--accent)'}" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="${(-offset).toFixed(1)}"><title>${escapeHtml(s.label)}: ${s.value}</title></circle>`;
+    const path = `<circle class="donut-seg" cx="${cx}" cy="${cy}" r="${r}" stroke="${s.color||'var(--accent)'}" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="${(-offset).toFixed(1)}"><title>${DOMPurify.sanitize(s.label)}: ${s.value}</title></circle>`;
     offset += dash; return path;
   }).join("");
-  const legend = series.map(s => `<span class="swatch" style="background:${s.color||'var(--accent)'}"></span><span>${escapeHtml(s.label)} ${s.value}</span>`).join("");
+  const legend = series.map(s => `<span class="swatch" style="background:${s.color||'var(--accent)'}"></span><span>${DOMPurify.sanitize(s.label)} ${s.value}</span>`).join("");
   return `<div class="chart" style="text-align:center">
     <svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
       <circle class="donut-ring" cx="${cx}" cy="${cy}" r="${r}"/>
@@ -710,23 +733,23 @@ function heatmap(weeks=12, days=7, intensityFn=(d,w)=> Math.random()) {
 function timeline(items) {
   // items: [{time, title, meta, cls}] cls: ""|"done"|"blocked"
   return `<div class="timeline">${items.map(i=>`<div class="tl-item ${i.cls||""}">
-    <div class="tl-time">${escapeHtml(i.time)}</div>
-    <div class="tl-title">${escapeHtml(i.title)}</div>
-    ${i.meta ? `<div class="tl-meta">${escapeHtml(i.meta)}</div>` : ""}
+    <div class="tl-time">${DOMPurify.sanitize(i.time)}</div>
+    <div class="tl-title">${DOMPurify.sanitize(i.title)}</div>
+    ${i.meta ? `<div class="tl-meta">${DOMPurify.sanitize(i.meta)}</div>` : ""}
   </div>`).join("")}</div>`;
 }
 
 // ---------- (57) stepper ----------
 function stepper(steps, activeIdx=0) {
   return `<div class="stepper">${steps.map((s,i)=>`
-    <div class="step ${i<activeIdx?"done":i===activeIdx?"active":""}"><span class="circle">${i<activeIdx?"✓":(i+1)}</span><span class="caption">${escapeHtml(s)}</span>
+    <div class="step ${i<activeIdx?"done":i===activeIdx?"active":""}"><span class="circle">${i<activeIdx?"✓":(i+1)}</span><span class="caption">${DOMPurify.sanitize(s)}</span>
     ${i<steps.length-1 ? `<div class="step-line ${i<activeIdx?"done":""}"></div>` : ""}
   </div>`).join("")}</div>`;
 }
 
 // ---------- (58) tabs ----------
 function tabs(items, activeIdx=0, onSwitch) {
-  return `<div class="tabs">${items.map((t,i)=>`<div class="tab ${i===activeIdx?"active":""}" data-tab="${i}">${escapeHtml(t)}</div>`).join("")}</div>
+  return `<div class="tabs">${items.map((t,i)=>`<div class="tab ${i===activeIdx?"active":""}" data-tab="${i}">${DOMPurify.sanitize(t)}</div>`).join("")}</div>
   <div class="tab-panel" data-panel="${activeIdx}"></div>`;
 }
 document.addEventListener("click", e => {
@@ -744,9 +767,9 @@ function snackbar(msg, kind="") {
 // ---------- (60) KPI stat row ----------
 function statTile(label, value, delta, deltaDir="up") {
   return `<div class="stat">
-    <div class="caption">${escapeHtml(label)}</div>
-    <div class="value">${escapeHtml(value)}</div>
-    <div class="delta ${deltaDir}">${deltaDir==="up"?"▲":"▼"} ${escapeHtml(delta)}</div>
+    <div class="caption">${DOMPurify.sanitize(label)}</div>
+    <div class="value">${DOMPurify.sanitize(value)}</div>
+    <div class="delta ${deltaDir}">${deltaDir==="up"?"▲":"▼"} ${DOMPurify.sanitize(delta)}</div>
   </div>`;
 }
 
@@ -766,7 +789,7 @@ async function route() {
   let hash = location.hash.slice(2) || lastPanel();
   const parts = hash.split("/");
   const panel = parts[0];
-  if (!KNOWN.has(panel)) { $("#main").innerHTML = empty("Unknown route: " + escapeHtml(panel), `<a class="btn secondary" href="#/dashboard">Go home</a>`); document.title = "ForgeOS — 404"; return; }
+  if (!KNOWN.has(panel)) { $("#main").innerHTML = empty("Unknown route: " + DOMPurify.sanitize(panel), `<a class="btn secondary" href="#/dashboard">Go home</a>`); document.title = "ForgeOS — 404"; return; }
   localStorage.setItem("forgeos-last", panel);
   document.title = "ForgeOS — " + (TITLES[panel] || "Console");
   document.querySelectorAll(".sidebar a").forEach(a => a.classList.remove("active"));
@@ -801,7 +824,7 @@ function renderCmdk(q) {
   const opts = CMDS.filter(c => c.label.toLowerCase().includes(q.toLowerCase()));
   const histItems = q ? [] : hist.map(h => ({ label: "↺ " + (NAV.find(n => n[1] === h)?.[0] || h), go: () => location.hash = "#/" + h }));
   const all = q ? opts : opts.concat(histItems);
-  ul.innerHTML = all.map((c, i) => `<li data-i="${i}">${escapeHtml(c.label)}</li>`).join("") || "<li class='muted'>no match</li>";
+  ul.innerHTML = all.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join("") || "<li class='muted'>no match</li>";
   $$("#cmdk li").forEach((li, i) => li.addEventListener("click", () => { all[i].go(); $("#cmdk").classList.remove("open"); }));
   paintSel($$("#cmdk li"));
 }
@@ -809,7 +832,7 @@ function renderCmdk(q) {
 function confirmModal(msg, onYes) {
   const back = document.createElement("div");
   back.className = "modal-backdrop open";
-  back.innerHTML = `<div class="modal"><h2>Confirm</h2><p>${escapeHtml(msg)}</p>
+  back.innerHTML = `<div class="modal"><h2>Confirm</h2><p>${DOMPurify.sanitize(msg)}</p>
     <div class="row"><button class="btn danger" id="y">Yes</button><button class="btn secondary" id="n">Cancel</button></div></div>`;
   document.body.appendChild(back);
   back.querySelector("#y").addEventListener("click", () => { back.remove(); onYes(); });
