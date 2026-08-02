@@ -1,7 +1,7 @@
 // tests/unit/capture.spec.ts — integration tests for /api/capture path-traversal validation
 // Uses Bun's built-in test runner (bun:test). Spins up server.ts on a random port.
 
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeAll } from "bun:test";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";

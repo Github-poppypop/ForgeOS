@@ -53,6 +53,21 @@ async function spawnGbrain(args: string[], opts: { stdin?: string; timeoutMs?: n
   return { code: proc.exitCode ?? 0, out, err };
 }
 
+// ---------- CORS ----------
+const CORS_HEADERS: Record<string, string> = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
+  "access-control-allow-headers": "content-type",
+};
+function corsHeaders() { return { ...CORS_HEADERS }; }
+
+function reqId(req: Request) {
+  return req.headers.get('x-request-id') || crypto.randomUUID();
+}
+function structuredLog(level: string, reqId: string, route: string, status: number, msg: string) {
+  console.log(JSON.stringify({ ts: new Date().toISOString(), level, reqId, route, status, msg }));
+}
+
 // ---------- (42) rate limit + logging ----------
 const hits: Record<string, number[]> = {};
 function rateOk(ip: string): number {
@@ -65,8 +80,10 @@ function rateOk(ip: string): number {
   return remaining - 1;
 }
 function log(req: Request, ms: number, status: number) {
+  const id = reqId(req);
   const ip = req.headers.get("x-forwarded-for") || "local";
-  console.log(`[${new Date().toISOString()}] ${req.method} ${new URL(req.url).pathname} -> ${status} (${ms}ms) ${ip}`);
+  structuredLog("info", id, new URL(req.url).pathname, status, `${req.method} ${status} (${ms}ms) ${ip}`);
+  return id;
 }
 
 function rateHeaders(ip: string) {
@@ -78,7 +95,7 @@ function rateHeaders(ip: string) {
 }
 
 function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
-  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...extraHeaders } });
+  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders(), ...extraHeaders } });
 }
 
 // ---------- (41) auth gate ----------
@@ -116,6 +133,81 @@ setInterval(() => {
   healthClients.forEach(w => { try { w.write(payload); } catch { healthClients.delete(w); } });
 }, 5000);
 
+// ---------- (missions) in-memory mission store ----------
+type Mission = {
+  id: string;
+  title: string;
+  status: string;
+  phase: string;
+  progress: number;
+  eta: string;
+  dependencies: string[];
+  owner: string;
+};
+const missionStore: Mission[] = [
+  {
+    id: "RFC-0000",
+    title: "RFC-0000 governance build",
+    status: "done",
+    phase: "foundation",
+    progress: 100,
+    eta: "2025-01-01T00:00:00Z",
+    dependencies: [],
+    owner: "cto/cto",
+  },
+  {
+    id: "POOL-E1",
+    title: "PoolLeague E1 backend reconcile",
+    status: "proposed",
+    phase: "backend",
+    progress: 0,
+    eta: "2025-06-01T00:00:00Z",
+    dependencies: ["RFC-0000"],
+    owner: "cto/cto",
+  },
+  {
+    id: "POOL-SUB",
+    title: "PoolLeague submodule conversion",
+    status: "approved",
+    phase: "toolchain",
+    progress: 10,
+    eta: "2025-07-01T00:00:00Z",
+    dependencies: ["RFC-0000"],
+    owner: "coo/coo",
+  },
+];
+
+// ---------- (agent state) in-memory agent execution tracker ----------
+type AgentState = {
+  status: "pending" | "running" | "done" | "failed";
+  agent: string;
+  session: string;
+  startedAt: number;
+  log: string[];
+};
+const agentState = new Map<string, AgentState>();
+
+// ---------- (tmux log reader) helper ----------
+// Spawns a `tail -f` on the tmux session's log file and streams lines into
+// the in-memory log array. Returns the reader proc so the caller can observe
+// its exit and mark the agent as done/failed.
+function startLogReader(logFile: string, missionId: string): Bun.ChildProcess {
+  const reader = Bun.spawn(["tail", "-f", "--retry", logFile], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  reader.stdout.readable.pipeThrough(new TextDecoderStream()).pipeTo(new WritableStream({
+    write(line) {
+      const entry = agentState.get(missionId);
+      if (!entry) return;
+      entry.log.push(line.trimEnd());
+      // cap at 500 lines in memory; oldest entries are trimmed
+      if (entry.log.length > 500) entry.log.splice(0, entry.log.length - 500);
+    },
+  })).catch(() => {});
+  return reader;
+}
+
 const server = serve({
   port: CONSOLE_PORT,
   idleTimeout: 120,
@@ -124,6 +216,11 @@ const server = serve({
     const url = new URL(req.url);
     const p = url.pathname;
     const ip = req.headers.get("x-forwarded-for") || "local";
+
+    // CORS preflight — before auth/rate-limit so unauthenticated origins can probe
+    if (p.startsWith("/api/") && req.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders() });
+    }
 
     // (41) auth on API + SSE
     if (p.startsWith("/api/") && !authed(req)) { log(req, Date.now() - t0, 401); return json({ error: "unauthorized" }, 401); }
@@ -135,9 +232,7 @@ const server = serve({
         start(controller) {
           const w = controller as unknown as WritableStreamDefaultWriter;
           healthClients.add(w);
-          controller.enqueue(`data: ${JSON.stringify({ ts: Date.now(), ok: true })}
-
-`);
+          controller.enqueue(`data: ${JSON.stringify({ ts: Date.now(), ok: true })}\n\n`);
           setTimeout(() => {
             try { w.write(": keepalive\n\n"); } catch {}
           }, 15000);
@@ -177,6 +272,11 @@ const server = serve({
           paths: {
             "/api/status": { get: { summary: "Brain + console status" } },
             "/api/roles": { get: { summary: "C-suite role rows" } },
+            "/api/missions": { get: { summary: "Mission list with agent state" } },
+            "/api/missions/{id}": { patch: { summary: "Advance mission status" } },
+            "/api/agent/dispatch": { post: { summary: "Dispatch an agent to a mission" } },
+            "/api/agent/{missionId}/status": { get: { summary: "Agent execution status for a mission" } },
+            "/api/agent/{missionId}/log": { get: { summary: "Last 50 log lines for an agent mission" } },
             "/api/page/{slug}": { get: { summary: "Get a brain page" } },
             "/api/search?q=": { get: { summary: "Semantic search (Ollama)" } },
             "/api/capture": { post: { summary: "Capture a page" } },
@@ -188,6 +288,11 @@ const server = serve({
             "/api/backup": { post: { summary: "Download brain zip" } },
             "/api/brains": { get: { summary: "Multi-brain metadata" } },
             "/api/health/stream": { get: { summary: "SSE live health" } },
+            "/api/timeline": { get: { summary: "Project timeline" } },
+            "/api/ledger": { get: { summary: "Decision ledger" } },
+            "/api/org": { get: { summary: "Organization roles" } },
+            "/api/governance": { get: { summary: "Governance source-of-truth index" } },
+            "/api/diff": { get: { summary: "Diff two pages (not implemented)" } },
           },
         });
       }
@@ -251,7 +356,7 @@ const server = serve({
           } catch { tree[sub] = []; }
         }
         const gitDate = new Date().toISOString().slice(0, 10);
-        return json({ base: "C:\Projects\ForgeOS\governance", sacred: true, authority: "Constitution > Laws > Standards > RFCs > Missions > Code", tree, gitDate });
+        return json({ base: "C:\\Projects\\ForgeOS\\governance", sacred: true, authority: "Constitution > Laws > Standards > RFCs > Missions > Code", tree, gitDate });
       }
 
       if (p === "/api/vault") {
@@ -277,59 +382,20 @@ const server = serve({
         return new Response(gz, { headers: { "content-type": "application/gzip", "content-disposition": 'attachment; filename="forgeos-brain.json.gz"' } });
       }
 
-const ADVANCE: Record<string, string> = {
-  proposed: "approved",
-  approved: "executing",
-  executing: "review",
-  review: "done",
-};
-
-// ---------- (missions) in-memory mission store ----------
-type Mission = {
-  id: string;
-  title: string;
-  status: string;
-  phase: string;
-  progress: number;
-  eta: string;
-  dependencies: string[];
-  owner: string;
-};
-const missionStore: Mission[] = [
-  {
-    id: "RFC-0000",
-    title: "RFC-0000 governance build",
-    status: "done",
-    phase: "foundation",
-    progress: 100,
-    eta: "2025-01-01T00:00:00Z",
-    dependencies: [],
-    owner: "cto/cto",
-  },
-  {
-    id: "POOL-E1",
-    title: "PoolLeague E1 backend reconcile",
-    status: "proposed",
-    phase: "backend",
-    progress: 0,
-    eta: "2025-06-01T00:00:00Z",
-    dependencies: ["RFC-0000"],
-    owner: "cto/cto",
-  },
-  {
-    id: "POOL-SUB",
-    title: "PoolLeague submodule conversion",
-    status: "approved",
-    phase: "toolchain",
-    progress: 10,
-    eta: "2025-07-01T00:00:00Z",
-    dependencies: ["RFC-0000"],
-    owner: "coo/coo",
-  },
-];
+      const ADVANCE: Record<string, string> = {
+        proposed: "approved",
+        approved: "executing",
+        executing: "review",
+        review: "done",
+      };
 
       if (p === "/api/missions" && req.method === "GET") {
-        return json({ missions: missionStore });
+        // Include per-mission agent state when available
+        const missionsWithState = missionStore.map((m) => {
+          const ag = agentState.get(m.id);
+          return { ...m, agentState: ag ? { status: ag.status, agent: ag.agent, session: ag.session, startedAt: ag.startedAt } : null };
+        });
+        return json({ missions: missionsWithState });
       }
 
       if (p.startsWith("/api/missions/") && req.method === "PATCH") {
@@ -350,6 +416,23 @@ const missionStore: Mission[] = [
         return json(m);
       }
 
+      // /api/agent/:missionId/status
+      if (p.startsWith("/api/agent/") && p.endsWith("/status")) {
+        const missionId = decodeURIComponent(p.slice("/api/agent/".length, -"/status".length));
+        const st = agentState.get(missionId);
+        if (!st) return json({ error: "no agent state for mission: " + missionId }, 404);
+        return json({ missionId, status: st.status, agent: st.agent, session: st.session, startedAt: st.startedAt });
+      }
+
+      // /api/agent/:missionId/log — last 50 lines
+      if (p.startsWith("/api/agent/") && p.endsWith("/log")) {
+        const missionId = decodeURIComponent(p.slice("/api/agent/".length, -"/log".length));
+        const st = agentState.get(missionId);
+        if (!st) return json({ error: "no agent state for mission: " + missionId }, 404);
+        const last50 = st.log.slice(-50);
+        return json({ missionId, log: last50, total: st.log.length });
+      }
+
       if (p === "/api/agent/dispatch" && req.method === "POST") {
         const body = await req.json();
         const missionId = String(body.missionId ?? "");
@@ -357,13 +440,56 @@ const missionStore: Mission[] = [
         if (!missionId || !agent) return json({ error: "missionId and agent required" }, 400);
         const m = missionStore.find((x) => x.id === missionId);
         if (!m) return json({ error: "mission not found" }, 404);
+
+        // Initialize agent state as pending (will flip to running once tmux launches)
+        const session = `agent-${missionId}-${Date.now()}`;
+        const logFile = `${ROOT}/logs/agent-${missionId}.log`;
+        agentState.set(missionId, {
+          status: "pending",
+          agent,
+          session,
+          startedAt: Date.now(),
+          log: [`[${new Date().toISOString()}] dispatching agent=${agent} mission=${missionId} session=${session}`],
+        });
+
+        // Ensure log directory exists
+        try { await Bun.write(logFile, ""); } catch {}
+
+        // Build the agent command — runs the agent for this mission inside tmux
+        // Consumers override AGENT_CMD via env to plug in their agent runner.
+        const agentCmd = process.env.AGENT_CMD || `echo "agent=${agent} mission=${missionId} — set AGENT_CMD to your runner"`;
+        const tmuxCmd = `tmux new-session -d -s ${session} '${agentCmd} >> ${logFile} 2>&1'`;
+
+        // Spawn tmux detached; don't block the response
+        const tmuxSpawn = Bun.spawn(["bash", "-c", tmuxCmd], {
+          stdout: "pipe", stderr: "pipe", env: { ...process.env },
+        });
+        tmuxSpawn.exited.then(() => {
+          const entry = agentState.get(missionId);
+          if (!entry || entry.status === "failed") return;
+          if (tmuxSpawn.exitCode !== 0) {
+            agentState.set(missionId, { ...entry, status: "failed", log: [...entry.log, `[${new Date().toISOString()}] tmux session failed to start (exit=${tmuxSpawn.exitCode})`] });
+            return;
+          }
+          // Mark as running; tmux session is now active
+          agentState.set(missionId, { ...entry, status: "running", log: [...entry.log, `[${new Date().toISOString()}] tmux session started: ${session}`] });
+        }).catch(() => {
+          const entry = agentState.get(missionId);
+          if (entry) agentState.set(missionId, { ...entry, status: "failed", log: [...entry.log, `[${new Date().toISOString()}] error launching tmux session`] });
+        });
+
+        // Start a tail -f reader on the log file to populate in-memory logs live
+        startLogReader(logFile, missionId);
+
+        // Dispatch the decision capture to the brain (fire-and-forget)
         const dispatchSlug = `decisions/agent-dispatch-${missionId}-${Date.now()}`;
         const dispatchNote = `[dispatch] agent="${agent}" mission=${missionId} status=${m.status} ts=${new Date().toISOString()}`;
         runGbrain(["capture", "--type", "decision", "--slug", dispatchSlug, "--stdin"], {
           stdin: dispatchNote,
           timeoutMs: 30000,
         }).catch(() => {});
-        return json({ queued: true, missionId, agent, decisionSlug: dispatchSlug });
+
+        return json({ queued: true, missionId, agent, session, logFile, decisionSlug: dispatchSlug });
       }
 
       if (p === "/api/timeline" && req.method === "GET") {
