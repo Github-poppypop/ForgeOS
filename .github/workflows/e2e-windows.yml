@@ -1,0 +1,120 @@
+name: E2E Tests (Windows, self-hosted)
+
+on:
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: "Browser for Playwright"
+        required: false
+        default: "chromium"
+        type: choice
+        options:
+          - chromium
+          - firefox
+          - webkit
+      headless:
+        description: "Run browser in headless mode"
+        required: false
+        default: true
+        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - "apps/brain-console/**"
+      - ".github/workflows/e2e-windows.yml"
+
+jobs:
+  e2e:
+    name: Playwright E2E on self-hosted Windows
+    runs-on: [self-hosted, windows, x64]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/brain-console/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/brain-console
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: apps/brain-console
+        run: npx playwright install --with-deps chromium
+
+      - name: Ensure brain-console server is running on :7777
+        id: server
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "SilentlyContinue"
+          $response = Invoke-WebRequest -Uri "http://localhost:7777" -UseBasicParsing -TimeoutSec 5
+          if ($response.StatusCode -eq 200) {
+            Write-Output "Server already running on :7777"
+            echo "was_running=true" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "was_running=false" >> $env:GITHUB_OUTPUT
+          }
+        continue-on-error: true
+
+      - name: Start brain-console server
+        if: steps.server.outputs.was_running != 'true'
+        working-directory: apps/brain-console
+        # Start server in background; it binds to localhost:7777 by default
+        run: |
+          $job = Start-Job -ScriptBlock {
+            Set-Location $using:pwd
+            npm run start
+          }
+          Write-Output "SERVER_JOB_ID=$($job.Id)" >> $env:GITHUB_ENV
+          Write-Host "Waiting for server to become ready ..."
+          $ready = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            try {
+              $r = Invoke-WebRequest -Uri "http://localhost:7777" -UseBasicParsing -TimeoutSec 2
+              if ($r.StatusCode -eq 200) { $ready = $true; break }
+            } catch {}
+            Start-Sleep -Seconds 2
+          }
+          if (-not $ready) {
+            Write-Error "Server did not become ready within 120 s."
+          }
+
+      - name: Run Playwright tests
+        working-directory: apps/brain-console
+        env:
+          BASE_URL: http://localhost:7777
+          CI: "true"
+        run: |
+          npx playwright test --project=chromium --reporter=line
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: apps/brain-console/playwright-report/
+          retention-days: 14
+
+      - name: Upload Playwright trace artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ github.run_id }}
+          path: apps/brain-console/test-results/
+          retention-days: 14
+
+      - name: Stop background server if we started it
+        if: steps.server.outputs.was_running != 'true' && always()
+        shell: pwsh
+        run: |
+          if ($env:SERVER_JOB_ID) {
+            Stop-Job -Id $env:SERVER_JOB_ID -ErrorAction SilentlyContinue
+            Receive-Job -Id $env:SERVER_JOB_ID -ErrorAction SilentlyContinue | Out-Null
+            Remove-Job -Id $env:SERVER_JOB_ID -ErrorAction SilentlyContinue
+          }
+        continue-on-error: true

@@ -17,7 +17,13 @@ const GBRAIN_BIN = process.env.GBRAIN_BIN ?? "bunx";
 const GBRAIN_CWD = process.env.GBRAIN_CWD ?? "C:\\Users\\pop\\forge-gbrain";
 const GBRAIN_HOME = "C:\\ForgeOS";
 const CONSOLE_TOKEN = process.env.CONSOLE_TOKEN || ""; // (41) set to enable auth
-const RATE = Number(process.env.RATE_PER_MIN ?? 120);  // (42)
+const RATE_DEFAULT = Number(process.env.RATE_PER_MIN ?? 5);
+const RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
+  "/api/health":        { limit: 30, windowMs: 60_000 },
+  "/api/health/stream": { limit: 10, windowMs: 60_000 },
+  "/api/capture":       { limit:  2, windowMs: 60_000 },
+  "/api/embed":         { limit:  1, windowMs: 60_000 },
+};
 
 const GBRAIN_ENV: Record<string, string> = {
   ...process.env,
@@ -46,6 +52,8 @@ async function spawnGbrain(args: string[], opts: { stdin?: string; timeoutMs?: n
   const proc = Bun.spawn([GBRAIN_BIN, "gbrain", ...args], {
     stdout: "pipe", stderr: "pipe", stdin: "pipe", env: GBRAIN_ENV, cwd: GBRAIN_CWD,
   });
+  activeChildren.add(proc);
+  proc.exited.then(() => activeChildren.delete(proc)).catch(() => activeChildren.delete(proc));
   if (opts.stdin) { proc.stdin.write(opts.stdin); } proc.stdin.end();
   const t = setTimeout(() => proc.kill(), opts.timeoutMs ?? 60000);
   const [out, err] = await Promise.all([proc.stdout.text(), proc.stderr.text()]);
@@ -69,15 +77,18 @@ function structuredLog(level: string, reqId: string, route: string, status: numb
 }
 
 // ---------- (42) rate limit + logging ----------
-const hits: Record<string, number[]> = {};
-function rateOk(ip: string): number {
-  console.log(`[RATE] ip=${ip} hits=${JSON.stringify(hits[ip])} rate=${RATE}`);
+const hits: Record<string, Record<string, number[]>> = {};
+function rateOk(ip: string, pathname: string): number {
+  const route = RATE_LIMITS[pathname];
+  const limit = route?.limit ?? RATE_DEFAULT;
+  const windowMs = route?.windowMs ?? 60_000;
+  const bucket = (hits[ip] ||= {})[pathname] ||= [];
   const now = Date.now();
-  hits[ip] = (hits[ip] || []).filter(t => now - t < 60000);
-  const remaining = RATE - hits[ip].length;
+  hits[ip][pathname] = bucket.filter(t => now - t < windowMs);
+  const remaining = limit - hits[ip][pathname].length;
   if (remaining <= 0) return 0;
-  hits[ip].push(now);
-  return remaining - 1;
+  hits[ip][pathname].push(now);
+  return remaining;
 }
 function log(req: Request, ms: number, status: number) {
   const id = reqId(req);
@@ -86,10 +97,14 @@ function log(req: Request, ms: number, status: number) {
   return id;
 }
 
-function rateHeaders(ip: string) {
-  const remaining = Math.max(0, RATE - ((hits[ip] || []).filter(t => Date.now() - t < 60000).length));
+function rateHeaders(ip: string, pathname: string) {
+  const route = RATE_LIMITS[pathname];
+  const limit = route?.limit ?? RATE_DEFAULT;
+  const windowMs = route?.windowMs ?? 60_000;
+  const bucket = (hits[ip] || {})[pathname] || [];
+  const remaining = Math.max(0, limit - bucket.filter(t => Date.now() - t < windowMs).length);
   return {
-    "x-ratelimit-limit": String(RATE),
+    "x-ratelimit-limit": String(limit),
     "x-ratelimit-remaining": String(remaining),
   };
 }
@@ -127,11 +142,15 @@ async function ollamaOk() {
 
 // ---------- (43) SSE health stream ----------
 const healthClients = new Set<WritableStreamDefaultWriter>();
-setInterval(() => {
+let healthInterval: ReturnType<typeof setInterval> | undefined;
+healthInterval = setInterval(() => {
   if (!healthClients.size) return;
   const payload = `data: ${JSON.stringify({ ts: Date.now(), ok: true })}\n\n`;
   healthClients.forEach(w => { try { w.write(payload); } catch { healthClients.delete(w); } });
 }, 5000);
+
+// Track active child processes so they can be killed on SIGTERM/SIGINT.
+const activeChildren = new Set<Bun.ChildProcess>();
 
 // ---------- (missions) in-memory mission store ----------
 type Mission = {
@@ -224,7 +243,7 @@ const server = serve({
 
     // (41) auth on API + SSE
     if (p.startsWith("/api/") && !authed(req)) { log(req, Date.now() - t0, 401); return json({ error: "unauthorized" }, 401); }
-    if (p.startsWith("/api/") && !rateOk(ip)) { log(req, Date.now() - t0, 429); return json({ error: "rate limited" }, 429, rateHeaders(ip)); }
+    if (p.startsWith("/api/") && !rateOk(ip, p)) { log(req, Date.now() - t0, 429); return json({ error: "rate limited" }, 429, rateHeaders(ip, p)); }
 
     // (43) SSE
     if (p === "/api/health/stream") {
@@ -565,3 +584,15 @@ function listVault(base: string): string[] {
 }
 
 console.log(`[forgeos-console] on http://127.0.0.1:${CONSOLE_PORT}  (owns PGLite at C:\\ForgeOS)${CONSOLE_TOKEN ? " [auth ON]" : ""}`);
+
+// Graceful cleanup: terminate child processes and SSE clients on exit signals.
+async function cleanup(why) {
+  console.log(`[${why}] cleaning up`);
+  for (const c of activeChildren) { try { c.kill("SIGTERM"); } catch {} }
+  activeChildren.clear();
+  for (const w of healthClients) { try { w.close(); } catch {} }
+  healthClients.clear();
+  await Bun.sleep(500);
+}
+process.on("SIGTERM", () => { cleanup("SIGTERM").finally(() => process.exit(0)); });
+process.on("SIGINT", () => { cleanup("SIGINT").finally(() => process.exit(0)); });
