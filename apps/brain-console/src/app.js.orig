@@ -313,43 +313,16 @@ async function renderLedger() {
     </tr>`).join("")}</tbody></table></div>`;
 }
 
-// ---------- missions live state ----------
-let missionRefreshTimer = null;
-let missionLogTimer = null;
-let activeLogMissionId = null;
-
 async function renderMissions() {
   crumb([["ForgeOS", "#/command"], ["Missions"]]);
-  if (missionRefreshTimer) clearInterval(missionRefreshTimer);
-  if (missionLogTimer) clearInterval(missionLogTimer);
-  missionRefreshTimer = null;
-  missionLogTimer = null;
-  activeLogMissionId = null;
-  
   $("#main").innerHTML = skelGrid(3, 200);
   const { missions } = await safe(api.missions).catch(() => ({ missions: [] }));
-  
   const statusPill = (s) => {
-    const cls = { done:"ok", running:"ok", executing:"ok", pending:"warn", failed:"bad", review:"warn", proposed:"warn", approved:"ok", error:"bad" }[s] || "";
+    const cls = { done:"ok", executing:"ok", review:"warn", proposed:"warn", approved:"ok" }[s] || "";
     return `<span class="pill ${cls}"><span class="dot"></span>${s}</span>`;
   };
-  
   const pct = (p) => `<div style="width:120px"><div class="progress-track"><div class="progress-bar" style="width:${p}%"></div></div><span class="muted">${p}%</span></div>`;
-  
-  const agentOptions = Array.from({length: 10}, (_, i) => `agent-${i+1}`).map(a => 
-    `<option value="${DOMPurify.sanitize(a)}">${DOMPurify.sanitize(a)}</option>`
-  ).join("");
-  
-  const page = Number(new URLSearchParams(location.hash.split("?")[1] || "").get("page") || "1");
-  const statusFilter = new URLSearchParams(location.hash.split("?")[1] || "").get("status") || "";
-  
-  let filtered = missions;
-  if (statusFilter) {
-    filtered = missions.filter(m => m.status === statusFilter);
-  }
-  
-  const p = paginate(filtered, page, 10);
-  
+  const agentList = ["cto/cto","coo/coo","exec/ceo","cfo/cfo"];
   $("#main").innerHTML = `<h1>Mission Center</h1>
     <div class="card" style="margin-bottom:16px">
       <h2>Agent Dispatch</h2>
@@ -361,76 +334,26 @@ async function renderMissions() {
         </select>
         <select id="d-agent" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
           <option value="">agent…</option>
-          ${agentOptions}
+          ${agentList.map(a => `<option value="${DOMPurify.sanitize(a)}">${DOMPurify.sanitize(a)}</option>`).join("")}
         </select>
         <button class="btn primary" id="d-go">Dispatch</button>
         <pre id="d-out" class="code json" style="margin-top:8px;min-height:0"></pre>
       </div>
     </div>
-    <div class="card">
-      <h2>Missions</h2>
-      <div class="row" style="margin-bottom:8px;gap:8px">
-        <span class="muted">Filter:</span>
-        <select id="m-filter" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
-          <option value="">all</option>
-          <option value="pending" ${statusFilter==="pending"?"selected":""}>pending</option>
-          <option value="running" ${statusFilter==="running"?"selected":""}>running</option>
-          <option value="done" ${statusFilter==="done"?"selected":""}>done</option>
-          <option value="failed" ${statusFilter==="failed"?"selected":""}>failed</option>
-        </select>
-      </div>
-      <table class="tbl"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Phase</th><th>Progress</th><th>ETA</th><th>Dependencies</th><th>Owner</th><th></th></tr></thead>
-      <tbody>${p.items.map(m => `<tr>
-        <td class="mono">${DOMPurify.sanitize(m.id)}</td>
-        <td>${DOMPurify.sanitize(m.title)}</td>
-        <td>${statusPill(m.status)}</td>
-        <td>${DOMPurify.sanitize(m.phase)}</td>
-        <td>${pct(m.progress)}</td>
-        <td class="mono" style="white-space:nowrap">${DOMPurify.sanitize(m.eta ? m.eta.slice(0,10) : "—")}</td>
-        <td>${(m.dependencies||[]).map(d => `<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(d)}</span>`).join(" ") || "<span class='muted'>none</span>"}</td>
-        <td>${DOMPurify.sanitize(m.owner)}</td>
-        <td>
-          ${m.status !== "done" ? `<button class="btn secondary" data-a="${DOMPurify.sanitize(m.id)}">Advance →</button>` : "✓"}
-          <button class="btn secondary" data-log="${DOMPurify.sanitize(m.id)}">Logs</button>
-        </td>
-      </tr>`).join("")}</tbody></table>
-      ${paginationControls(p)}
-      <div id="log-viewer" class="card" style="margin-top:12px;display:none">
-        <div class="row" style="justify-content:space-between">
-          <h2>Mission Logs <span id="log-mid" class="mono muted"></span></h2>
-          <button class="btn secondary" id="log-close">Close</button>
-        </div>
-        <pre id="log-content" class="code json" style="max-height:300px;overflow:auto;margin-top:8px"></pre>
-      </div>
-    </div>`;
-  
-  // Pagination handlers
-  $$("#main [data-page]").forEach(b => {
-    b.addEventListener("click", () => {
-      const url = new URL(location);
-      const qs = new URLSearchParams(location.hash.split("?")[1] || "");
-      qs.set("page", b.dataset.page);
-      if (statusFilter) qs.set("status", statusFilter);
-      url.hash = `#/missions?${qs.toString()}`;
-      location.hash = url.hash;
-    });
-  });
-  
-  // Filter handler
-  const filterEl = $("#m-filter");
-  if (filterEl) {
-    filterEl.addEventListener("change", () => {
-      const url = new URL(location);
-      const qs = new URLSearchParams();
-      if (filterEl.value) qs.set("status", filterEl.value);
-      qs.set("page", "1");
-      url.hash = `#/missions?${qs.toString()}`;
-      location.hash = url.hash;
-    });
-  }
-  
-  // Advance handlers
-  $$("#main [data-a]").forEach(b => {
+    <div class="card"><h2>Missions</h2>
+    <table class="tbl"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Phase</th><th>Progress</th><th>ETA</th><th>Dependencies</th><th>Owner</th><th></th></tr></thead>
+    <tbody>${missions.map(m => `<tr>
+      <td class="mono">${DOMPurify.sanitize(m.id)}</td>
+      <td>${DOMPurify.sanitize(m.title)}</td>
+      <td>${statusPill(m.status)}</td>
+      <td>${DOMPurify.sanitize(m.phase)}</td>
+      <td>${pct(m.progress)}</td>
+      <td class="mono" style="white-space:nowrap">${DOMPurify.sanitize(m.eta ? m.eta.slice(0,10) : "—")}</td>
+      <td>${(m.dependencies||[]).map(d => `<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(d)}</span>`).join(" ") || "<span class='muted'>none</span>"}</td>
+      <td>${DOMPurify.sanitize(m.owner)}</td>
+      <td>${m.status !== "done" ? `<button class="btn secondary" data-a="${DOMPurify.sanitize(m.id)}" ${m.status==="done"?"disabled":""}>Advance →</button>` : "✓"}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+  $$("#main [data-a]").forEach(b =>
     b.addEventListener("click", async () => {
       const id = b.dataset.a;
       b.disabled = true; b.textContent = "…";
@@ -438,52 +361,8 @@ async function renderMissions() {
       const m = r && r.id ? r : null;
       if (m && m.status) { toast(`${id} → ${m.status}`, "ok"); renderMissions(); }
       else toast("advance failed: " + (r?.error || "?"), "err");
-    });
-  });
-  
-  // Log handlers
-  $$("#main [data-log]").forEach(b => {
-    b.addEventListener("click", () => {
-      activeLogMissionId = b.dataset.log;
-      const viewer = $("#log-viewer");
-      const content = $("#log-content");
-      const midLabel = $("#log-mid");
-      if (viewer) {
-        viewer.style.display = "block";
-        if (midLabel) midLabel.textContent = activeLogMissionId;
-        if (content) content.textContent = "loading…";
-      }
-      if (missionLogTimer) clearInterval(missionLogTimer);
-      missionLogTimer = setInterval(async () => {
-        if (!activeLogMissionId) return;
-        try {
-          const r = await safe(() => fetch(`/api/agent/${encodeURIComponent(activeLogMissionId)}/log`).then(r => {
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            return r.json();
-          })).catch(() => ({ log: "" }));
-          const contentEl = $("#log-content");
-          if (contentEl) contentEl.textContent = r.log || "no logs yet";
-        } catch (e) {
-          const contentEl = $("#log-content");
-          if (contentEl) contentEl.textContent = "log error: " + errMsg(e);
-        }
-      }, 2000);
-    });
-  });
-  
-  // Close log viewer
-  const logClose = $("#log-close");
-  if (logClose) {
-    logClose.addEventListener("click", () => {
-      if (missionLogTimer) clearInterval(missionLogTimer);
-      missionLogTimer = null;
-      activeLogMissionId = null;
-      const viewer = $("#log-viewer");
-      if (viewer) viewer.style.display = "none";
-    });
-  }
-  
-  // Dispatch handler
+    })
+  );
   const dGo = $("#d-go");
   if (dGo) dGo.addEventListener("click", async () => {
     const mid = $("#d-mid").value;
@@ -494,105 +373,7 @@ async function renderMissions() {
     if (out) out.textContent = JSON.stringify(r, null, 2);
     toast(r?.queued ? `dispatched ${agent} on ${mid}` : "dispatch failed", r?.queued ? "ok" : "err");
   });
-  
-  // Auto-refresh missions every 5s
-  missionRefreshTimer = setInterval(() => {
-    safe(api.missions).then(({ missions }) => {
-      const currentFilter = $("#m-filter")?.value || "";
-      let filtered = missions;
-      if (currentFilter) {
-        filtered = missions.filter(m => m.status === currentFilter);
-      }
-      
-      const currentPage = Number(new URLSearchParams(location.hash.split("?")[1] || "").get("page") || "1");
-      const totalPages = Math.max(1, Math.ceil(filtered.length / 10));
-      const page = Math.max(1, Math.min(currentPage, totalPages));
-      const p = paginate(filtered, page, 10);
-      
-      const tbody = $("#main tbody");
-      if (tbody) {
-        tbody.innerHTML = p.items.map(m => `<tr>
-          <td class="mono">${DOMPurify.sanitize(m.id)}</td>
-          <td>${DOMPurify.sanitize(m.title)}</td>
-          <td>${statusPill(m.status)}</td>
-          <td>${DOMPurify.sanitize(m.phase)}</td>
-          <td>${pct(m.progress)}</td>
-          <td class="mono" style="white-space:nowrap">${DOMPurify.sanitize(m.eta ? m.eta.slice(0,10) : "—")}</td>
-          <td>${(m.dependencies||[]).map(d => `<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(d)}</span>`).join(" ") || "<span class='muted'>none</span>"}</td>
-          <td>${DOMPurify.sanitize(m.owner)}</td>
-          <td>
-            ${m.status !== "done" ? `<button class="btn secondary" data-a="${DOMPurify.sanitize(m.id)}">Advance →</button>` : "✓"}
-            <button class="btn secondary" data-log="${DOMPurify.sanitize(m.id)}">Logs</button>
-          </td>
-        </tr>`).join("");
-        
-        tbody.querySelectorAll("[data-a]").forEach(b => {
-          b.addEventListener("click", async () => {
-            const id = b.dataset.a;
-            b.disabled = true; b.textContent = "…";
-            const r = await safe(() => api.advanceMission(id, {})).catch(e => ({ error: errMsg(e) }));
-            const m = r && r.id ? r : null;
-            if (m && m.status) { toast(`${id} → ${m.status}`, "ok"); renderMissions(); }
-            else toast("advance failed: " + (r?.error || "?"), "err");
-          });
-        });
-        
-        tbody.querySelectorAll("[data-log]").forEach(b => {
-          b.addEventListener("click", () => {
-            activeLogMissionId = b.dataset.log;
-            const viewer = $("#log-viewer");
-            const content = $("#log-content");
-            const midLabel = $("#log-mid");
-            if (viewer) {
-              viewer.style.display = "block";
-              if (midLabel) midLabel.textContent = activeLogMissionId;
-              if (content) content.textContent = "loading…";
-            }
-            if (missionLogTimer) clearInterval(missionLogTimer);
-            missionLogTimer = setInterval(async () => {
-              if (!activeLogMissionId) return;
-              try {
-                const r = await safe(() => fetch(`/api/agent/${encodeURIComponent(activeLogMissionId)}/log`).then(r => {
-                  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                  return r.json();
-                })).catch(() => ({ log: "" }));
-                const contentEl = $("#log-content");
-                if (contentEl) contentEl.textContent = r.log || "no logs yet";
-              } catch (e) {
-                const contentEl = $("#log-content");
-                if (contentEl) contentEl.textContent = "log error: " + errMsg(e);
-              }
-            }, 2000);
-          });
-        });
-      }
-      
-      // Update pagination controls
-      const pagEl = $("#main .pagination");
-      if (pagEl && p.total > 1) {
-        pagEl.innerHTML = `
-          <button class="btn secondary" ${p.hasPrev ? "" : "disabled"} data-page="${p.page - 1}">← Prev</button>
-          <span class="muted">Page ${p.page} / ${p.total}</span>
-          <button class="btn secondary" ${p.hasNext ? "" : "disabled"} data-page="${p.page + 1}">Next →</button>
-        `;
-        pagEl.querySelectorAll("[data-page]").forEach(b => {
-          b.addEventListener("click", () => {
-            const url = new URL(location);
-            const qs = new URLSearchParams(location.hash.split("?")[1] || "");
-            qs.set("page", b.dataset.page);
-            const currentFilter = $("#m-filter")?.value || "";
-            if (currentFilter) qs.set("status", currentFilter);
-            url.hash = `#/missions?${qs.toString()}`;
-            location.hash = url.hash;
-          });
-        });
-      } else if (pagEl) {
-        pagEl.innerHTML = "";
-      }
-    }).catch(() => {});
-  }, 5000);
 }
-
 
 async function renderMCP() {
   crumb([["ForgeOS", "#/dashboard"], ["MCP"]]);
@@ -793,7 +574,7 @@ async function renderGovernance() {
     </div>`;
   };
   $("#main").innerHTML = `
-    <h1>Governance <span class="pill ok"><span class="dot"></span> sacred</span> <span class="pill"><span class="dot"></span> ${DOMPurify.sanitize(gov.gitDate || "")}</span></h1>
+    <h1>Governance <span class="pill ok"><span class="dot"></span> sacred</span></h1>
     <p class="muted">Single source of truth. Immutable except by constitutional amendment.
       Authority: <span class="mono">${DOMPurify.sanitize(gov.authority || "")}</span></p>
     <div class="grid cols-3">

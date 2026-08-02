@@ -1,0 +1,1096 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ForgeOS Brain Console API",
+    "version": "1.0.0",
+    "description": "REST API for the ForgeOS Brain Console \u2014 governance, missions, agent dispatch, semantic search, and brain backup."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:7777",
+      "description": "Local development"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "CONSOLE_TOKEN"
+      }
+    },
+    "schemas": {
+      "Mission": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "status",
+          "phase",
+          "progress",
+          "eta",
+          "dependencies",
+          "owner"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "RFC-0000"
+          },
+          "title": {
+            "type": "string",
+            "example": "RFC-0000 governance build"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "approved",
+              "executing",
+              "review",
+              "done"
+            ],
+            "example": "done"
+          },
+          "phase": {
+            "type": "string",
+            "example": "foundation"
+          },
+          "progress": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 100
+          },
+          "eta": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-01-01T00:00:00Z"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": []
+          },
+          "owner": {
+            "type": "string",
+            "example": "cto/cto"
+          }
+        }
+      },
+      "MissionPatch": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Advance mission status (proposed\u2192approved\u2192executing\u2192review\u2192done)"
+          },
+          "progress": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "phase": {
+            "type": "string"
+          }
+        }
+      },
+      "AgentDispatchRequest": {
+        "type": "object",
+        "required": [
+          "missionId",
+          "agent"
+        ],
+        "properties": {
+          "missionId": {
+            "type": "string",
+            "example": "RFC-0000"
+          },
+          "agent": {
+            "type": "string",
+            "example": "cto/cto"
+          }
+        }
+      },
+      "AgentDispatchResponse": {
+        "type": "object",
+        "properties": {
+          "queued": {
+            "type": "boolean",
+            "example": true
+          },
+          "missionId": {
+            "type": "string"
+          },
+          "agent": {
+            "type": "string"
+          },
+          "session": {
+            "type": "string",
+            "example": "agent-RFC-0000-1710000000000"
+          },
+          "logFile": {
+            "type": "string"
+          },
+          "decisionSlug": {
+            "type": "string"
+          }
+        }
+      },
+      "AgentStatusResponse": {
+        "type": "object",
+        "properties": {
+          "missionId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "failed"
+            ]
+          },
+          "agent": {
+            "type": "string"
+          },
+          "session": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "integer"
+          }
+        }
+      },
+      "CaptureRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "body"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "decisions/my-decision"
+          },
+          "type": {
+            "type": "string",
+            "default": "note",
+            "example": "decision"
+          },
+          "body": {
+            "type": "string",
+            "example": "We will adopt Ollama for local embeddings."
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          },
+          "ts": {
+            "type": "integer",
+            "example": 1710000000000
+          }
+        }
+      },
+      "StatusResponse": {
+        "type": "object",
+        "properties": {
+          "console_port": {
+            "type": "integer",
+            "example": 7777
+          },
+          "gbrain_health": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "example": "ok"
+              },
+              "engine": {
+                "type": "string",
+                "example": "pglite"
+              },
+              "owned_by": {
+                "type": "string",
+                "example": "console"
+              }
+            }
+          },
+          "schema": {
+            "type": "string"
+          },
+          "ollama": {
+            "type": "boolean",
+            "example": true
+          },
+          "embedding_model": {
+            "type": "string",
+            "example": "ollama:mxbai-embed-large (1024d, local)"
+          },
+          "isolation": {
+            "type": "string"
+          },
+          "auth": {
+            "type": "boolean",
+            "example": false
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "string"
+          }
+        }
+      },
+      "BrainMeta": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "home": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "isolated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BrainsResponse": {
+        "type": "object",
+        "properties": {
+          "current": {
+            "type": "string"
+          },
+          "brains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrainMeta"
+            }
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Lightweight health check (no gbrain dependency)",
+        "responses": {
+          "200": {
+            "description": "Health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "ok": true,
+                  "ts": 1710000000000
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health/stream": {
+      "get": {
+        "summary": "SSE live health stream (5s heartbeat)",
+        "responses": {
+          "200": {
+            "description": "SSE stream",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "data: {\"ts\":1710000000000,\"ok\":true}\n\n"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "summary": "Brain + console status",
+        "responses": {
+          "200": {
+            "description": "Full status payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                },
+                "example": {
+                  "console_port": 7777,
+                  "gbrain_health": {
+                    "status": "ok",
+                    "engine": "pglite",
+                    "owned_by": "console"
+                  },
+                  "schema": "",
+                  "ollama": true,
+                  "embedding_model": "ollama:mxbai-embed-large (1024d, local)",
+                  "isolation": "C:\\ForgeOS (separate from personal vaults & app brains)",
+                  "auth": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/brains": {
+      "get": {
+        "summary": "Multi-brain metadata",
+        "responses": {
+          "200": {
+            "description": "Brain registry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrainsResponse"
+                },
+                "example": {
+                  "current": "forgeos",
+                  "brains": [
+                    {
+                      "id": "forgeos",
+                      "home": "C:\\ForgeOS",
+                      "role": "root",
+                      "isolated": true
+                    },
+                    {
+                      "id": "lifeos",
+                      "home": "C:\\Projects\\ForgeOS\\apps\\lifeos\\.gbrain",
+                      "role": "app-child",
+                      "isolated": true
+                    }
+                  ],
+                  "note": "Switch GBRAIN_HOME + restart console to mount a different isolated brain."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles": {
+      "get": {
+        "summary": "C-suite role rows from gbrain",
+        "responses": {
+          "200": {
+            "description": "Role list",
+            "content": {
+              "application/json": {
+                "example": {
+                  "roles": [
+                    {
+                      "slug": "board/board",
+                      "role": "Board",
+                      "reports_to": "charter",
+                      "exists": true
+                    },
+                    {
+                      "slug": "exec/ceo",
+                      "role": "CEO",
+                      "reports_to": "board",
+                      "exists": true
+                    },
+                    {
+                      "slug": "cto/cto",
+                      "role": "CTO",
+                      "reports_to": "ceo",
+                      "exists": true
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/missions": {
+      "get": {
+        "summary": "Mission list with optional agent state",
+        "responses": {
+          "200": {
+            "description": "Mission registry",
+            "content": {
+              "application/json": {
+                "example": {
+                  "missions": [
+                    {
+                      "id": "RFC-0000",
+                      "title": "RFC-0000 governance build",
+                      "status": "done",
+                      "phase": "foundation",
+                      "progress": 100,
+                      "eta": "2025-01-01T00:00:00Z",
+                      "dependencies": [],
+                      "owner": "cto/cto",
+                      "agentState": null
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/missions/{id}": {
+      "patch": {
+        "summary": "Advance mission status or update progress/phase",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "RFC-0000"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MissionPatch"
+              },
+              "example": {
+                "status": "approved",
+                "progress": 10
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated mission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mission"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Mission not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent/dispatch": {
+      "post": {
+        "summary": "Dispatch an agent to a mission (tmux-backed)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentDispatchRequest"
+              },
+              "example": {
+                "missionId": "RFC-0000",
+                "agent": "cto/cto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dispatch queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentDispatchResponse"
+                },
+                "example": {
+                  "queued": true,
+                  "missionId": "RFC-0000",
+                  "agent": "cto/cto",
+                  "session": "agent-RFC-0000-1710000000000",
+                  "logFile": "C:\\Projects\\ForgeOS\\apps\\brain-console\\logs\\agent-RFC-0000.log",
+                  "decisionSlug": "decisions/agent-dispatch-RFC-0000-1710000000000"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Mission not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent/{missionId}/status": {
+      "get": {
+        "summary": "Agent execution status for a mission",
+        "parameters": [
+          {
+            "name": "missionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "RFC-0000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentStatusResponse"
+                },
+                "example": {
+                  "missionId": "RFC-0000",
+                  "status": "running",
+                  "agent": "cto/cto",
+                  "session": "agent-RFC-0000-1710000000000",
+                  "startedAt": 1710000000000
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No agent state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent/{missionId}/log": {
+      "get": {
+        "summary": "Last 50 log lines for an agent mission",
+        "parameters": [
+          {
+            "name": "missionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "RFC-0000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Log lines",
+            "content": {
+              "application/json": {
+                "example": {
+                  "missionId": "RFC-0000",
+                  "log": [
+                    "[2026-08-02T10:00:00.000Z] dispatching agent=cto/cto mission=RFC-0000 session=agent-RFC-0000-1710000000000",
+                    "[2026-08-02T10:00:05.000Z] tmux session started: agent-RFC-0000-1710000000000"
+                  ],
+                  "total": 2
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No agent state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/page/{slug}": {
+      "get": {
+        "summary": "Get a brain page by slug",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "decisions/agent-dispatch-RFC-0000-1710000000000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page body",
+            "content": {
+              "application/json": {
+                "example": {
+                  "slug": "decisions/agent-dispatch-RFC-0000-1710000000000",
+                  "body": "[dispatch] agent=\"cto/cto\" mission=RFC-0000 status=done ts=2026-08-02T10:00:00.000Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search": {
+      "get": {
+        "summary": "Semantic search via Ollama",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "governance constitution"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                },
+                "example": {
+                  "query": "governance constitution",
+                  "raw": "..."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture": {
+      "post": {
+        "summary": "Capture a page into the brain",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureRequest"
+              },
+              "example": {
+                "slug": "notes/standup",
+                "type": "note",
+                "body": "Today we shipped Mission Center."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Capture result",
+            "content": {
+              "application/json": {
+                "example": {
+                  "slug": "notes/standup",
+                  "out": "...",
+                  "err": ""
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/embed": {
+      "post": {
+        "summary": "Re-embed all pages (Ollama)",
+        "responses": {
+          "200": {
+            "description": "Embed result",
+            "content": {
+              "application/json": {
+                "example": {
+                  "out": "embedded 124 pages",
+                  "err": ""
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vault": {
+      "get": {
+        "summary": "Obsidian vault file list",
+        "responses": {
+          "200": {
+            "description": "Vault inventory",
+            "content": {
+              "application/json": {
+                "example": {
+                  "base": "C:\\ForgeOS\\vault",
+                  "files": [
+                    "daily/2026-08-02.md",
+                    "projects/forgeos/roadmap.md"
+                  ],
+                  "git": "branch master (untracked role pages)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/federation": {
+      "get": {
+        "summary": "Brain federation topology",
+        "responses": {
+          "200": {
+            "description": "Federation graph",
+            "content": {
+              "application/json": {
+                "example": {
+                  "root": "ForgeOS (C:\\ForgeOS\\.gbrain)",
+                  "model": "federated: read-down only, write-up governance only, no lateral mingle",
+                  "children": [
+                    "apps/lifeos (isolated child brain)"
+                  ],
+                  "see": "knowledge-universe/BRAIN-FEDERATION.md"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/audit": {
+      "get": {
+        "summary": "Audit trail (gbrain list --json)",
+        "responses": {
+          "200": {
+            "description": "Audit records",
+            "content": {
+              "application/json": {
+                "example": {
+                  "raw": "[{\"type\":\"decision\",\"slug\":\"decisions/...\",\"ts\":\"2026-08-02T10:00:00Z\"}]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/schema": {
+      "get": {
+        "summary": "Active schema pack",
+        "responses": {
+          "200": {
+            "description": "Schema output",
+            "content": {
+              "application/json": {
+                "example": {
+                  "active": "...",
+                  "types": "..."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backup": {
+      "post": {
+        "summary": "Download brain zip (gzip JSON bundle)",
+        "responses": {
+          "200": {
+            "description": "Gzipped brain bundle",
+            "content": {
+              "application/gzip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "example": "(binary)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/timeline": {
+      "get": {
+        "summary": "Project timeline",
+        "responses": {
+          "200": {
+            "description": "Timeline items",
+            "content": {
+              "application/json": {
+                "example": {
+                  "timeline": [
+                    {
+                      "id": "t1",
+                      "title": "RFC-0000 ratified",
+                      "date": "2026-07-22",
+                      "status": "done",
+                      "owner": "cto/cto"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ledger": {
+      "get": {
+        "summary": "Decision ledger",
+        "responses": {
+          "200": {
+            "description": "Ledger entries",
+            "content": {
+              "application/json": {
+                "example": {
+                  "ledger": [
+                    {
+                      "id": "l1",
+                      "title": "RFC-0000 approval",
+                      "type": "approval",
+                      "date": "2026-07-22",
+                      "mission": "RFC-0000",
+                      "outcome": "approved"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/org": {
+      "get": {
+        "summary": "Organization roles",
+        "responses": {
+          "200": {
+            "description": "Org hierarchy",
+            "content": {
+              "application/json": {
+                "example": {
+                  "name": "ForgeOS Engineering Organization",
+                  "roles": [
+                    {
+                      "id": "cto/cto",
+                      "title": "CTO",
+                      "reportsTo": "exec/ceo",
+                      "responsibilities": [
+                        "architecture",
+                        "engineering",
+                        "ai-governance"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/governance": {
+      "get": {
+        "summary": "Governance source-of-truth index",
+        "responses": {
+          "200": {
+            "description": "Governance tree",
+            "content": {
+              "application/json": {
+                "example": {
+                  "base": "C:\\Projects\\ForgeOS\\governance",
+                  "sacred": true,
+                  "authority": "Constitution > Laws > Standards > RFCs > Missions > Code",
+                  "tree": {
+                    "constitution": [
+                      "Constitution.md"
+                    ],
+                    "standards": [],
+                    "rfcs": [
+                      "RFC-0000.md"
+                    ],
+                    "laws": [
+                      "AIEthics.md",
+                      "EngineeringLaws.md",
+                      "SecurityPrinciples.md"
+                    ],
+                    "roadmap": []
+                  },
+                  "gitDate": "2026-08-02"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/diff": {
+      "get": {
+        "summary": "Diff two pages (not implemented)",
+        "parameters": [
+          {
+            "name": "left",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "page-a"
+          },
+          {
+            "name": "right",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "page-b"
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "Not implemented",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "not implemented",
+                  "status": 501,
+                  "note": "gbrain does not expose a diff subcommand; governance diff requires manual page comparison or a future gbrain feature."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openapi": {
+      "get": {
+        "summary": "Legacy inline OpenAPI summary (use openapi.json instead)",
+        "responses": {
+          "200": {
+            "description": "Inline summary"
+          }
+        }
+      }
+    }
+  }
+}

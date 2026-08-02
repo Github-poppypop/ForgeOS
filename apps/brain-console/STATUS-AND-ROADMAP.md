@@ -130,3 +130,66 @@ consuming `/services` and `/marketplace`. `poolleague` is the existing reference
 ---
 
 _Next action suggested: `bun add -d @playwright/test && bunx playwright install chromium && bunx playwright test`._
+
+---
+
+## 4. PHASE 6–10 COMPLETIONS
+
+_Generated 2026-08-02. Tracks `apps/brain-console` implementation phases._
+
+### Phase 6 — Multi-brain & Backup
+| Item | State | Evidence |
+|------|-------|----------|
+| `/api/brains` endpoint | **SHIPPED** | Returns root `forgeos` + child `lifeos` metadata |
+| `GBRAIN_HOME` isolation | **VERIFIED** | Root brain at `C:\ForgeOS`, child at `apps/lifeos/.gbrain` |
+| `/api/backup` POST | **SHIPPED** | Returns `forgeos-brain.json.gz` bundle of PGLite files |
+| Brain backup format | **IMPLEMENTED** | Gzip-compressed JSON with base64 entries |
+
+### Phase 7 — Observability & Hardening
+| Item | State | Evidence |
+|------|-------|----------|
+| `/api/health/stream` SSE | **SHIPPED** | 5s heartbeat, `text/event-stream` content type |
+| Structured request logging | **SHIPPED** | JSON logs with `ts`, `level`, `reqId`, `route`, `status`, `msg` |
+| Rate limiting | **SHIPPED** | Per-route buckets + `X-RateLimit-Remaining` headers |
+| `CONSOLE_TOKEN` auth gate | **SHIPPED** | Bearer token check on all `/api/*` routes |
+| Graceful shutdown | **SHIPPED** | `SIGTERM`/`SIGINT` handlers kill children + close SSE writers |
+| Security headers | **SHIPPED** | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` |
+| Async gbrain mutex | **SHIPPED** | Single-writer guarantee for PGLite exclusivity |
+
+### Phase 8 — Governance Enforcement
+| Item | State | Evidence |
+|------|-------|----------|
+| `/api/governance` endpoint | **SHIPPED** | Returns file tree for constitution, laws, standards, RFCs, roadmap |
+| Sacred path protection | **SHIPPED** | `capture` rejects slugs containing `/`, `\`, or `..` |
+| Authority chain UI | **SHIPPED** | Visual tree in governance panel (Constitution > Laws > ...) |
+| Governance immutability | **DOCUMENTED** | ADRs immutable once merged; supersede via new ADR |
+
+### Phase 9 — Agent Runtime & Dispatch
+| Item | State | Evidence |
+|------|-------|----------|
+| `/api/agent/dispatch` | **SHIPPED** | Creates tmux session, initializes `AgentState`, captures decision |
+| `/api/agent/{id}/status` | **SHIPPED** | Returns `pending` / `running` / `done` / `failed` |
+| `/api/agent/{id}/log` | **SHIPPED** | Returns last 50 log lines with total count |
+| `tail -f` log streaming | **SHIPPED** | `startLogReader` pipes tmux log into in-memory array |
+| Decision ledger writeback | **SHIPPED** | Auto-captures `decisions/agent-dispatch-<missionId>-<ts>` |
+| `AGENT_CMD` override | **SUPPORTED** | Env var allows custom runner instead of default echo |
+
+### Phase 10 — Documentation & Community
+| Item | State | Evidence |
+|------|-------|----------|
+| Full OpenAPI spec | **SHIPPED** | `apps/brain-console/openapi.json` — 3.0.3, all routes, schemas, examples |
+| Developer docs: plugins | **SHIPPED** | `docs/developers/plugins.md` — manifest, lifecycle, panel API, governance |
+| Developer docs: agents | **SHIPPED** | `docs/developers/agents.md` — spec, dispatch protocol, safety, troubleshooting |
+| Developer docs: themes | **SHIPPED** | `docs/developers/themes.md` — manifest, CSS vars, accessibility, loading |
+| Video tutorial: setup | **SHIPPED** | `docs/tutorials/setup.md` — 6 scene script with timing & production notes |
+| Video tutorial: agent dispatch | **SHIPPED** | `docs/tutorials/agent-dispatch.md` — 6 scene script with timing & production notes |
+| Video tutorial: governance workflow | **SHIPPED** | `docs/tutorials/governance-workflow.md` — 6 scene script with timing & production notes |
+| Community templates: agents | **SHIPPED** | `templates/agents/agent-template-platform.md`, `agent-template-senior.md` |
+| Community templates: missions | **SHIPPED** | `templates/missions/mission-template-feature.md`, `mission-template-bugfix.md` |
+| Changelog | **SHIPPED** | `CHANGELOG.md` — Keep a Changelog + SemVer from 0.0.1 through unreleased |
+| Roadmap update | **SHIPPED** | `STATUS-AND-ROADMAP.md` — this section |
+
+---
+
+_Next action: execute Playwright e2e (`bunx playwright test`) and run the smoke
+script against all `/api/*` routes to close the #1 remaining gap (enhancement #43)._

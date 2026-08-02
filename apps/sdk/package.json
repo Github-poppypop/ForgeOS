@@ -1,0 +1,43 @@
+{
+  "name": "@forgeos/sdk",
+  "version": "1.0.0",
+  "description": "ForgeOS External App SDK — build apps that integrate with the ForgeOS Brain Console",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "typecheck": "bunx tsc --noEmit src/index.ts"
+  },
+  "keywords": [
+    "forgeos",
+    "brain-console",
+    "gbrain",
+    "federation",
+    "webhooks",
+    "plugins"
+  ],
+  "author": "ForgeOS",
+  "license": "MIT",
+  "peerDependencies": {
+    "bun": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "typescript": "^5.5.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./types": {
+      "import": "./src/types.ts",
+      "types": "./src/types.ts"
+    }
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ]
+}
