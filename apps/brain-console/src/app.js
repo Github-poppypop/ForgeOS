@@ -708,6 +708,7 @@ function renderConfig() {
       <select id="theme" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
         <option value="dark" ${theme === "dark" ? "selected" : ""}>dark</option>
         <option value="light" ${theme === "light" ? "selected" : ""}>light</option>
+        <option value="auto" ${theme === "auto" ? "selected" : ""}>auto (system)</option>
         <option value="hc" ${theme === "hc" ? "selected" : ""}>high-contrast</option>
       </select>
       <button class="btn secondary" id="apply">Apply (persists)</button>
@@ -1068,6 +1069,27 @@ document.addEventListener("keydown", e => {
   if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); openCmdk(); }
   if (e.key === "Escape") { $("#cmdk").classList.remove("open"); }
   if (e.key === "?") { e.preventDefault(); showShortcuts(); }
+  // quick nav: 1-9 jumps to panel
+  if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key >= "1" && e.key <= "9") {
+    const idx = Number(e.key) - 1;
+    const target = NAV[idx];
+    if (target && !$("cmdk").classList.contains("open")) { e.preventDefault(); location.hash = "#/" + target[1]; }
+  }
+  // g + 1-9 quick goto
+  if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "g") {
+    const listener = (ev) => {
+      if (ev.key >= "1" && ev.key <= "9") {
+        const idx = Number(ev.key) - 1;
+        const target = NAV[idx];
+        if (target) { ev.preventDefault(); location.hash = "#/" + target[1]; }
+        document.removeEventListener("keydown", listener);
+      } else if (ev.key !== "g" && ev.key !== "Shift" && ev.key !== "CapsLock") {
+        document.removeEventListener("keydown", listener);
+      }
+    };
+    document.addEventListener("keydown", listener);
+    setTimeout(() => document.removeEventListener("keydown", listener), 800);
+  }
 });
 function showShortcuts() {
   const back = document.createElement("div");
@@ -1075,6 +1097,8 @@ function showShortcuts() {
   back.innerHTML = `<div class="modal"><h2>Keyboard shortcuts</h2>
     <ul class="mono" style="line-height:1.9">
       <li>⌘K / Ctrl+K — command palette</li>
+      <li>1-9 — jump to nav panel</li>
+      <li>G then 1-9 — quick goto panel</li>
       <li>↑ / ↓ — move in sidebar</li>
       <li>? — this sheet</li>
       <li>Esc — close palette / modal</li>
@@ -1083,6 +1107,74 @@ function showShortcuts() {
   document.body.appendChild(back);
   back.querySelector("#c").addEventListener("click", () => back.remove());
 }
+
+// ---------- (66) onboarding tour ----------
+const TOUR_KEY = "forgeos-tour-done";
+const TOUR_STEPS = [
+  { title: "Welcome to ForgeOS", body: "This is your Brain Console — the control room for the ForgeOS engineering organization. Let's take a quick tour.", target: "#app" },
+  { title: "Navigation", body: "Use the sidebar to jump between panels: Command Center, Governance, Search, Missions, and more.", target: "#sidebar" },
+  { title: "Command Palette", body: "Press ⌘K (or Ctrl+K) to open the command palette. Type to fuzzy-search panels and hit Enter to jump.", target: "#cmdkbtn" },
+  { title: "Theme", body: "Switch themes in Config. Try dark, light, or auto to match your system preference.", target: "#app" },
+  { title: "Keyboard shortcuts", body: "Press ? anytime to see shortcuts. Use 1-9 to jump directly to a panel.", target: "#app" },
+  { title: "You're ready", body: "Capture decisions, run missions, and keep the brain healthy. Enjoy ForgeOS!", target: "#app" },
+];
+let tourStep = 0;
+function startTour() {
+  if (localStorage.getItem(TOUR_KEY)) return;
+  tourStep = 0;
+  document.getElementById("tourbtn") && (document.getElementById("tourbtn").style.display = "none");
+  renderTourStep();
+}
+function renderTourStep() {
+  const step = TOUR_STEPS[tourStep];
+  const card = $("#tour-card");
+  const dots = $("#tour-dots");
+  const backdrop = $("#tour-backdrop");
+  const overlay = $("#tour-overlay");
+  if (!card || !step) { endTour(); return; }
+  // position near target or center
+  const target = $(step.target);
+  if (target) {
+    const rect = target.getBoundingClientRect();
+    card.style.top = (rect.bottom + 12) + "px";
+    card.style.left = Math.max(16, rect.left) + "px";
+  } else {
+    card.style.top = "50%"; card.style.left = "50%"; card.style.transform = "translate(-50%, -50%)";
+  }
+  $("#tour-title").textContent = step.title;
+  $("#tour-body").textContent = step.body;
+  dots.innerHTML = TOUR_STEPS.map((_, i) => `<div class="tour-dot ${i===tourStep?"active":""}"></div>`).join("");
+  backdrop.classList.add("open");
+  overlay.classList.remove("hidden");
+  card.classList.add("open");
+  card.setAttribute("aria-hidden", "false");
+  $("#tour-prev").style.visibility = tourStep === 0 ? "hidden" : "visible";
+  $("#tour-next").textContent = tourStep === TOUR_STEPS.length - 1 ? "Finish" : "Next";
+  if (target) { target.classList.add("tour-highlight"); } else {
+    $$(".tour-highlight").forEach(el => el.classList.remove("tour-highlight"));
+  }
+}
+function endTour() {
+  $("#tour-card")?.classList.remove("open");
+  $("#tour-backdrop")?.classList.remove("open");
+  $("#tour-overlay")?.classList.add("hidden");
+  $$(".tour-highlight").forEach(el => el.classList.remove("tour-highlight"));
+  localStorage.setItem(TOUR_KEY, "1");
+  const btn = $("#tourbtn");
+  if (btn) btn.style.display = "";
+}
+document.addEventListener("click", (e) => {
+  const prev = e.target.closest("#tour-prev");
+  const next = e.target.closest("#tour-next");
+  const skip = e.target.closest("#tour-skip");
+  const tourbtn = e.target.closest("#tourbtn");
+  if (tourbtn) { e.preventDefault(); startTour(); return; }
+  if (skip) { endTour(); return; }
+  if (prev) { tourStep = Math.max(0, tourStep - 1); $$(".tour-highlight").forEach(el => el.classList.remove("tour-highlight")); renderTourStep(); return; }
+  if (next) { tourStep = Math.min(TOUR_STEPS.length - 1, tourStep + 1); $$(".tour-highlight").forEach(el => el.classList.remove("tour-highlight")); renderTourStep(); if (tourStep === TOUR_STEPS.length - 1) endTour(); return; }
+});
+// auto-start tour for first-time users
+setTimeout(() => { if (!localStorage.getItem(TOUR_KEY) && $("#tourbtn")) startTour(); }, 1500);
 
 // ---------- (19) up/down sidebar nav ----------
 document.addEventListener("keydown", e => {
@@ -1094,34 +1186,84 @@ document.addEventListener("keydown", e => {
   }
 });
 
+// ---------- (20) mobile sidebar overlay ----------
+function toggleMobileMenu() {
+  const sidebar = $("#sidebar");
+  const overlay = $("#sidebar-overlay");
+  const btn = $("#menubtn");
+  const isOpen = sidebar.classList.contains("open");
+  if (isOpen) { closeMobileMenu(); } else {
+    sidebar.classList.add("open");
+    overlay.classList.add("open");
+    overlay.setAttribute("aria-hidden", "false");
+    if (btn) { btn.setAttribute("aria-expanded", "true"); }
+    sidebar.querySelector("a")?.focus();
+  }
+}
+function closeMobileMenu() {
+  const sidebar = $("#sidebar");
+  const overlay = $("#sidebar-overlay");
+  const btn = $("#menubtn");
+  sidebar.classList.remove("open");
+  overlay.classList.remove("open");
+  overlay.setAttribute("aria-hidden", "true");
+  if (btn) { btn.setAttribute("aria-expanded", "false"); }
+}
+
+// ---------- offline service worker ----------
+async function registerSW() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    reg.addEventListener("updatefound", () => toast("update available", "ok"));
+  } catch (e) { console.warn("SW register failed", e); }
+}
+registerSW();
+
 // ===================== SHELL =====================
 // (12) sidebar collapse (persisted) + (20) mobile hamburger
 function shell() {
   const theme = localStorage.getItem("forgeos-theme") || "dark";
   document.documentElement.setAttribute("data-theme", theme);
   const collapsed = localStorage.getItem("forgeos-collapsed") === "1";
-  const sidebar = NAV.map(([label, p]) => `<a href="#/${p}">${label}</a>`).join("");
+  const sidebar = NAV.map(([label, p]) => `<a href="#/${p}" aria-label="${label}">${label}</a>`).join("");
   $("#app").innerHTML = `
-    <div class="navbar">
-      <button class="btn secondary" id="menubtn" aria-label="menu">☰</button>
+    <a href="#main" class="sr-only" id="skip-link">Skip to content</a>
+    <div class="navbar" role="banner">
+      <button class="btn secondary" id="menubtn" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="sidebar">☰</button>
       <span class="wordmark">Forge<span class="os">OS</span> Console</span>
-      <button class="btn secondary tip" data-tip="Command palette (⌘K)" id="cmdkbtn">⌘K</button>
+      <button class="btn secondary" id="cmdkbtn" aria-label="Open command palette">⌘K</button>
       <span class="spacer"></span>
-      <span class="pill ok"><span class="dot"></span> brain: owned</span>
+      <span class="pill ok" aria-label="Brain status: owned"><span class="dot"></span> brain: owned</span>
+      <button class="btn secondary" id="tourbtn" aria-label="Start onboarding tour" style="display:${localStorage.getItem('forgeos-tour-done') ? '' : 'none'}">Tour</button>
     </div>
     <div class="layout ${collapsed ? "collapsed" : ""}" id="layout">
-      <aside class="sidebar" id="sidebar">${sidebar}</aside>
-      <main class="main" id="main"></main>
+      <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+      <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">${sidebar}</aside>
+      <main class="main" id="main" role="main" aria-live="polite" aria-label="Main content"></main>
     </div>
-    <div class="breadcrumb" id="crumb"></div>
-    <div class="toasts" id="toasts"></div>
-    <div class="cmdk" id="cmdk"><input placeholder="Jump to… (↑↓ enter)"/><ul></ul></div>`;
+    <div class="breadcrumb" id="crumb" role="navigation" aria-label="Breadcrumb"></div>
+    <div class="toasts" id="toasts" role="status" aria-live="assertive" aria-atomic="true"></div>
+    <div class="cmdk" id="cmdk" role="dialog" aria-modal="true" aria-label="Command palette"><input placeholder="Jump to… (↑↓ enter)" aria-label="Search commands"/><ul></ul></div>
+    <div class="tour-overlay" id="tour-overlay" aria-hidden="true"></div>
+    <div class="tour-backdrop" id="tour-backdrop"></div>
+    <div class="tour-card" id="tour-card" role="dialog" aria-modal="true" aria-label="Onboarding tour">
+      <div class="tour-dots" id="tour-dots"></div>
+      <h2 id="tour-title"></h2>
+      <p id="tour-body"></p>
+      <div class="tour-actions">
+        <button class="btn secondary" id="tour-skip">Skip</button>
+        <div class="row">
+          <button class="btn secondary" id="tour-prev">Back</button>
+          <button class="btn primary" id="tour-next">Next</button>
+        </div>
+      </div>
+    </div>`;
   $("#cmdkbtn").addEventListener("click", openCmdk);
-  $("#menubtn").addEventListener("click", () => {
-    const l = $("#layout"); l.classList.toggle("collapsed");
-    localStorage.setItem("forgeos-collapsed", l.classList.contains("collapsed") ? "1" : "0");
-  });
-  window.addEventListener("hashchange", route);
+  $("#menubtn").addEventListener("click", toggleMobileMenu);
+  $("#sidebar-overlay").addEventListener("click", closeMobileMenu);
+  window.addEventListener("hashchange", () => { closeMobileMenu(); route(); });
+  window.addEventListener("resize", () => { if (window.innerWidth > 900) closeMobileMenu(); });
   // (2) boot self-check
   if (!$("#app").children.length) $("#main").innerHTML = empty("Failed to load shell.");
   route();
