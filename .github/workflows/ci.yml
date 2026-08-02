@@ -1,0 +1,32 @@
+name: console-ci
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: node --check src/app.js
+      - run: node --check server.ts
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: bun test ./tests/unit/api.spec.ts
+
+  e2e:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: /root/.bun/bin/bunx playwright install chromium
+      - run: xvfb-run -a /root/.bun/bin/bunx playwright test
+        env:
+          BASE_URL: http://127.0.0.1:7777
