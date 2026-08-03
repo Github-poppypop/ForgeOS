@@ -32,7 +32,7 @@ describe("/api/capture validation", () => {
   });
 
   test("accepts valid slug", () => {
-    const r = validateCaptureSlug("decisions/test-123");
+    const r = validateCaptureSlug("decisions-test-123");
     expect(r.ok).toBe(true);
   });
 
