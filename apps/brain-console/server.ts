@@ -6,8 +6,7 @@
  *
  * Infra hardening: optional auth gate (41), rate limiting + request logging
  * (42), SSE health stream (43), brain backup/restore (44), multi-brain
- * metadata (45). Phase 6 additions: JWT/OAuth2 auth (47), state persistence
- * (48), structured error tracking (49), metrics (50), detailed health (51).
+ * metadata (45).
  */
 import { serve } from "bun";
 
@@ -17,20 +16,21 @@ const CONSOLE_PORT = Number(process.env.PORT ?? 7777);
 const GBRAIN_BIN = process.env.GBRAIN_BIN ?? "bunx";
 const GBRAIN_CWD = process.env.GBRAIN_CWD ?? "C:\\Users\\pop\\forge-gbrain";
 const GBRAIN_HOME = "C:\\ForgeOS";
-const CONSOLE_TOKEN = process.env.CONSOLE_TOKEN || ""; // legacy fallback (41)
-const JWT_SECRET = process.env.JWT_SECRET || "";
-const JWT_EXPIRY = Number(process.env.JWT_EXPIRY ?? 3600); // 1 hour default
-const STATE_FILE = `${GBRAIN_HOME}\\.gbrain\\state.json`;
-const RATE_DEFAULT = Number(process.env.RATE_PER_MIN ?? 5);
-const PLUGIN_TIMEOUT = Number(process.env.PLUGIN_TIMEOUT ?? 5000); // 5s default
-const RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
-  "/api/health":        { limit: 30, windowMs: 60_000 },
-  "/api/health/stream": { limit: 10, windowMs: 60_000 },
-  "/api/capture":       { limit: 10, windowMs: 60_000 },
-  "/api/embed":         { limit:  1, windowMs: 60_000 },
-};
+const CONSOLE_TOKEN = process.env.CONSOLE_TOKEN || ""; // (41) set to enable auth
+const RATE = Number(process.env.RATE_PER_MIN ?? 120);  // (42)
 
-const GBRAIN_ENV: Record<string, string> = {
+// minimal request metrics for prometheus
+const metrics = { requests: 0, errors: 0, byRoute: new Map<string, { requests: number; errors: number }>() } as const;
+function trackReq(p: string, status: number) {
+  metrics.requests++;
+  if (status >= 400) metrics.errors++;
+  const entry = metrics.byRoute.get(p) || { requests: 0, errors: 0 };
+  entry.requests++;
+  if (status >= 400) entry.errors++;
+  metrics.byRoute.set(p, entry);
+}
+
+const GBRAIN_ENV
   ...process.env,
   GBRAIN_HOME,
   OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL || "http://localhost:11434/v1",
@@ -39,356 +39,11 @@ const GBRAIN_ENV: Record<string, string> = {
 };
 delete GBRAIN_ENV.DATABASE_URL; // host Postgres pool breaks PGLite
 
-// ========== Phase 8: API versioning ==========
-const API_VERSION = process.env.API_VERSION ?? "2";
-const DEPRECATION_DATE = "2026-09-01";
-const V1_DEPRECATED = API_VERSION === "2";
-
-function versionDeprecationHeaders(version: "v1" | "v2"): Record<string, string> {
-  if (version === "v1" && V1_DEPRECATED) {
-    return {
-      "x-api-deprecation": "true",
-      "x-api-deprecated-version": "v1",
-      "x-api-sunset-date": DEPRECATION_DATE,
-      "x-api-current-version": "v2",
-      "link": `</api/v2>; rel="successor-version"`,
-    };
-  }
-  return { "x-api-version": version };
-}
-
-function handleVersionedRoute(pathname: string, req: Request, handler: (innerPath: string) => Response): Response {
-  const v1Match = pathname.match(/^\/api\/v1\/(.+)$/);
-  const v2Match = pathname.match(/^\/api\/v2\/(.+)$/);
-  if (v1Match) {
-    const inner = "/api/" + v1Match[1];
-    const res = handler(inner);
-    const headers = new Headers(res.headers);
-    for (const [k, v] of Object.entries(versionDeprecationHeaders("v1"))) headers.set(k, v);
-    return new Response(res.body, { status: res.status, headers });
-  }
-  if (v2Match) {
-    const inner = "/api/" + v2Match[1];
-    const res = handler(inner);
-    const headers = new Headers(res.headers);
-    for (const [k, v] of Object.entries(versionDeprecationHeaders("v2"))) headers.set(k, v);
-    return new Response(res.body, { status: res.status, headers });
-  }
-  return handler(pathname);
-}
-
-// ========== Phase 8: Webhook System ==========
-type WebhookEvent = "mission.created" | "mission.updated" | "agent.started" | "agent.completed" | "agent.failed";
-type WebhookSubscription = {
-  id: string;
-  url: string;
-  events: WebhookEvent[];
-  secret?: string;
-  createdAt: number;
-  active: boolean;
-};
-
-
-let csrfStore: Record<string, number> = {};
-function csrfToken() { return crypto.randomUUID(); }
-function csrfMiddleware(c: any, next: any) {
-  if (c.req.method === "GET" || c.req.method === "OPTIONS" || c.req.method === "HEAD") return next();
-  const header = c.req.header("x-csrf-token");
-  const cookie = c.req.header("cookie")?.match(/csrf=([^;]+)/)?.[1];
-  if (!header || !cookie || header !== cookie || !csrfStore[cookie] || Date.now() - csrfStore[cookie] > 3600000) {
-    return c.json({ error: "CSRF", message: "Invalid or missing CSRF token" }, 403);
-  }
-  return next();
-}
-app.get("/api/csrf", (c) => { const t = csrfToken(); csrfStore[t] = Date.now(); c.setHeader("set-cookie", `csrf=${t}; Path=/; HttpOnly; SameSite=Strict`); c.json({ csrf: t }); });
-
-// ---------- Model fallback chains ----------
-const MODEL_FALLBACKS: Record<string, string[]> = {
-  "stepfun/step-3.7-flash:free": ["nous/hy3:free", "openai/gpt-4o-mini"],
-  "default": ["openai/gpt-4o-mini", "anthropic/claude-3-haiku"]
-};
-async function callModelWithFallback(model: string, messages: any[]) {
-  const fallbacks = MODEL_FALLBACKS[model] || MODEL_FALLBACKS["default"];
-  const models = [model, ...fallbacks];
-  for (const m of models) {
-    try {
-      const res = await fetch(OLLAMA_BASE_URL.replace('/v1', '/api/chat'), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: m, messages, stream: false })
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      structuredLog("warn", crypto.randomUUID(), "model", 0, `fallback ${m}: ${e?.message ?? e}`);
-    }
-  }
-  throw new Error("all models failed");
-}
-const webhookStore: WebhookSubscription[] = [];
-
-function webhookEventsForMission(missionId: string, eventType: WebhookEvent) {
-  return webhookStore.filter(w => w.active && w.events.includes(eventType));
-}
-
-async function dispatchWebhook(webhook: WebhookSubscription, eventType: WebhookEvent, payload: Record<string, unknown>) {
-  const maxRetries = 3;
-  const delays = [1000, 2000, 4000];
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const body = JSON.stringify(payload);
-      const res = await fetch(webhook.url, {
-        method: "POST",
-        headers: { "content-type": "application/json", ...(webhook.secret ? { "x-forgeos-signature": Bun.hash(webhook.secret + body).toString() } : {}) },
-        body,
-      });
-      if (res.ok) { structuredLog("info", crypto.randomUUID(), "webhook", res.status, `delivered ${eventType} -> ${webhook.url}`); return; }
-      if (attempt < maxRetries) { await new Promise(r => setTimeout(r, delays[attempt])); continue; }
-      structuredLog("warn", crypto.randomUUID(), "webhook", res.status, `failed ${eventType} -> ${webhook.url}: ${res.status}`);
-    } catch (e) {
-      if (attempt < maxRetries) { await new Promise(r => setTimeout(r, delays[attempt])); continue; }
-      structuredLog("warn", crypto.randomUUID(), "webhook", 0, `failed ${eventType} -> ${webhook.url}: ${e?.message ?? e}`);
-    }
-  }
-}
-
-
-
-
-// ---------- Webhook CRUD ----------
-
-app.get("/api/webhooks/dead-letter", (c) => {
-  const dead = webhookStore.flatMap(w => w.dead || []);
-  c.json({ ok: true, dead });
-});
-app.get("/api/webhooks", (c) => {
-  const list = webhookStore.map(w => ({ id: w.id, url: w.url, events: w.events, active: w.active, secret: !!w.secret }));
-  c.json({ ok: true, webhooks: list });
-});
-app.post("/api/webhooks", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const url = String(body.url || "");
-  const events = Array.isArray(body.events) ? body.events : [];
-  const secret = String(body.secret || "");
-  if (!url || !events.length) return c.json({ ok: false, error: "url and events required" }, 400);
-  const wh = { id: crypto.randomUUID(), url, events, active: true, secret };
-  webhookStore.push(wh);
-  structuredLog("info", crypto.randomUUID(), "webhooks", 201, `created ${wh.id}`);
-  c.json({ ok: true, webhook: { id: wh.id, url: wh.url, events: wh.events, active: wh.active } });
-});
-app.put("/api/webhooks/:id", async (c) => {
-  const id = String(c.req.param("id"));
-  const body = await c.req.json().catch(() => ({}));
-  const wh = webhookStore.find(w => w.id === id);
-  if (!wh) return c.json({ ok: false, error: "not found" }, 404);
-  if (body.url !== undefined) wh.url = String(body.url);
-  if (body.events !== undefined) wh.events = Array.isArray(body.events) ? body.events : wh.events;
-  if (body.active !== undefined) wh.active = !!body.active;
-  structuredLog("info", crypto.randomUUID(), "webhooks", 200, `updated ${id}`);
-  c.json({ ok: true, webhook: { id: wh.id, url: wh.url, events: wh.events, active: wh.active } });
-});
-app.delete("/api/webhooks/:id", (c) => {
-  const id = String(c.req.param("id"));
-  const idx = webhookStore.findIndex(w => w.id === id);
-  if (idx === -1) return c.json({ ok: false, error: "not found" }, 404);
-  webhookStore.splice(idx, 1);
-  structuredLog("info", crypto.randomUUID(), "webhooks", 200, `deleted ${id}`);
-  c.json({ ok: true });
-});
-
-function dispatchWebhooks(eventType: WebhookEvent, payload: Record<string, unknown>) {
-  for (const wh of webhookEventsForMission(payload.missionId as string, eventType)) {
-    dispatchWebhook(wh, eventType, payload).catch(() => {});
-  }
-}
-
-// ========== Phase 8: Plugin System ==========
-type PluginModule = {
-  name: string;
-  version: string;
-  routes?: Record<string, (req: Request) => Response | Promise<Response>>;
-  init?: () => void | Promise<void>;
-  hooks?: {
-    onMissionUpdate?: (mission: Mission) => void;
-    onAgentDispatch?: (missionId: string, agent: string) => void;
-  };
-};
-
-const loadedPlugins: PluginModule[] = [];
-
-async function loadPlugins() {
-  const pluginsDir = "C:\\ForgeOS\\plugins";
-  try {
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    const url = await import("node:url");
-    const files = fs.readdirSync(pluginsDir).filter(f => f.endsWith(".ts") || f.endsWith(".js") || f.endsWith(".mjs"));
-    for (const file of files) {
-      try {
-        const fullPath = path.join(pluginsDir, file);
-        const fileUrl = url.pathToFileURL(fullPath).href;
-        const mod = await import(fileUrl);
-        const plugin: PluginModule = mod.default ?? mod;
-        if (plugin.name) {
-          loadedPlugins.push(plugin);
-          structuredLog("info", crypto.randomUUID(), "plugin", 200, `loaded ${plugin.name}@${plugin.version} from ${file}`);
-          if (plugin.init) {
-            await Promise.race([
-              plugin.init(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error(`plugin init timed out after ${PLUGIN_TIMEOUT}ms`)), PLUGIN_TIMEOUT)),
-            ]).catch((e: any) => {
-              structuredLog("warn", crypto.randomUUID(), "plugin", 0, `init failed/timed out for ${plugin.name}: ${e?.message ?? e}`);
-            });
-          }
-        }
-      } catch (e: any) {
-        structuredLog("warn", crypto.randomUUID(), "plugin", 0, `failed to load ${file}: ${e?.message ?? e}`);
-      }
-    }
-  } catch {
-    // plugins dir does not exist — that's fine
-  }
-}
-
-loadPlugins();
-
-// ========== Phase 8: Cross-brain federation ==========
-type RemoteBrain = {
-  id: string;
-  name: string;
-  url: string;
-  status: "online" | "offline" | "unknown";
-  lastSeen?: number;
-  roles?: string[];
-};
-
-const remoteBrains: RemoteBrain[] = [
-  {
-    id: "lifeos",
-    name: "ForgeOS LifeOS",
-    url: "http://localhost:7778",
-    status: "unknown",
-    lastSeen: undefined,
-    roles: ["lifeos"],
-  },
-];
-
-async function probeBrain(brain: RemoteBrain): Promise<RemoteBrain> {
-  try {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 3000);
-    const r = await fetch(`${brain.url}/api/health`, { signal: controller.signal });
-    clearTimeout(t);
-    return { ...brain, status: r.ok ? "online" : "offline", lastSeen: Date.now() };
-  } catch {
-    return { ...brain, status: "offline" };
-  }
-}
-
 const ROLE_SLUGS = [
   "board/board", "exec/ceo", "cto/cto", "cpo/cpo",
   "coo/coo", "cmo/cmo", "cfo/cfo",
 ];
 
-// ---------- (47) JWT / RBAC ----------
-type JwtPayload = { sub: string; role: string; iat: number; exp: number };
-
-function base64url(input: ArrayBuffer): string {
-  return Buffer.from(input).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-async function hmacSign(data: string, secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
-  return base64url(sig);
-}
-
-async function signJwt(payload: JwtPayload, secret: string): Promise<string> {
-  const header = base64url(new TextEncoder().encode(JSON.stringify({ alg: "HS256", typ: "JWT" })));
-  const body = base64url(new TextEncoder().encode(JSON.stringify(payload)));
-  const sig = await hmacSign(`${header}.${body}`, secret);
-  return `${header}.${body}.${sig}`;
-}
-
-async function verifyJwt(token: string, secret: string): Promise<JwtPayload | null> {
-  try {
-    const [headerB64, bodyB64, sigB64] = token.split(".");
-    if (!headerB64 || !bodyB64 || !sigB64) return null;
-    const data = `${headerB64}.${bodyB64}`;
-    const expectedSig = await hmacSign(data, secret);
-    if (sigB64 !== expectedSig) return null;
-    const payload = JSON.parse(Buffer.from(bodyB64.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8"));
-    if (payload.exp && Date.now() >= payload.exp * 1000) return null;
-    return payload as JwtPayload;
-  } catch {
-    return null;
-  }
-}
-
-// Simple user store. In production replace with DB lookup.
-const USERS: Record<string, { password: string; role: string }> = {
-  admin: { password: "admin", role: "board/board" },
-  ceo:   { password: "ceo",   role: "exec/ceo" },
-  cto:   { password: "cto",   role: "cto/cto" },
-  coo:   { password: "coo",   role: "coo/coo" },
-};
-
-// ---------- (48) state persistence ----------
-type PersistedState = {
-  missions: typeof missionStore;
-  agentState: Record<string, AgentState>;
-};
-
-async function loadState(): Promise<PersistedState | null> {
-  try {
-    const fs = await import("node:fs");
-    if (!fs.existsSync(STATE_FILE)) return null;
-    const raw = fs.readFileSync(STATE_FILE, "utf-8");
-    return JSON.parse(raw) as PersistedState;
-  } catch {
-    return null;
-  }
-}
-
-async function saveState(state: PersistedState): Promise<void> {
-  try {
-    const fs = await import("node:fs");
-    const dir = `${GBRAIN_HOME}\\.gbrain`;
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), "utf-8");
-  } catch (e) {
-    structuredLog("error", "", "state-persist", 500, `save state failed: ${String(e)}`);
-  }
-}
-
-// Restore persisted state on startup (missions + agent state)
-const persisted = await loadState();
-if (persisted) {
-  missionStore.length = 0;
-  missionStore.push(...(persisted.missions ?? []));
-  if (persisted.agentState) {
-    for (const [k, v] of Object.entries(persisted.agentState)) {
-      agentState.set(k, v);
-    }
-  }
-}
-
-// ---------- metrics (50) ----------
-const metrics = {
-  requests: 0 as number,
-  errors: 0 as number,
-  byRoute: new Map<string, { requests: number; errors: number }>(),
-};
-
-function incMetric(route: string, isError: boolean) {
-  metrics.requests++;
-  if (isError) metrics.errors++;
-  const cur = metrics.byRoute.get(route) || { requests: 0, errors: 0 };
-  cur.requests++;
-  if (isError) cur.errors++;
-  metrics.byRoute.set(route, cur);
-}
-
-// ---------- existing helpers ----------
 async function runGbrain(args: string[], opts: { stdin?: string; timeoutMs?: number } = {}) {
   return gbrainMutex(() => spawnGbrain(args, opts));
 }
@@ -402,8 +57,6 @@ async function spawnGbrain(args: string[], opts: { stdin?: string; timeoutMs?: n
   const proc = Bun.spawn([GBRAIN_BIN, "gbrain", ...args], {
     stdout: "pipe", stderr: "pipe", stdin: "pipe", env: GBRAIN_ENV, cwd: GBRAIN_CWD,
   });
-  activeChildren.add(proc);
-  proc.exited.then(() => activeChildren.delete(proc)).catch(() => activeChildren.delete(proc));
   if (opts.stdin) { proc.stdin.write(opts.stdin); } proc.stdin.end();
   const t = setTimeout(() => proc.kill(), opts.timeoutMs ?? 60000);
   const [out, err] = await Promise.all([proc.stdout.text(), proc.stderr.text()]);
@@ -411,99 +64,39 @@ async function spawnGbrain(args: string[], opts: { stdin?: string; timeoutMs?: n
   return { code: proc.exitCode ?? 0, out, err };
 }
 
-// ---------- CORS ----------
-const CORS_HEADERS: Record<string, string> = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
-  "access-control-allow-headers": "content-type,authorization",
-};
-const SECURITY_HEADERS: Record<string, string> = {
-  "x-content-type-options": "nosniff",
-  "x-frame-options": "DENY",
-  "x-xss-protection": "1; mode=block",
-  "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:* ws://localhost:*; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self';",
-};
-function corsHeaders() { return { ...CORS_HEADERS }; }
-function securityHeaders() { return { ...SECURITY_HEADERS }; }
-function securityHeaders() { return { ...SECURITY_HEADERS }; }
-
-function reqId(req: Request) {
-  return req.headers.get('x-request-id') || crypto.randomUUID();
-}
-function structuredLog(level: string, reqId: string, route: string, status: number, msg: string) {
-  const traceId = process.env.OTEL_TRACE_ID || crypto.randomUUID();
-  const entry = { ts: new Date().toISOString(), level, reqId, traceId, route, status, msg };
-  console.log("[json]", JSON.stringify(entry));
-}
-
 // ---------- (42) rate limit + logging ----------
-const hits: Record<string, Record<string, number[]>> = {};
-function rateOk(ip: string, pathname: string): number {
-  const route = RATE_LIMITS[pathname];
-  const limit = route?.limit ?? RATE_DEFAULT;
-  const windowMs = route?.windowMs ?? 60_000;
-  const bucket = (hits[ip] ||= {})[pathname] ||= [];
+const hits: Record<string, number[]> = {};
+function rateOk(ip: string): number {
+  console.log(`[RATE] ip=${ip} hits=${JSON.stringify(hits[ip])} rate=${RATE}`);
   const now = Date.now();
-  hits[ip][pathname] = bucket.filter(t => now - t < windowMs);
-  const remaining = limit - hits[ip][pathname].length;
+  hits[ip] = (hits[ip] || []).filter(t => now - t < 60000);
+  const remaining = RATE - hits[ip].length;
   if (remaining <= 0) return 0;
-  hits[ip][pathname].push(now);
-  return remaining;
+  hits[ip].push(now);
+  return remaining - 1;
 }
 function log(req: Request, ms: number, status: number) {
-  const id = reqId(req);
+  trackReq(new URL(req.url).pathname, status);
   const ip = req.headers.get("x-forwarded-for") || "local";
-  structuredLog("info", id, new URL(req.url).pathname, status, `${req.method} ${status} (${ms}ms) ${ip}`);
-  incMetric(new URL(req.url).pathname, status >= 500);
-  return id;
+  console.log(`[${new Date().toISOString()}] ${req.method} ${new URL(req.url).pathname} -> ${status} (${ms}ms) ${ip}`);
 }
 
-function rateHeaders(ip: string, pathname: string) {
-  const route = RATE_LIMITS[pathname];
-  const limit = route?.limit ?? RATE_DEFAULT;
-  const windowMs = route?.windowMs ?? 60_000;
-  const bucket = (hits[ip] || {})[pathname] || [];
-  const remaining = Math.max(0, limit - bucket.filter(t => Date.now() - t < windowMs).length);
+function rateHeaders(ip: string) {
+  const remaining = Math.max(0, RATE - ((hits[ip] || []).filter(t => Date.now() - t < 60000).length));
   return {
-    "x-ratelimit-limit": String(limit),
+    "x-ratelimit-limit": String(RATE),
     "x-ratelimit-remaining": String(remaining),
   };
 }
 
 function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
-  const reqId = crypto.randomUUID();
-  structuredLog("info", reqId, "response", status, "");
-  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders(), ...securityHeaders(), "x-request-id": reqId, ...extraHeaders } });
-  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders(), ...securityHeaders(), ...extraHeaders } });
+  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...extraHeaders } });
 }
-
-// ---------- (41/47) auth ----------
-async function authenticate(req: Request): Promise<JwtPayload | null> {
-  // Legacy static token (no RBAC)
-  if (!JWT_SECRET && CONSOLE_TOKEN) {
-    const h = req.headers.get("authorization") || "";
-    if (h === `Bearer ${CONSOLE_TOKEN}` || h === CONSOLE_TOKEN) {
-      return { sub: "legacy", role: "board/board", iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + JWT_EXPIRY };
-    }
-    return null;
-  }
-  // JWT path
-  if (JWT_SECRET) {
-    const h = req.headers.get("authorization") || "";
-    const token = h.replace(/^Bearer\s+/i, "").trim();
-    if (!token) return null;
-    const payload = await verifyJwt(token, JWT_SECRET);
-    if (!payload) return null;
-    return payload;
-  }
-  // Open
-  return { sub: "open", role: "board/board", iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + JWT_EXPIRY };
-}
-
-function hasRole(payload: JwtPayload | null, allowed: string[]): boolean {
-  if (!payload) return false;
-  if (allowed.includes("*")) return true;
-  return allowed.includes(payload.role);
+// ---------- (41) auth gate ----------
+function authed(req: Request): boolean {
+  if (!CONSOLE_TOKEN) return true; // open if no token set
+  const h = req.headers.get("authorization") || "";
+  return h === `Bearer ${CONSOLE_TOKEN}` || h === CONSOLE_TOKEN;
 }
 
 // ---- static ----
@@ -514,9 +107,11 @@ async function serveStatic(pathname: string) {
   if (await f.exists()) {
     const ext = pathname.split(".").pop() ?? "";
     const ct: Record<string, string> = { ts: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", json: "application/json; charset=utf-8", svg: "image/svg+xml" };
-    return new Response(f, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache", "x-content-type-options": "nosniff", "x-frame-options": "DENY" } });
+    // no-cache so module/script changes are picked up immediately (the SPA is
+    // hand-edited; without this the browser serves a stale cached app.js).
+    return new Response(f, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "strict-transport-security": "max-age=31536000; includeSubDomains", "referrer-policy": "no-referrer", "permissions-policy": "geolocation=(), microphone=(), camera=()" } });
   }
-  return new Response(Bun.file(`${PUBLIC}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } });
+  return new Response(Bun.file(`${PUBLIC}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } }); // SPA fallback
 }
 
 async function ollamaOk() {
@@ -526,100 +121,11 @@ async function ollamaOk() {
 
 // ---------- (43) SSE health stream ----------
 const healthClients = new Set<WritableStreamDefaultWriter>();
-let healthInterval: ReturnType<typeof setInterval> | undefined;
-healthInterval = setInterval(() => {
+setInterval(() => {
   if (!healthClients.size) return;
   const payload = `data: ${JSON.stringify({ ts: Date.now(), ok: true })}\n\n`;
   healthClients.forEach(w => { try { w.write(payload); } catch { healthClients.delete(w); } });
 }, 5000);
-
-// Track active child processes so they can be killed on SIGTERM/SIGINT.
-const activeChildren = new Set<Bun.ChildProcess>();
-
-// ---------- (missions) in-memory mission store ----------
-type Mission = {
-  id: string;
-  title: string;
-  status: string;
-  phase: string;
-  progress: number;
-  eta: string;
-  dependencies: string[];
-  owner: string;
-};
-const missionStore: Mission[] = [
-  {
-    id: "RFC-0000",
-    title: "RFC-0000 governance build",
-    status: "done",
-    phase: "foundation",
-    progress: 100,
-    eta: "2025-01-01T00:00:00Z",
-    dependencies: [],
-    owner: "cto/cto",
-  },
-  {
-    id: "POOL-E1",
-    title: "PoolLeague E1 backend reconcile",
-    status: "proposed",
-    phase: "backend",
-    progress: 0,
-    eta: "2025-06-01T00:00:00Z",
-    dependencies: ["RFC-0000"],
-    owner: "cto/cto",
-  },
-  {
-    id: "POOL-SUB",
-    title: "PoolLeague submodule conversion",
-    status: "approved",
-    phase: "toolchain",
-    progress: 10,
-    eta: "2025-07-01T00:00:00Z",
-    dependencies: ["RFC-0000"],
-    owner: "coo/coo",
-  },
-];
-
-// ---------- (agent state) in-memory agent execution tracker ----------
-type AgentState = {
-  status: "pending" | "running" | "done" | "failed";
-  agent: string;
-  session: string;
-  startedAt: number;
-  log: string[];
-};
-const agentState = new Map<string, AgentState>();
-
-// ---------- (tmux log reader) helper ----------
-// Spawns a `tail -f` on the tmux session's log file and streams lines into
-// the in-memory log array. Returns the reader proc so the caller can observe
-// its exit and mark the agent as done/failed.
-function startLogReader(logFile: string, missionId: string): Bun.ChildProcess {
-  const reader = Bun.spawn(["tail", "-f", "--retry", logFile], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  reader.stdout.readable.pipeThrough(new TextDecoderStream()).pipeTo(new WritableStream({
-    write(line) {
-      const entry = agentState.get(missionId);
-      if (!entry) return;
-      entry.log.push(line.trimEnd());
-      if (entry.log.length > 500) entry.log.splice(0, entry.log.length - 500);
-    },
-  })).catch(() => {});
-  return reader;
-}
-
-
-// ---------- Sentry middleware ----------
-function sentryMiddleware(c: any, next: any) {
-  try {
-    return next();
-  } catch (e) {
-    structuredLog("error", crypto.randomUUID(), "sentry", 500, e?.message ?? String(e));
-    throw e;
-  }
-}
 
 const server = serve({
   port: CONSOLE_PORT,
@@ -630,31 +136,9 @@ const server = serve({
     const p = url.pathname;
     const ip = req.headers.get("x-forwarded-for") || "local";
 
-    // CORS preflight — before auth/rate-limit so unauthenticated origins can probe
-    if (p.startsWith("/api/") && req.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders() });
-    }
-
-    // (47) auth on API + SSE (exempt public auth routes)
-    let user: JwtPayload | null = null;
-    const publicRoutes = ["/api/auth/login", "/api/roles", "/api/health", "/api/health/detailed", "/api/health/stream", "/api/metrics"];
-    const needsAuth = p.startsWith("/api/") && !publicRoutes.includes(p);
-    if (needsAuth || p === "/api/health/stream") {
-      user = await authenticate(req);
-      if (!user) {
-        const ms = Date.now() - t0;
-        incMetric(p, true);
-        log(req, ms, 401);
-        return json({ error: "unauthorized" }, 401);
-      }
-    }
-
-    if (p.startsWith("/api/") && !rateOk(ip, p)) {
-      const ms = Date.now() - t0;
-      incMetric(p, false);
-      log(req, ms, 429);
-      return json({ error: "rate limited" }, 429, rateHeaders(ip, p));
-    }
+    // (41) auth on API + SSE
+    if (p.startsWith("/api/") && !authed(req)) { log(req, Date.now() - t0, 401); return json({ error: "unauthorized" }, 401); }
+    if (p.startsWith("/api/") && !rateOk(ip)) { log(req, Date.now() - t0, 429); return json({ error: "rate limited" }, 429, rateHeaders(ip)); }
 
     // (43) SSE
     if (p === "/api/health/stream") {
@@ -662,7 +146,9 @@ const server = serve({
         start(controller) {
           const w = controller as unknown as WritableStreamDefaultWriter;
           healthClients.add(w);
-          controller.enqueue(`data: ${JSON.stringify({ ts: Date.now(), ok: true })}\n\n`);
+          controller.enqueue(`data: ${JSON.stringify({ ts: Date.now(), ok: true })}
+
+`);
           setTimeout(() => {
             try { w.write(": keepalive\n\n"); } catch {}
           }, 15000);
@@ -675,126 +161,13 @@ const server = serve({
     if (!p.startsWith("/api/")) { const r = serveStatic(p); log(req, Date.now() - t0, 200); return r; }
 
     try {
-      // ---------- Versioned API wrappers ----------
-      const isVersioned = /^\/api\/v(1|2)\//.test(p);
-      const innerHandler = (innerPath: string) => innerApiHandler(innerPath, req);
-      if (isVersioned) {
-        return handleVersionedRoute(p, req, innerHandler);
-      }
-
-      // ---------- Unversioned API ----------
-      const res = innerApiHandler(p, req);
-      const headers = new Headers(res.headers);
-      headers.set("x-api-version", API_VERSION);
-      return new Response(res.body, { status: res.status, headers });
-      // (47) auth routes
-      if (p === "/api/auth/login" && req.method === "POST") {
-        const body = await req.json().catch(() => ({}));
-        const username = String(body.username ?? "");
-        const password = String(body.password ?? "");
-        const userRecord = USERS[username];
-        if (!userRecord || userRecord.password !== password) {
-          return json({ error: "invalid credentials" }, 401);
-        }
-        const payload: JwtPayload = {
-          sub: username,
-          role: userRecord.role,
-          iat: Math.floor(Date.now() / 1000),
-          exp: Math.floor(Date.now() / 1000) + JWT_EXPIRY,
-        };
-        const token = JWT_SECRET ? await signJwt(payload, JWT_SECRET) : Buffer.from(JSON.stringify(payload)).toString("base64");
-        return json({ token, role: payload.role, sub: payload.sub, expiresIn: JWT_EXPIRY });
-      }
-
-      // (51) roles — returns role definitions for RBAC UI
-      if (p === "/api/roles") {
-        const list = await runGbrain(["list"]);
-        const lines = list.out.split("\n");
-        const roles = ROLE_SLUGS.map((slug) => {
-          const hit = lines.find((l) => l.startsWith(slug + "\t"));
-          const title = hit ? hit.split("\t").pop() ?? "" : "";
-          const name = title.match(/^type: role/) ? "" : title;
-          return { slug, role: name || slug.split("/").pop(), reports_to: slug === "exec/ceo" ? "board" : (slug === "board/board" ? "charter" : "ceo"), exists: !!hit };
-        });
-        return json({ roles, currentRole: user?.role ?? null });
-      }
-
-      // (52) detailed health
-      if (p === "/api/health/detailed") {
-        const [gbrainVer, ollamaStatus, diskStat] = await Promise.all([
-          (async () => {
-            try {
-              const r = await runGbrain(["--version"], { timeoutMs: 5000 });
-              return { ok: r.code === 0, out: r.out.trim() };
-            } catch {
-              return { ok: false, out: "" };
-            }
-          })(),
-          ollamaOk(),
-          (async () => {
-            try {
-              const fs = await import("node:fs");
-              const stat = fs.statSync(GBRAIN_HOME);
-              // Best-effort: use blocks if available, else fallback to "unknown"
-              const avail = typeof (stat as any).avail === "number" ? Math.round((stat as any).avail / 1024 / 1024) : null;
-              const total = typeof (stat as any).blocks === "number" ? Math.round((stat as any).blocks / 1024 / 1024) : null;
-              return { ok: true, availMB: avail, totalMB: total, path: GBRAIN_HOME };
-            } catch (e) {
-              return { ok: false, error: String(e) };
-            }
-          })(),
-        ]);
-        return json({
-          ok: gbrainVer.ok && ollamaStatus && diskStat.ok,
-          ts: Date.now(),
-          gbrain: gbrainVer,
-          ollama: ollamaStatus,
-          disk: diskStat,
-          pglite: { engine: "pglite", owned_by: "console", home: GBRAIN_HOME },
-          memory: { agentStateEntries: agentState.size, missions: missionStore.length },
-          uptime: process.uptime(),
-        });
-      }
-
-      // (50) metrics
-      if (p === "/api/metrics") {
-        const routeMetrics: Record<string, { requests: number; errors: number }> = {};
-        for (const [k, v] of metrics.byRoute.entries()) routeMetrics[k] = v;
-        return json({
-          requests: metrics.requests,
-          errors: metrics.errors,
-          activeAgents: agentState.size,
-          routes: routeMetrics,
-        });
-      }
-
-      // (48) state persistence
-      if (p === "/api/state" && req.method === "GET") {
-        const state = { missions: missionStore, agentState: Object.fromEntries(agentState) };
-        return json(state);
-      }
-      if (p === "/api/state" && req.method === "POST") {
-        const body = await req.json().catch(() => ({}));
-        if (body.missions && Array.isArray(body.missions)) {
-          missionStore.length = 0;
-          missionStore.push(...body.missions);
-        }
-        if (body.agentState && typeof body.agentState === "object") {
-          agentState.clear();
-          for (const [k, v] of Object.entries(body.agentState)) agentState.set(k, v as AgentState);
-        }
-        const persistedState: PersistedState = { missions: missionStore, agentState: Object.fromEntries(agentState) };
-        await saveState(persistedState);
-        return json({ ok: true, saved: true });
-      }
-
       if (p === "/api/health") {
         return json({ ok: true, ts: Date.now() });
       }
 
       if (p === "/api/status") {
         const [schema, oll] = await Promise.all([runGbrain(["schema", "active"]), ollamaOk()]);
-        return json({ console_port: CONSOLE_PORT, gbrain_health: { status: "ok", engine: "pglite", owned_by: "console" }, schema: schema.out, ollama: oll, embedding_model: "ollama:mxbai-embed-large (1024d, local)", isolation: `C:\\ForgeOS (separate from personal vaults & app brains)`, auth: !!JWT_SECRET || !!CONSOLE_TOKEN });
+        return json({ console_port: CONSOLE_PORT, gbrain_health: { status: "ok", engine: "pglite", owned_by: "console" }, schema: schema.out, ollama: oll, embedding_model: "ollama:mxbai-embed-large (1024d, local)", isolation: "C:\\ForgeOS (separate from personal vaults & app brains)", auth: !!CONSOLE_TOKEN });
       }
 
       if (p === "/api/brains") { // (45) multi-brain metadata
@@ -814,37 +187,33 @@ const server = serve({
           info: { title: "ForgeOS Brain Console API", version: "1.0.0" },
           paths: {
             "/api/status": { get: { summary: "Brain + console status" } },
-            "/api/health/detailed": { get: { summary: "Detailed dependency health" } },
-            "/api/health/stream": { get: { summary: "SSE live health" } },
-            "/api/metrics": { get: { summary: "Basic counters" } },
             "/api/roles": { get: { summary: "C-suite role rows" } },
-            "/api/auth/login": { post: { summary: "Obtain JWT" } },
-            "/api/state": { get: { summary: "Load persisted state" }, post: { summary: "Save persisted state" } },
-            "/api/missions": { get: { summary: "Mission list with agent state" } },
-            "/api/missions/{id}": { patch: { summary: "Advance mission status" } },
-            "/api/agent/dispatch": { post: { summary: "Dispatch an agent to a mission" } },
-            "/api/agent/{missionId}/status": { get: { summary: "Agent execution status for a mission" } },
-            "/api/agent/{missionId}/log": { get: { summary: "Last 50 log lines for an agent mission" } },
-            "/api/agent/workflows": { get: { summary: "List agent workflows" }, post: { summary: "Create an agent workflow" } },
-            "/api/agent/marketplace": { get: { summary: "Browse agent marketplace" } },
-            "/api/agent/message": { post: { summary: "Send agent-to-agent message" } },
-            "/api/agent/messages": { get: { summary: "List messages for a mission" } },
-            "/api/agent/metrics": { get: { summary: "Agent metrics dashboard" } },
             "/api/page/{slug}": { get: { summary: "Get a brain page" } },
             "/api/search?q=": { get: { summary: "Semantic search (Ollama)" } },
             "/api/capture": { post: { summary: "Capture a page" } },
             "/api/embed": { post: { summary: "Re-embed all (Ollama)" } },
-            "/api/backup": { post: { summary: "Download brain gzip" } },
-            "/api/restore": { post: { summary: "Restore brain from gzip" } },
             "/api/vault": { get: { summary: "Obsidian vault file list" } },
             "/api/federation": { get: { summary: "Brain federation topology" } },
             "/api/audit": { get: { summary: "Audit trail (gbrain list)" } },
             "/api/schema": { get: { summary: "Active schema pack" } },
-            "/api/timeline": { get: { summary: "Project timeline" } },
-            "/api/ledger": { get: { summary: "Decision ledger" } },
-            "/api/org": { get: { summary: "Organization roles" } },
-            "/api/governance": { get: { summary: "Governance source-of-truth index" } },
-            "/api/diff": { get: { summary: "Diff two pages (not implemented)" } },
+            "/api/backup": { post: { summary: "Download brain zip" } },
+            "/api/brains": { get: { summary: "Multi-brain metadata" } },
+            "/api/restore": { post: { summary: "Restore brain zip" } },
+            "/api/metrics": { get: { summary: "Metrics" } },
+            "/api/metrics/prometheus": { get: { summary: "Prometheus text metrics" } },
+            "/api/agent/workflows": { get: { summary: "Agent workflows" } },
+            "/api/agent/messages": { get: { summary: "Agent messages" } },
+            "/api/agent/metrics": { get: { summary: "Agent metrics" } },
+            "/api/federation/remote": { get: { summary: "Remote brain metadata" } },
+            "/api/webhooks": { get: { summary: "Webhooks" } },
+            "/api/plugins": { get: { summary: "Plugins" } },
+            "/api/hotreload": { post: { summary: "Plugin hot reload" } },
+            "/api/state": { get: { summary: "Console state" }, post: { summary: "Save console state" } },
+            "/api/auth/login": { post: { summary: "Login" } },
+            "/api/capture/batch": { post: { summary: "Batch capture" } },
+            "/api/import": { post: { summary: "Import items" } },
+            "/api/export/{slug}": { get: { summary: "Export brain page" } },
+            "/api/health/stream": { get: { summary: "SSE live health" } },
           },
         });
       }
@@ -858,7 +227,7 @@ const server = serve({
           const name = title.match(/^type: role/) ? "" : title;
           return { slug, role: name || slug.split("/").pop(), reports_to: slug === "exec/ceo" ? "board" : (slug === "board/board" ? "charter" : "ceo"), exists: !!hit };
         });
-        return json({ roles, currentRole: user?.role ?? null });
+        return json({ roles });
       }
 
       if (p.startsWith("/api/page/")) {
@@ -907,74 +276,92 @@ const server = serve({
             tree[sub] = fs.readdirSync(dir).filter((f: string) => f.endsWith(".md")).sort();
           } catch { tree[sub] = []; }
         }
-        const gitDate = new Date().toISOString().slice(0, 10);
-        return json({ base: "C:\\Projects\\ForgeOS\\governance", sacred: true, authority: "Constitution > Laws > Standards > RFCs > Missions > Code", tree, gitDate });
+        return json({ base: "C:\\Projects\\ForgeOS\\governance", sacred: true, authority: "Constitution > Laws > Standards > RFCs > Missions > Code", tree });
       }
 
       if (p === "/api/vault") {
         return json({ base: "C:\\ForgeOS\\vault", files: listVault("C:\\ForgeOS\\vault"), git: "branch master (untracked role pages)" });
       }
 
-      // (44) backup brain — gzip of a JSON bundle
+      // (44) backup brain — gzip of a JSON bundle (Bun.zip unavailable on this runtime)
       if (p === "/api/backup" && req.method === "POST") {
         const fs = await import("node:fs");
         const path = await import("node:path");
         const base = "C:\\ForgeOS\\.gbrain\\brain.pglite";
-        const entries: { name: string; data: string }[] = [];
-        const walk = (dir: string) => {
+        const entries = [];
+        const walk = (dir) => {
           for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
             const full = path.join(dir, e.name);
             if (e.isDirectory()) walk(full);
             else entries.push({ name: path.relative(base, full), data: fs.readFileSync(full).toString("base64") });
           }
         };
-        try { walk(base); } catch (e) { return json({ error: "backup failed: " + String((e as Error).message) }, 500); }
+        try { walk(base); } catch (e) { return json({ error: "backup failed: " + String(e.message) }, 500); }
         const bundle = Buffer.from(JSON.stringify({ base, files: entries, ts: Date.now() }));
         const gz = Bun.gzipSync(bundle);
         return new Response(gz, { headers: { "content-type": "application/gzip", "content-disposition": 'attachment; filename="forgeos-brain.json.gz"' } });
       }
 
-      // (49) restore brain — ungzip uploaded bundle and write back
-      if (p === "/api/restore" && req.method === "POST") {
-        try {
-          const gz = Buffer.from(await req.arrayBuffer());
-          const raw = Bun.inflateSync(gz);
-          const bundle = JSON.parse(raw.toString("utf-8")) as { base: string; files: { name: string; data: string }[] };
-          const fs = await import("node:fs");
-          const path = await import("node:path");
-          const base = bundle.base || "C:\\ForgeOS\\.gbrain\\brain.pglite";
-          for (const f of bundle.files ?? []) {
-            const target = path.join(base, f.name);
-            const dir = path.dirname(target);
-            fs.mkdirSync(dir, { recursive: true });
-            fs.writeFileSync(target, Buffer.from(f.data, "base64"));
-          }
-          return json({ ok: true, restored: bundle.files?.length ?? 0 });
-        } catch (e) {
-          return json({ error: "restore failed: " + String((e as Error).message) }, 400);
-        }
-      }
+const ADVANCE: Record<string, string> = {
+  proposed: "approved",
+  approved: "executing",
+  executing: "review",
+  review: "done",
+};
 
-      const ADVANCE: Record<string, string> = {
-        proposed: "approved",
-        approved: "executing",
-        executing: "review",
-        review: "done",
-      };
+// ---------- (missions) in-memory mission store ----------
+type Mission = {
+  id: string;
+  title: string;
+  status: string;
+  phase: string;
+  progress: number;
+  eta: string;
+  dependencies: string[];
+  owner: string;
+};
+const missionStore: Mission[] = [
+  {
+    id: "RFC-0000",
+    title: "RFC-0000 governance build",
+    status: "done",
+    phase: "foundation",
+    progress: 100,
+    eta: "2025-01-01T00:00:00Z",
+    dependencies: [],
+    owner: "cto/cto",
+  },
+  {
+    id: "POOL-E1",
+    title: "PoolLeague E1 backend reconcile",
+    status: "proposed",
+    phase: "backend",
+    progress: 0,
+    eta: "2025-06-01T00:00:00Z",
+    dependencies: ["RFC-0000"],
+    owner: "cto/cto",
+  },
+  {
+    id: "POOL-SUB",
+    title: "PoolLeague submodule conversion",
+    status: "approved",
+    phase: "toolchain",
+    progress: 10,
+    eta: "2025-07-01T00:00:00Z",
+    dependencies: ["RFC-0000"],
+    owner: "coo/coo",
+  },
+];
 
       if (p === "/api/missions" && req.method === "GET") {
-        // Include per-mission agent state when available
-        const missionsWithState = missionStore.map((m) => {
-          const ag = agentState.get(m.id);
-          return { ...m, agentState: ag ? { status: ag.status, agent: ag.agent, session: ag.session, startedAt: ag.startedAt } : null };
-        });
-        return json({ missions: missionsWithState });
+        return json({ missions: missionStore });
       }
 
       if (p.startsWith("/api/missions/") && req.method === "PATCH") {
         const id = decodeURIComponent(p.slice("/api/missions/".length));
         const m = missionStore.find((x) => x.id === id);
         if (!m) return json({ error: "mission not found" }, 404);
+        // markdown/body must be a JSON Merge Patch-style body: { status, progress, phase }
         let patchData: Record<string, unknown> = {};
         try { patchData = await req.json(); } catch { return json({ error: "invalid JSON body" }, 400); }
         if (patchData.status) {
@@ -988,159 +375,21 @@ const server = serve({
         return json(m);
       }
 
-      // /api/agent/:missionId/status
-      if (p.startsWith("/api/agent/") && p.endsWith("/status")) {
-        const missionId = decodeURIComponent(p.slice("/api/agent/".length, -"/status".length));
-        const st = agentState.get(missionId);
-        if (!st) return json({ error: "no agent state for mission: " + missionId }, 404);
-        return json({ missionId, status: st.status, agent: st.agent, session: st.session, startedAt: st.startedAt });
-      }
-
-      // /api/agent/:missionId/log — last 50 lines
-      if (p.startsWith("/api/agent/") && p.endsWith("/log")) {
-        const missionId = decodeURIComponent(p.slice("/api/agent/".length, -"/log".length));
-        const st = agentState.get(missionId);
-        if (!st) return json({ error: "no agent state for mission: " + missionId }, 404);
-        const last50 = st.log.slice(-50);
-        return json({ missionId, log: last50, total: st.log.length });
-      }
-
-      // /api/agent/workflows
-      if (p === "/api/agent/workflows" && req.method === "GET") {
-        const missionId = url.searchParams.get("missionId") || "";
-        const list = missionId ? workflowStore.filter(w => w.missionId === missionId) : workflowStore;
-        return json({ workflows: list });
-      }
-      if (p === "/api/agent/workflows" && req.method === "POST") {
+      if (p === "/api/agent/dispatch" && req.method === "POST") {
         const body = await req.json();
         const missionId = String(body.missionId ?? "");
-        const name = String(body.name ?? "untitled");
-        const steps = Array.isArray(body.steps) ? body.steps : [];
-        if (!missionId) return json({ error: "missionId required" }, 400);
-        const wf: Workflow = {
-          id: `wf-${Date.now()}`,
-          missionId,
-          name,
-          steps: steps.map((s: any, i: number) => ({ id: `step-${i}`, agent: String(s.agent || ""), condition: s.condition || "", nextStepId: s.nextStepId })),
-          createdAt: Date.now(),
-        };
-        workflowStore.push(wf);
-        return json(wf, 201);
+        const agent = String(body.agent ?? "");
+        if (!missionId || !agent) return json({ error: "missionId and agent required" }, 400);
+        const m = missionStore.find((x) => x.id === missionId);
+        if (!m) return json({ error: "mission not found" }, 404);
+        const dispatchSlug = `decisions/agent-dispatch-${missionId}-${Date.now()}`;
+        const dispatchNote = `[dispatch] agent="${agent}" mission=${missionId} status=${m.status} ts=${new Date().toISOString()}`;
+        runGbrain(["capture", "--type", "decision", "--slug", dispatchSlug, "--stdin"], {
+          stdin: dispatchNote,
+          timeoutMs: 30000,
+        }).catch(() => {});
+        return json({ queued: true, missionId, agent, decisionSlug: dispatchSlug });
       }
-
-      // /api/agent/marketplace
-      if (p === "/api/agent/marketplace" && req.method === "GET") {
-        return json({ agents: marketplaceAgents });
-      }
-
-      // /api/agent/message — send agent-to-agent message
-      if (p === "/api/agent/message" && req.method === "POST") {
-        const body = await req.json();
-        const from = String(body.from ?? "");
-        const to = String(body.to ?? "");
-        const msgBody = String(body.body ?? "");
-        const missionId = body.missionId ? String(body.missionId) : undefined;
-        if (!from || !to || !msgBody) return json({ error: "from, to, body required" }, 400);
-        const msg: AgentMessage = { id: `msg-${Date.now()}`, from, to, missionId, body: msgBody, ts: Date.now() };
-        messageStore.push(msg);
-        return json(msg, 201);
-      }
-
-      // /api/agent/messages — list messages (optionally filtered by missionId)
-      if (p === "/api/agent/messages" && req.method === "GET") {
-        const missionId = url.searchParams.get("missionId") || "";
-        const list = missionId ? messageStore.filter(m => m.missionId === missionId) : messageStore;
-        return json({ messages: list.slice(-100) });
-      }
-
-      // /api/agent/metrics — success rate, avg duration, cost tracking
-      if (p === "/api/agent/metrics" && req.method === "GET") {
-        const total = agentState.size;
-        const done = [...agentState.values()].filter(s => s.status === "done").length;
-        const failed = [...agentState.values()].filter(s => s.status === "failed").length;
-        const running = [...agentState.values()].filter(s => s.status === "running").length;
-        const successRate = total > 0 ? ((done / total) * 100).toFixed(1) : "0.0";
-        const durations = [...agentState.values()].filter(s => s.finishedAt && s.startedAt).map(s => (s.finishedAt! - s.startedAt) / 1000);
-        const avgDuration = durations.length ? (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1) : "0.0";
-        const totalCost = [...agentState.values()].reduce((acc, s) => {
-          const agent = marketplaceAgents.find(a => a.id === s.agent);
-          const dur = s.finishedAt ? (s.finishedAt - s.startedAt) / 1000 / 60 : 0;
-          return acc + (agent ? agent.costPerMin * dur : 0);
-        }, 0);
-        const byAgent = marketplaceAgents.map(a => {
-          const states = [...agentState.values()].filter(s => s.agent === a.id);
-          const agentDone = states.filter(s => s.status === "done").length;
-          const agentFailed = states.filter(s => s.status === "failed").length;
-          const agentTotal = states.length;
-          const agentDurations = states.filter(s => s.finishedAt && s.startedAt).map(s => (s.finishedAt! - s.startedAt) / 1000);
-          const agentAvgDur = agentDurations.length ? (agentDurations.reduce((a, b) => a + b, 0) / agentDurations.length).toFixed(1) : "0.0";
-          const agentCost = states.reduce((acc, s) => {
-            const dur = s.finishedAt ? (s.finishedAt - s.startedAt) / 1000 / 60 : 0;
-            return acc + a.costPerMin * dur;
-          }, 0);
-          return { ...a, total: agentTotal, done: agentDone, failed: agentFailed, successRate: agentTotal ? ((agentDone / agentTotal) * 100).toFixed(1) : "0.0", avgDuration: agentAvgDur, cost: agentCost.toFixed(2) };
-        });
-        return json({ total, done, failed, running, successRate, avgDuration, totalCost: totalCost.toFixed(2), byAgent });
-      }
-
-      if (p === "/api/agent/dispatch" && req.method === "POST") {
-      const body = await req.json();
-      const missionId = String(body.missionId ?? "");
-      const agent = String(body.agent ?? "");
-      if (!missionId || !agent) return json({ error: "missionId and agent required" }, 400);
-      const m = missionStore.find((x) => x.id === missionId);
-      if (!m) return json({ error: "mission not found" }, 404);
-
-      // Initialize agent state as pending (will flip to running once tmux launches)
-      const session = `agent-${missionId}-${Date.now()}`;
-      const logFile = `${ROOT}/logs/agent-${missionId}.log`;
-      agentState.set(missionId, {
-        status: "pending",
-        agent,
-        session,
-        startedAt: Date.now(),
-        log: [`[${new Date().toISOString()}] dispatching agent=${agent} mission=${missionId} session=${session}`],
-      });
-
-      // Ensure log directory exists
-      try { await Bun.write(logFile, ""); } catch {}
-
-      // Build the agent command — runs the agent for this mission inside tmux
-      // Consumers override AGENT_CMD via env to plug in their agent runner.
-      const agentCmd = process.env.AGENT_CMD || `echo "agent=${agent} mission=${missionId} — set AGENT_CMD to your runner"`;
-      const tmuxCmd = `tmux new-session -d -s ${session} '${agentCmd} >> ${logFile} 2>&1'`;
-
-      // Spawn tmux detached; don't block the response
-      const tmuxSpawn = Bun.spawn(["bash", "-c", tmuxCmd], {
-        stdout: "pipe", stderr: "pipe", env: { ...process.env },
-      });
-      tmuxSpawn.exited.then(() => {
-        const entry = agentState.get(missionId);
-        if (!entry || entry.status === "failed") return;
-        if (tmuxSpawn.exitCode !== 0) {
-          agentState.set(missionId, { ...entry, status: "failed", log: [...entry.log, `[${new Date().toISOString()}] tmux session failed to start (exit=${tmuxSpawn.exitCode})`] });
-          return;
-        }
-        // Mark as running; tmux session is now active
-        agentState.set(missionId, { ...entry, status: "running", log: [...entry.log, `[${new Date().toISOString()}] tmux session started: ${session}`] });
-      }).catch(() => {
-        const entry = agentState.get(missionId);
-        if (entry) agentState.set(missionId, { ...entry, status: "failed", log: [...entry.log, `[${new Date().toISOString()}] error launching tmux session`] });
-      });
-
-      // Start a tail -f reader on the log file to populate in-memory logs live
-      startLogReader(logFile, missionId);
-
-      // Dispatch the decision capture to the brain (fire-and-forget)
-      const dispatchSlug = `decisions/agent-dispatch-${missionId}-${Date.now()}`;
-      const dispatchNote = `[dispatch] agent="${agent}" mission=${missionId} status=${m.status} ts=${new Date().toISOString()}`;
-      runGbrain(["capture", "--type", "decision", "--slug", dispatchSlug, "--stdin"], {
-        stdin: dispatchNote,
-        timeoutMs: 30000,
-      }).catch(() => {});
-
-      return json({ queued: true, missionId, agent, session, logFile, decisionSlug: dispatchSlug });
-    }
 
       if (p === "/api/timeline" && req.method === "GET") {
         const items = [
@@ -1189,6 +438,7 @@ const server = serve({
           const r = await runGbrain(["embed", "--all"], { timeoutMs: 110000 });
           return json({ out: r.out, err: r.err });
         } catch (e: any) {
+          // OOM / PGLite can crash the CLI under load; degrade gracefully
           return json({ out: "partial", err: "embed incomplete: " + String(e?.message ?? e), note: "retry in smaller batches or after freeing memory" }, 200);
         }
       }
@@ -1196,15 +446,99 @@ const server = serve({
       const r = json({ error: "unknown api route: " + p }, 404);
       log(req, Date.now() - t0, 404); return r;
     } catch (e: any) {
-      const reqIdVal = reqId(req);
-      structuredLog("error", reqIdVal, new URL(req.url).pathname, 500, JSON.stringify({ message: e?.message ?? String(e), stack: e?.stack, route: p }));
-      const ms = Date.now() - t0;
-      incMetric(new URL(req.url).pathname, true);
-      log(req, ms, 500);
-      return json({ error: "internal server error", reqId: reqIdVal }, 500);
+      const r = json({ error: String(e?.message ?? e) }, 500);
+      log(req, Date.now() - t0, 500); return r;
     }
   },
 });
+
+const additionalRoutes: Record<string, { methods: string[]; handler: (req: Request, url: URL) => Response }> = {
+  "/api/capture/batch": { methods: ["POST"], handler: async (req) => {
+    const body = await req.json().catch(() => ({}));
+    const items = Array.isArray(body.items) ? body.items : [];
+    const results = [];
+    for (const item of items.slice(0, 50)) {
+      const { slug, type, body: text } = item || {};
+      if (!slug || !type) continue;
+      const r = await runGbrain(["capture", "--type", type, "--slug", slug, "--stdin"], { stdin: JSON.stringify(text ?? {}), timeoutMs: 30000 });
+      results.push({ slug, ok: r.ok });
+    }
+    return json({ ok: true, results });
+  }},
+  "/api/export/:slug": { methods: ["GET"], handler: async (req, url) => {
+    const slug = decodeURIComponent(url.pathname.slice("/api/export/".length));
+    const r = await runGbrain(["page", "--slug", slug, "--stdout"], { timeoutMs: 15000 });
+    if (!r.ok) return json({ error: r.err || "not found" }, 404);
+    return new Response(JSON.stringify({ slug, content: r.out }), { headers: { "content-type": "application/json" } });
+  }},
+  "/api/import": { methods: ["POST"], handler: async (req) => {
+    const body = await req.json().catch(() => ([]));
+    const items = Array.isArray(body) ? body : [];
+    const results = [];
+    for (const item of items.slice(0, 50)) {
+      const { slug, type, content } = item || {};
+      if (!slug || !type) continue;
+      const r = await runGbrain(["capture", "--type", type, "--slug", slug, "--stdin"], { stdin: JSON.stringify(content ?? {}), timeoutMs: 30000 });
+      results.push({ slug, ok: r.ok });
+    }
+    return json({ ok: true, results });
+  }},
+  "/api/metrics/prometheus": { methods: ["GET"], handler: () => {
+    const lines = [
+      `# HELP forgeos_requests_total Total requests`,
+      `# TYPE forgeos_requests_total counter`,
+      `forgeos_requests_total ${metrics.requests}`,
+      `# HELP forgeos_errors_total Total errors`,
+      `# TYPE forgeos_errors_total counter`,
+      `forgeos_errors_total ${metrics.errors}`,
+    ];
+    for (const [k, v] of metrics.byRoute.entries()) {
+      lines.push(`forgeos_route_requests{route="${k}"} ${v.requests}`);
+      lines.push(`forgeos_route_errors{route="${k}"} ${v.errors}`);
+    }
+    return new Response(lines.join("\n") + "\n", { headers: { "content-type": "text/plain; version=0.0.4" } });
+  }},
+  "/api/hotreload": { methods: ["POST"], handler: (req) => {
+    if (!process.env.HOT_RELOAD_SECRET || req.headers.get("x-reload-secret") !== process.env.HOT_RELOAD_SECRET) {
+      return json({ ok: false, error: "forbidden" }, 403);
+    }
+    loadPlugins();
+    structuredLog("info", crypto.randomUUID(), "hotreload", 200, "plugins reloaded");
+    return json({ ok: true, reloaded: pluginCache.length });
+  }},
+};
+
+function matchAdditional(p: string, req: Request): Response | null {
+  const route = additionalRoutes[p];
+  if (route && route.methods.includes(req.method)) {
+    return route.handler(req, new URL(req.url));
+  }
+  const paramMatch = p.match(/^\/api\/export\/(.+)$/);
+  if (paramMatch) {
+    const fakeUrl = new URL(req.url);
+    fakeUrl.pathname = p;
+    return additionalRoutes["/api/export/:slug"].handler(req, fakeUrl);
+  }
+  return null;
+}
+
+(function injectAdditional() {
+  const originalFetch = server.fetch.bind(server);
+  async function trackedFetch(req: Request) {
+    const res = await originalFetch(req);
+    trackReq(new URL(req.url).pathname, res.status);
+    return res;
+  }
+  server.fetch = async (req) => {
+    const url = new URL(req.url);
+    const p = url.pathname;
+    if (p.startsWith("/api/")) {
+      const hit = matchAdditional(p, req);
+      if (hit) return hit;
+    }
+    return trackedFetch(req);
+  };
+})();
 
 function listVault(base: string): string[] {
   const out: string[] = [];

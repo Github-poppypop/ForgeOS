@@ -12,7 +12,7 @@ if [[ "$AGENT_NUM" -lt 1 || "$AGENT_NUM" -gt 10 ]]; then
     exit 1
 fi
 
-mkdir -p /opt/forgeos/agents/logs
+mkdir -p /opt/forgeos/agents/logs /opt/forgeos/agents/briefs
 
 PROMPT="Execute brief from /opt/forgeos/agents/briefs/brief-${AGENT_NUM}.md for mission ${MISSION_ID}"
 LOG="/opt/forgeos/agents/logs/agent-${AGENT_NUM}.log"
@@ -20,12 +20,22 @@ LOG="/opt/forgeos/agents/logs/agent-${AGENT_NUM}.log"
 # Ensure clean session
 tmux kill-session -t "agent-${AGENT_NUM}" 2>/dev/null || true
 
-# Create detached tmux session and run hermes
-tmux new-session -d -s "agent-${AGENT_NUM}" "/usr/local/bin/hermes -z '${PROMPT}' >> '${LOG}' 2>&1"
+# Run hermes with forge profile in detached tmux session
+# Use a wrapper script to avoid quoting hell
+WRAPPER="/tmp/agent-wrapper-${AGENT_NUM}.sh"
+cat > "$WRAPPER" << INNEREOF
+#!/bin/bash
+cd /opt/forgeos
+/usr/local/bin/hermes --profile forge -z "$1" > "$2" 2>&1
+INNEREOF
+chmod +x "$WRAPPER"
 
-# Wait for tmux session to finish (hermes to exit)
+tmux new-session -d -s "agent-${AGENT_NUM}" "$WRAPPER '${PROMPT}' '${LOG}'"
+
+# Wait for tmux session to finish
 while tmux has-session -t "agent-${AGENT_NUM}" 2>/dev/null; do
     sleep 2
 done
 
+rm -f "$WRAPPER"
 echo "Agent ${AGENT_NUM} finished for mission ${MISSION_ID}"
