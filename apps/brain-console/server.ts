@@ -19,7 +19,18 @@ const GBRAIN_HOME = "C:\\ForgeOS";
 const CONSOLE_TOKEN = process.env.CONSOLE_TOKEN || ""; // (41) set to enable auth
 const RATE = Number(process.env.RATE_PER_MIN ?? 120);  // (42)
 
-const GBRAIN_ENV: Record<string, string> = {
+// minimal request metrics for prometheus
+const metrics = { requests: 0, errors: 0, byRoute: new Map<string, { requests: number; errors: number }>() } as const;
+function trackReq(p: string, status: number) {
+  metrics.requests++;
+  if (status >= 400) metrics.errors++;
+  const entry = metrics.byRoute.get(p) || { requests: 0, errors: 0 };
+  entry.requests++;
+  if (status >= 400) entry.errors++;
+  metrics.byRoute.set(p, entry);
+}
+
+const GBRAIN_ENV
   ...process.env,
   GBRAIN_HOME,
   OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL || "http://localhost:11434/v1",
@@ -65,6 +76,7 @@ function rateOk(ip: string): number {
   return remaining - 1;
 }
 function log(req: Request, ms: number, status: number) {
+  trackReq(new URL(req.url).pathname, status);
   const ip = req.headers.get("x-forwarded-for") || "local";
   console.log(`[${new Date().toISOString()}] ${req.method} ${new URL(req.url).pathname} -> ${status} (${ms}ms) ${ip}`);
 }
@@ -80,7 +92,6 @@ function rateHeaders(ip: string) {
 function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...extraHeaders } });
 }
-
 // ---------- (41) auth gate ----------
 function authed(req: Request): boolean {
   if (!CONSOLE_TOKEN) return true; // open if no token set
@@ -98,7 +109,7 @@ async function serveStatic(pathname: string) {
     const ct: Record<string, string> = { ts: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", json: "application/json; charset=utf-8", svg: "image/svg+xml" };
     // no-cache so module/script changes are picked up immediately (the SPA is
     // hand-edited; without this the browser serves a stale cached app.js).
-    return new Response(f, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache", "x-content-type-options": "nosniff", "x-frame-options": "DENY" } });
+    return new Response(f, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "strict-transport-security": "max-age=31536000; includeSubDomains", "referrer-policy": "no-referrer", "permissions-policy": "geolocation=(), microphone=(), camera=()" } });
   }
   return new Response(Bun.file(`${PUBLIC}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } }); // SPA fallback
 }
@@ -498,6 +509,11 @@ function matchAdditional(p: string, req: Request): Response | null {
 
 (function injectAdditional() {
   const originalFetch = server.fetch.bind(server);
+  async function trackedFetch(req: Request) {
+    const res = await originalFetch(req);
+    trackReq(new URL(req.url).pathname, res.status);
+    return res;
+  }
   server.fetch = async (req) => {
     const url = new URL(req.url);
     const p = url.pathname;
@@ -505,7 +521,7 @@ function matchAdditional(p: string, req: Request): Response | null {
       const hit = matchAdditional(p, req);
       if (hit) return hit;
     }
-    return originalFetch(req);
+    return trackedFetch(req);
   };
 })();
 
