@@ -524,3 +524,20 @@ ul.mono { list-style: none; padding: 0; }
   table { page-break-inside: avoid; }
   h1, h2, h3 { page-break-after: avoid; }
 }
+
+/* ---------- nested nav categories ---------- */
+.nav-category {
+  margin-bottom: 8px;
+}
+.nav-category-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  padding: 6px 10px 4px;
+  font-weight: 700;
+}
+.sidebar .nav-category a {
+  padding-left: 18px;
+  font-size: 13px;
+}

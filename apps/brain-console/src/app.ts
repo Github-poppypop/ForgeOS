@@ -1476,10 +1476,45 @@ function initLiveSearch(containerId, rowSelector, delay = 200) {
 }
 
 const NAV = [
-  ["Command Center", tooltip("Command Center", "Command Center overview"), "command"], ["Governance", tooltip("Governance", "View and manage ForgeOS governance"), "governance"], ["Dashboard", tooltip("Dashboard", "Console dashboard with system metrics"), "dashboard"], ["Roles", "roles"], ["Org", tooltip("Org", "Organization chart and structure"), "org"], ["Timeline", tooltip("Timeline", "Decision timeline and history"), "timeline"], ["Ledger", tooltip("Ledger", "Decision ledger with filters"), "ledger"],
-  ["Search", tooltip("Search", "Search across brains and pages"), "search"], ["Capture", tooltip("Capture", "Capture and create new brain pages"), "capture"], ["Decisions", tooltip("Decisions", "Decision management and tracking"), "decisions"], ["Missions", tooltip("Missions", "Agent missions and dispatch"), "missions"], ["MCP", tooltip("MCP", "Model Context Protocol tools"), "mcp"], ["Vault", "vault"],
-  ["Embeddings", "embed"], ["Federation", tooltip("Federation", "Cross-brain federation status"), "federation"], ["Audit", tooltip("Audit", "Audit log and compliance trail"), "audit"], ["Schema", tooltip("Schema", "Brain schema explorer"), "schema"], ["Config", "config"],
-  ["Projects", tooltip("Projects", "Project management and kanban"), "projects"], ["Wizard", tooltip("Wizard", "Setup wizard for first-time config"), "wizard"], ["Monitoring", tooltip("Monitoring", "Live agent and PoolLeague status"), "monitoring"], ["Settings", tooltip("Settings", "Console settings and configuration"), "settings"], ["Workflows", tooltip("Workflows", "Agent workflow management"), "workflows"], ["Marketplace", tooltip("Marketplace", "Browse discoverable agents"), "marketplace"], ["Plugins", tooltip("Plugins", "Manage console plugins"), "plugins"],
+  { category: "Core", items: [
+    ["Command Center", tooltip("Command Center", "Command Center overview"), "command"],
+    ["Governance", tooltip("Governance", "View and manage ForgeOS governance"), "governance"],
+    ["Dashboard", tooltip("Dashboard", "Console dashboard with system metrics"), "dashboard"],
+  ]},
+  { category: "Org & Decisions", items: [
+    ["Roles", "roles"],
+    ["Org", tooltip("Org", "Organization chart and structure"), "org"],
+    ["Timeline", tooltip("Timeline", "Decision timeline and history"), "timeline"],
+    ["Ledger", tooltip("Ledger", "Decision ledger with filters"), "ledger"],
+    ["Decisions", tooltip("Decisions", "Decision management and tracking"), "decisions"],
+  ]},
+  { category: "Brain", items: [
+    ["Search", tooltip("Search", "Search across brains and pages"), "search"],
+    ["Capture", tooltip("Capture", "Capture and create new brain pages"), "capture"],
+    ["Vault", "vault"],
+    ["Embeddings", "embed"],
+    ["Schema", tooltip("Schema", "Brain schema explorer"), "schema"],
+  ]},
+  { category: "Federation", items: [
+    ["Federation", tooltip("Federation", "Cross-brain federation status"), "federation"],
+    ["Audit", tooltip("Audit", "Audit log and compliance trail"), "audit"],
+  ]},
+  { category: "Agents & Automation", items: [
+    ["Missions", tooltip("Missions", "Agent missions and dispatch"), "missions"],
+    ["MCP", tooltip("MCP", "Model Context Protocol tools"), "mcp"],
+    ["Workflows", tooltip("Workflows", "Agent workflow management"), "workflows"],
+    ["Monitoring", tooltip("Monitoring", "Live agent and PoolLeague status"), "monitoring"],
+  ]},
+  { category: "Projects", items: [
+    ["Projects", tooltip("Projects", "Project management and kanban"), "projects"],
+    ["Wizard", tooltip("Wizard", "Setup wizard for first-time config"), "wizard"],
+  ]},
+  { category: "System", items: [
+    ["Config", "config"],
+    ["Marketplace", tooltip("Marketplace", "Browse discoverable agents"), "marketplace"],
+    ["Plugins", tooltip("Plugins", "Manage console plugins"), "plugins"],
+    ["Settings", tooltip("Settings", "Console settings and configuration"), "settings"],
+  ]},
 ];
 
 const routes = {
@@ -1686,7 +1721,7 @@ async function route() {
 // ---------- (27) command palette: fuzzy + arrows + history ----------
 const MAXHIST = 8;
 function pushHist(h) { const a = JSON.parse(localStorage.getItem("forgeos-hist") || "[]"); a.unshift(h); localStorage.setItem("forgeos-hist", JSON.stringify(a.slice(0, MAXHIST))); }
-const CMDS = NAV.map(([label, , p]) => ({ label, go: () => { pushHist(p); location.hash = "#/" + p; } }));
+const CMDS = NAV.flatMap(g => g.items).map(([label, , p]) => ({ label, go: () => { pushHist(p); location.hash = "#/" + p; } }));
 let cmdkSel = 0;
 function openCmdk() {
   const el = $("#cmdk"); el.classList.add("open"); cmdkSel = 0;
@@ -1705,7 +1740,7 @@ function renderCmdk(q) {
   const ul = $("#cmdk ul");
   const hist = JSON.parse(localStorage.getItem("forgeos-hist") || "[]");
   const opts = CMDS.filter(c => c.label.toLowerCase().includes(q.toLowerCase()));
-  const histItems = q ? [] : hist.map(h => ({ label: "↺ " + (NAV.find(n => (n[2] ?? n[1]) === h)?.[0] || h), go: () => location.hash = "#/" + h }));
+  const histItems = q ? [] : hist.map(h => ({ label: "↺ " + (NAV.flatMap(g => g.items).find(n => (n[2] ?? n[1]) === h)?.[0] || h), go: () => location.hash = "#/" + h }));
   const all = q ? opts : opts.concat(histItems);
   ul.innerHTML = all.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join("") || "<li class='muted'>no match</li>";
   $$("#cmdk li").forEach((li, i) => li.addEventListener("click", () => { all[i].go(); $("#cmdk").classList.remove("open"); }));
@@ -1735,7 +1770,7 @@ document.addEventListener("keydown", e => {
   // quick nav: 1-9 jumps to panel
   if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key >= "1" && e.key <= "9") {
     const idx = Number(e.key) - 1;
-    const target = NAV[idx];
+    const target = NAV.flatMap(g => g.items)[idx];
     if (target && !$("cmdk").classList.contains("open")) { e.preventDefault(); location.hash = "#/" + (target[2] ?? target[1]); }
   }
   // g + 1-9 quick goto
@@ -1743,7 +1778,7 @@ document.addEventListener("keydown", e => {
     const listener = (ev) => {
       if (ev.key >= "1" && ev.key <= "9") {
         const idx = Number(ev.key) - 1;
-        const target = NAV[idx];
+        const target = NAV.flatMap(g => g.items)[idx];
         if (target) { ev.preventDefault(); location.hash = "#/" + (target[2] ?? target[1]); }
         document.removeEventListener("keydown", listener);
       } else if (ev.key !== "g" && ev.key !== "Shift" && ev.key !== "CapsLock") {
@@ -1889,7 +1924,7 @@ function shell() {
   const theme = localStorage.getItem("forgeos-theme") || "dark";
   document.documentElement.setAttribute("data-theme", theme);
   const collapsed = localStorage.getItem("forgeos-collapsed") === "1";
-  const sidebar = NAV.map(([label, , p]) => `<a href="#/${p}" aria-label="${label}">${label}</a>`).join("");
+  const sidebar = NAV.map(g => `<div class="nav-category">${DOMPurify.sanitize(g.category)}${g.items.map(([label, tip, p]) => `<a href="#/${p}" aria-label="${label}">${tip || label}</a>`).join("")}</div>`).join("");
   $("#app").innerHTML = `
     <a href="#main" class="sr-only" id="skip-link">Skip to content</a>
     <div class="navbar" role="banner">
