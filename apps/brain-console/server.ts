@@ -22,6 +22,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "";
 const JWT_EXPIRY = Number(process.env.JWT_EXPIRY ?? 3600); // 1 hour default
 const STATE_FILE = `${GBRAIN_HOME}\\.gbrain\\state.json`;
 const RATE_DEFAULT = Number(process.env.RATE_PER_MIN ?? 5);
+const PLUGIN_TIMEOUT = Number(process.env.PLUGIN_TIMEOUT ?? 5000); // 5s default
 const RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
   "/api/health":        { limit: 30, windowMs: 60_000 },
   "/api/health/stream": { limit: 10, windowMs: 60_000 },
@@ -230,7 +231,14 @@ async function loadPlugins() {
         if (plugin.name) {
           loadedPlugins.push(plugin);
           structuredLog("info", crypto.randomUUID(), "plugin", 200, `loaded ${plugin.name}@${plugin.version} from ${file}`);
-          await plugin.init?.();
+          if (plugin.init) {
+            await Promise.race([
+              plugin.init(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error(`plugin init timed out after ${PLUGIN_TIMEOUT}ms`)), PLUGIN_TIMEOUT)),
+            ]).catch((e: any) => {
+              structuredLog("warn", crypto.randomUUID(), "plugin", 0, `init failed/timed out for ${plugin.name}: ${e?.message ?? e}`);
+            });
+          }
         }
       } catch (e: any) {
         structuredLog("warn", crypto.randomUUID(), "plugin", 0, `failed to load ${file}: ${e?.message ?? e}`);
@@ -600,6 +608,17 @@ function startLogReader(logFile: string, missionId: string): Bun.ChildProcess {
     },
   })).catch(() => {});
   return reader;
+}
+
+
+// ---------- Sentry middleware ----------
+function sentryMiddleware(c: any, next: any) {
+  try {
+    return next();
+  } catch (e) {
+    structuredLog("error", crypto.randomUUID(), "sentry", 500, e?.message ?? String(e));
+    throw e;
+  }
 }
 
 const server = serve({
@@ -1211,6 +1230,60 @@ async function cleanup(why) {
 }
 process.on("SIGTERM", () => { cleanup("SIGTERM").finally(() => process.exit(0)); });
 process.on("SIGINT", () => { cleanup("SIGINT").finally(() => process.exit(0)); });
+
+
+app.post("/api/capture/batch", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const items = Array.isArray(body.items) ? body.items : [];
+  const results = [];
+  for (const item of items.slice(0, 50)) {
+    const { slug, type, body: text } = item || {};
+    if (!slug || !type) continue;
+    const r = await runGbrain(["capture", "--type", type, "--slug", slug, "--stdin"], { stdin: JSON.stringify(text ?? {}), timeoutMs: 30000 });
+    results.push({ slug, ok: r.ok });
+  }
+  c.json({ ok: true, results });
+});
+
+
+app.get("/api/export/:slug", async (c) => {
+  const slug = String(c.req.param("slug"));
+  const r = await runGbrain(["page", "--slug", slug, "--stdout"], { timeoutMs: 15000 });
+  if (!r.ok) return json({ error: r.err || "not found" }, 404);
+  c.setHeader("content-type", "application/json");
+  return new Response(JSON.stringify({ slug, content: r.out }));
+});
+
+app.post("/api/import", async (c) => {
+  const body = await c.req.json().catch(() => ([]));
+  const items = Array.isArray(body) ? body : [];
+  const results = [];
+  for (const item of items.slice(0, 50)) {
+    const { slug, type, content } = item || {};
+    if (!slug || !type) continue;
+    const r = await runGbrain(["capture", "--type", type, "--slug", slug, "--stdin"], { stdin: JSON.stringify(content ?? {}), timeoutMs: 30000 });
+    results.push({ slug, ok: r.ok });
+  }
+  c.json({ ok: true, results });
+});
+
+
+app.get("/api/metrics/prometheus", (c) => {
+  const lines = [
+    `# HELP forgeos_requests_total Total requests`,
+    `# TYPE forgeos_requests_total counter`,
+    `forgeos_requests_total ${metrics.requests}`,
+    `# HELP forgeos_errors_total Total errors`,
+    `# TYPE forgeos_errors_total counter`,
+    `forgeos_errors_total ${metrics.errors}`,
+  ];
+  for (const [k, v] of metrics.byRoute.entries()) {
+    lines.push(`forgeos_route_requests{route="${k}"} ${v.requests}`);
+    lines.push(`forgeos_route_errors{route="${k}"} ${v.errors}`);
+  }
+  c.setHeader("content-type", "text/plain; version=0.0.4");
+  return new Response(lines.join("\n") + "\n");
+});
 
 app.post("/api/hotreload", (c) => {
   if (!process.env.HOT_RELOAD_SECRET || c.req.header("x-reload-secret") !== process.env.HOT_RELOAD_SECRET) {

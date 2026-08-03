@@ -1322,25 +1322,60 @@ async function loadPanel(name) {
   return html;
 }
 
-// ---------- Offline capture queue ----------
-const offlineQueue = [];
-async function queueCapture(slug, body) {
-  const item = { slug, body, ts: Date.now() };
-  offlineQueue.push(item);
-  localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
+// ---------- Offline capture queue (IndexedDB) ----------
+let offlineDB = null;
+function openOfflineDB() {
+  return new Promise((resolve, reject) => {
+    if (offlineDB) return resolve(offlineDB);
+    const req = indexedDB.open('forgeos-offline', 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('captures')) {
+        db.createObjectStore('captures', { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => { offlineDB = req.result; resolve(offlineDB); };
+    req.onerror = () => reject(req.error);
+  });
+}
+async function queueCapture(data) {
+  const db = await openOfflineDB();
+  const tx = db.transaction('captures', 'readwrite');
+  tx.objectStore('captures').add({ ...data, ts: Date.now() });
+  await new Promise((resolve, reject) => {
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
   toast('Saved offline — will sync when online');
 }
 async function flushOfflineQueue() {
-  if (!navigator.onLine || !offlineQueue.length) return;
-  const batch = offlineQueue.splice(0, 10);
-  await api.batchCapture(batch);
-  localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-  toast(`Synced ${batch.length} captures`);
+  if (!navigator.onLine) return;
+  const db = await openOfflineDB();
+  const tx = db.transaction('captures', 'readwrite');
+  const store = tx.objectStore('captures');
+  const items = await new Promise((resolve, reject) => {
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  if (!items.length) return;
+  for (const item of items) {
+    try {
+      await api.capture(item.slug, item.type || 'note', item.body);
+    } catch (e) {
+      toast('sync failed: ' + errMsg(e), 'err');
+      return;
+    }
+  }
+  const clearTx = db.transaction('captures', 'readwrite');
+  clearTx.objectStore('captures').clear();
+  await new Promise((resolve, reject) => {
+    clearTx.oncomplete = resolve;
+    clearTx.onerror = () => reject(clearTx.error);
+  });
+  toast(`Synced ${items.length} captures`, 'ok');
 }
 window.addEventListener('online', flushOfflineQueue);
-// Load queued captures on startup
-const saved = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
-offlineQueue.push(...saved);
 // ---------- Live search/filter ----------
 function initLiveSearch(containerId, rowSelector, delay = 200) {
   const container = document.getElementById(containerId);
