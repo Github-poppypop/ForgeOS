@@ -56,4 +56,5 @@ export const api = {
   poollenueStatus: () => req("/api/poolleague/status"),
   poollenueTournaments: () => req("/api/poolleague/tournaments"),
   poollenueMatches: () => req("/api/poolleague/matches"),
+  monitoringAgents: () => req("/api/agents"),
 };

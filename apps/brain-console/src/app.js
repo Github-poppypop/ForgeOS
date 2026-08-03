@@ -910,6 +910,42 @@ async function renderPoolleague() {
   });
 }
 
+// ---------- Monitoring: live agent + PoolLeague status ----------
+async function renderMonitoring() {
+  crumb([["ForgeOS", "#/dashboard"], ["Monitoring"]]);
+  $("main").innerHTML = `
+    <h1>Monitoring</h1>
+    <div class="grid cols-2">
+      <div class="card">
+        <h2>C-Suite Agents</h2>
+        <div id="agent-status">loading...</div>
+      </div>
+      <div class="card">
+        <h2>PoolLeague</h2>
+        <pre id="poolleague-monitor" class="code json">loading...</pre>
+      </div>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const [agents, poolleague] = await Promise.all([
+        safe(api.monitoringAgents).catch(() => ({ agents: [] })),
+        safe(api.poolleagueStatus).catch(() => ({ ok: false })),
+      ]);
+      const agentEl = document.querySelector("#agent-status");
+      const poolEl = document.querySelector("#poolleague-monitor");
+      if (agentEl) {
+        const list = (agents.agents || []).map(a => `<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="mono">${a.role}</span><span class="pill ${a.status==='idle'?'ok':'warn'}">${a.status}</span></div>`).join("");
+        agentEl.innerHTML = list || "<p class='muted'>no agent data</p>";
+      }
+      if (poolEl) poolEl.textContent = JSON.stringify(poolleague, null, 2);
+    } catch (e) {
+      toast("monitor error: " + errMsg(e), "err");
+    }
+  };
+  refresh();
+  setInterval(refresh, 5000);
+}
+
 // ---------- Phase 11: setup wizard ----------
 async function renderWizard() {
   crumb([["ForgeOS", "#/dashboard"], ["Setup Wizard"]]);
@@ -1459,14 +1495,14 @@ const NAV = [
   ["Command Center", tooltip("Command Center", "Command Center overview"), "command"], ["Governance", tooltip("Governance", "View and manage ForgeOS governance"), "governance"], ["Dashboard", tooltip("Dashboard", "Console dashboard with system metrics"), "dashboard"], ["Roles", "roles"], ["Org", tooltip("Org", "Organization chart and structure"), "org"], ["Timeline", tooltip("Timeline", "Decision timeline and history"), "timeline"], ["Ledger", tooltip("Ledger", "Decision ledger with filters"), "ledger"],
   ["Search", tooltip("Search", "Search across brains and pages"), "search"], ["Capture", tooltip("Capture", "Capture and create new brain pages"), "capture"], ["Decisions", tooltip("Decisions", "Decision management and tracking"), "decisions"], ["Missions", tooltip("Missions", "Agent missions and dispatch"), "missions"], ["MCP", tooltip("MCP", "Model Context Protocol tools"), "mcp"], ["Vault", "vault"],
   ["Embeddings", "embed"], ["Federation", tooltip("Federation", "Cross-brain federation status"), "federation"], ["Audit", tooltip("Audit", "Audit log and compliance trail"), "audit"], ["Schema", tooltip("Schema", "Brain schema explorer"), "schema"], ["Config", "config"],
-  ["Projects", tooltip("Projects", "Project management and kanban"), "projects"], ["Wizard", tooltip("Wizard", "Setup wizard for first-time config"), "wizard"], ["Settings", tooltip("Settings", "Console settings and configuration"), "settings"], ["Workflows", tooltip("Workflows", "Agent workflow management"), "workflows"], ["Marketplace", tooltip("Marketplace", "Browse discoverable agents"), "marketplace"], ["Plugins", tooltip("Plugins", "Manage console plugins"), "plugins"],
+  ["Projects", tooltip("Projects", "Project management and kanban"), "projects"], ["Wizard", tooltip("Wizard", "Setup wizard for first-time config"), "wizard"], ["Monitoring", tooltip("Monitoring", "Live agent and PoolLeague status"), "monitoring"], ["Settings", tooltip("Settings", "Console settings and configuration"), "settings"], ["Workflows", tooltip("Workflows", "Agent workflow management"), "workflows"], ["Marketplace", tooltip("Marketplace", "Browse discoverable agents"), "marketplace"], ["Plugins", tooltip("Plugins", "Manage console plugins"), "plugins"],
 ];
 
 const routes = {
   command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, timeline: renderTimeline, ledger: renderLedger,
   search: renderSearch, capture: renderCapture, decisions: renderDecisions, missions: renderMissions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
   embed: renderEmbed, federation: renderFederation, audit: renderAudit, schema: renderSchema, config: renderConfig,
-  projects: renderProjects, wizard: renderWizard, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins,
+  projects: renderProjects, wizard: renderWizard, monitoring: renderMonitoring, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins,
 };
 
 // ---------- (50) per-panel error boundary ----------

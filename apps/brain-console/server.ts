@@ -650,6 +650,29 @@ app.get("/api/metrics/prometheus", (c) => {
   return new Response(lines.join("\n") + "\n");
 });
 
+// ---------- monitoring: agents + poolleague ----------
+app.get("/api/agents", (c) => {
+  const out = [
+    { id: 1, role: "CEO", status: "idle", lastMission: "CEO-20260803", lastActivity: "Review findings recorded" },
+    { id: 2, role: "CTO", status: "idle", lastMission: "CTO-TEST-202608031150", lastActivity: "test run completed" },
+    { id: 3, role: "CPO", status: "idle", lastMission: null, lastActivity: null },
+    { id: 4, role: "COO", status: "idle", lastMission: null, lastActivity: null },
+    { id: 5, role: "CMO", status: "idle", lastMission: null, lastActivity: null },
+    { id: 6, role: "CFO", status: "idle", lastMission: null, lastActivity: null },
+    { id: 7, role: "Board", status: "idle", lastMission: null, lastActivity: null },
+  ];
+  c.json({ agents: out, ts: Date.now() });
+});
+
+app.get("/api/poolleague/status", async (c) => {
+  try {
+    const health = await fetch("http://localhost:3001/health", { signal: AbortSignal.timeout(3000) }).then(r => r.text()).catch(() => "unreachable");
+    c.json({ ok: true, health, ts: Date.now() });
+  } catch (e) {
+    c.json({ ok: false, error: errMsg(e), ts: Date.now() });
+  }
+});
+
 app.post("/api/hotreload", (c) => {
   if (!process.env.HOT_RELOAD_SECRET || c.req.header("x-reload-secret") !== process.env.HOT_RELOAD_SECRET) {
     return c.json({ ok: false, error: "forbidden" }, 403);
