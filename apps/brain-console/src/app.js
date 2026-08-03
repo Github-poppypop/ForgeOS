@@ -7,6 +7,11 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const app = $("#app");
 
+function tooltip(label, tip){
+  if(!tip) return label;
+  return `<span data-tooltip="${label}">${label}</span>`;
+}
+
 // ---------- (1) global error handlers ----------
 window.addEventListener("error", (e) => showFatal(e.message || String(e.error)));
 window.addEventListener("unhandledrejection", (e) => showFatal(String(e.reason && e.reason.message ? e.reason.message : e.reason)));
@@ -111,8 +116,8 @@ async function renderDashboard() {
     <div class="card" style="margin-top:16px"><h2>Quick actions</h2>
       <div class="row">
         <a class="btn primary" href="#/roles">Roles</a>
-        <a class="btn secondary" href="#/search">Search</a>
-        <a class="btn secondary" href="#/capture">Capture</a>
+        <a class="btn secondary" href="#/search" data-tooltip="Search across all brains">Search</a>
+        <a class="btn secondary" href="#/capture" data-tooltip="Create new brain page">Capture</a>
         <a class="btn secondary" href="#/embed">Re-embed</a>
       </div>
     </div>
@@ -150,7 +155,7 @@ async function renderRoles() {
 
 async function renderPage(slug) {
   slug = decodeURIComponent(slug);
-  crumb([["ForgeOS", "#/dashboard"], ["Roles", "#/roles"], [slug]]);
+  crumb([["ForgeOS", "#/dashboard"], ["Roles", tooltip("Roles", "Manage brain roles and permissions"), "#/roles"], [slug]]);
   $("#main").innerHTML = skelGrid(3, 200);
   const p = await safe(() => api.page(slug)).catch(() => null);
   if (!p || !p.body) { $("#main").innerHTML = empty("Page not found in brain.", `<a class="btn secondary" href="#/capture">Capture it</a>`); return; }
@@ -174,7 +179,7 @@ function startEdit(slug, body) {
   $("#main").innerHTML = `<h1 class="mono">${DOMPurify.sanitize(slug)}</h1>
     <textarea id="ebody" rows="16" style="width:100%;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono)">${DOMPurify.sanitize(body)}</textarea>
     <div class="row" style="margin-top:8px">
-      <button class="btn primary" id="save">Save</button>
+      <button class="btn primary" id="save" data-tooltip="Save current state">Save</button>
       <button class="btn secondary" id="cancel">Cancel</button>
     </div>`;
   const type = slug.split("/")[0] || "note";
@@ -363,7 +368,7 @@ async function renderMissions() {
           <option value="">agent…</option>
           ${agentOptions}
         </select>
-        <button class="btn primary" id="d-go">Dispatch</button>
+        <button class="btn primary" id="d-go" data-tooltip="Send mission to agent">Dispatch</button>
         <pre id="d-out" class="code json" style="margin-top:8px;min-height:0"></pre>
       </div>
     </div>
@@ -621,7 +626,7 @@ async function renderVault() {
 
 async function renderVaultFile(file) {
   file = decodeURIComponent(file);
-  crumb([["ForgeOS", "#/dashboard"], ["Vault", "#/vault"], [file]]);
+  crumb([["ForgeOS", "#/dashboard"], ["Vault", tooltip("Vault", "Secret and credential vault"), "#/vault"], [file]]);
   $("#main").innerHTML = skelGrid(4, 160);
   // read via backend passthrough (reuse page fetch is brain-only; read file directly is not exposed,
   // so show a note + link to open in editor)
@@ -1049,7 +1054,7 @@ async function renderProjects() {
 // ---------- Phase 11: settings ----------
 async function renderSettings() {
   crumb([["ForgeOS", "#/dashboard"], ["Settings"]]);
-  document.querySelector("main").innerHTML = `<h1>Settings</h1>
+  document.querySelector("main").innerHTML = `<h1 data-tooltip="Open settings">Settings</h1>
     <div class="card">
       <h2>Environment</h2>
       <p class="muted">These values are loaded from the server process. Changing them requires a server restart.</p>
@@ -1172,10 +1177,10 @@ async function renderPlugins() {
 
 // ===================== ROUTER =====================
 const NAV = [
-  ["Command Center", "command"], ["Governance", "governance"], ["Dashboard", "dashboard"], ["Roles", "roles"], ["Org", "org"], ["Timeline", "timeline"], ["Ledger", "ledger"],
-  ["Search", "search"], ["Capture", "capture"], ["Decisions", "decisions"], ["Missions", "missions"], ["MCP", "mcp"], ["Vault", "vault"],
-  ["Embeddings", "embed"], ["Federation", "federation"], ["Audit", "audit"], ["Schema", "schema"], ["Config", "config"],
-  ["Projects", "projects"], ["Wizard", "wizard"], ["Settings", "settings"], ["Workflows", "workflows"], ["Marketplace", "marketplace"], ["Plugins", "plugins"],
+  ["Command Center", tooltip("Command Center", "Command Center overview"), "command"], ["Governance", tooltip("Governance", "View and manage ForgeOS governance"), "governance"], ["Dashboard", tooltip("Dashboard", "Console dashboard with system metrics"), "dashboard"], ["Roles", "roles"], ["Org", tooltip("Org", "Organization chart and structure"), "org"], ["Timeline", tooltip("Timeline", "Decision timeline and history"), "timeline"], ["Ledger", tooltip("Ledger", "Decision ledger with filters"), "ledger"],
+  ["Search", tooltip("Search", "Search across brains and pages"), "search"], ["Capture", tooltip("Capture", "Capture and create new brain pages"), "capture"], ["Decisions", tooltip("Decisions", "Decision management and tracking"), "decisions"], ["Missions", tooltip("Missions", "Agent missions and dispatch"), "missions"], ["MCP", tooltip("MCP", "Model Context Protocol tools"), "mcp"], ["Vault", "vault"],
+  ["Embeddings", "embed"], ["Federation", tooltip("Federation", "Cross-brain federation status"), "federation"], ["Audit", tooltip("Audit", "Audit log and compliance trail"), "audit"], ["Schema", tooltip("Schema", "Brain schema explorer"), "schema"], ["Config", "config"],
+  ["Projects", tooltip("Projects", "Project management and kanban"), "projects"], ["Wizard", tooltip("Wizard", "Setup wizard for first-time config"), "wizard"], ["Settings", tooltip("Settings", "Console settings and configuration"), "settings"], ["Workflows", tooltip("Workflows", "Agent workflow management"), "workflows"], ["Marketplace", tooltip("Marketplace", "Browse discoverable agents"), "marketplace"], ["Plugins", tooltip("Plugins", "Manage console plugins"), "plugins"],
 ];
 
 const routes = {
