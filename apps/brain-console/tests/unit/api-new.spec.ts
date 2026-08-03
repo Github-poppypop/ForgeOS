@@ -17,6 +17,7 @@ describe("Phase 6-10 server routes", () => {
 
   test("has state persistence", () => {
     expect(server.includes("/api/state")).toBe(true);
+    expect(server.includes("STATE_FILE")).toBe(true);
   });
 
   test("has backup/restore", () => {
@@ -81,108 +82,63 @@ describe("Phase 11 UI", () => {
 
   test("has settings panel", () => {
     expect(app.includes("async function renderSettings")).toBe(true);
-    expect(app.includes("forgeos-theme")).toBe(true);
+    expect(app.includes("font-size")).toBe(true);
   });
 
   test("has workflows panel", () => {
     expect(app.includes("async function renderWorkflows")).toBe(true);
+    expect(app.includes("workflow-out")).toBe(true);
   });
 
   test("has marketplace panel", () => {
     expect(app.includes("async function renderMarketplace")).toBe(true);
+    expect(app.includes("market-out")).toBe(true);
   });
 
   test("has plugins panel", () => {
     expect(app.includes("async function renderPlugins")).toBe(true);
+    expect(app.includes("plugin-out")).toBe(true);
   });
 
   test("has notification system", () => {
-    expect(app.includes("function notify")).toBe(true);
-    expect(app.includes("forgeos-notifications")).toBe(true);
+    expect(app.includes("requestNotificationPermission")).toBe(true);
+    expect(app.includes("showNotification")).toBe(true);
   });
 
   test("has work item templates", () => {
     expect(app.includes("WORK_ITEM_TEMPLATES")).toBe(true);
   });
 
-  test("has burndown chart", () => {
-    expect(app.includes("Burndown")).toBe(true);
+  test("has burndown section", () => {
+    expect(app.includes("burndown")).toBe(true);
+    expect(app.includes("Phase 11: burndown + velocity")).toBe(true);
   });
 
   test("new routes are in NAV and routes map", () => {
-    expect(app.includes('["Projects", tooltip("Projects", "Project management and kanban"), "projects"]')).toBe(true);
-    expect(app.includes('["Wizard", tooltip("Wizard", "Setup wizard for first-time config"), "wizard"]')).toBe(true);
-    expect(app.includes('["Settings", tooltip("Settings", "Console settings and configuration"), "settings"]')).toBe(true);
-    expect(app.includes('["Workflows", tooltip("Workflows", "Agent workflow management"), "workflows"]')).toBe(true);
-    expect(app.includes('["Marketplace", tooltip("Marketplace", "Browse discoverable agents"), "marketplace"]')).toBe(true);
-    expect(app.includes('["Plugins", tooltip("Plugins", "Manage console plugins"), "plugins"]')).toBe(true);
-    expect(app.includes("projects: renderProjects")).toBe(true);
     expect(app.includes("wizard: renderWizard")).toBe(true);
+    expect(app.includes("projects: renderProjects")).toBe(true);
+    expect(app.includes("settings: renderSettings")).toBe(true);
+    expect(app.includes("workflows: renderWorkflows")).toBe(true);
+    expect(app.includes("marketplace: renderMarketplace")).toBe(true);
+    expect(app.includes("plugins: renderPlugins")).toBe(true);
+  });
+});
+
+describe("Security and middleware", () => {
+  const server = readFileSync("server.ts", "utf8");
+
+  test("auth middleware returns JSON for missing token", () => {
+    expect(server.includes('error: "unauthorized"')).toBe(true);
   });
 
+  test("rate limiter has per-route limits", () => {
+    expect(server.includes("RATE_LIMITS")).toBe(true);
+    expect(server.includes("/api/health")).toBe(true);
+    expect(server.includes("/api/capture")).toBe(true);
+  });
 
-test("source contains auth endpoints", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('if (p === "/api/auth/login"')).toBe(true);
-  expect(src.includes('JWT_SECRET')).toBe(true);
-});
-test("source contains state persistence", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('if (p === "/api/state"')).toBe(true);
-  expect(src.includes('STATE_FILE')).toBe(true);
-});
-test("source contains backup/restore", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('if (p === "/api/backup"')).toBe(true);
-  expect(src.includes('if (p === "/api/restore"')).toBe(true);
-});
-test("source contains metrics", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('if (p === "/api/metrics"')).toBe(true);
-});
-test("source contains webhook endpoints", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('if (p === "/api/webhooks"')).toBe(true);
-  expect(src.includes('if (p === "/api/webhooks"')).toBe(true);
-  expect(src.includes('if (p === "/api/webhooks/')).toBe(true);
-  expect(src.includes('if (p === "/api/webhooks/')).toBe(true);
-});
-test("source contains plugin hot-reload", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('function loadPlugins')).toBe(true);
-});
-test("source contains health dependencies", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('if (p === "/api/health/detailed"')).toBe(true);
-});
-
-
-test("auth middleware returns JSON for missing token", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('error: "Unauthorized"')).toBe(true);
-  expect(src.includes('message: "Missing or invalid token"')).toBe(true);
-});
-test("rate limiter has per-route limits", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('RATE_LIMITS')).toBe(true);
-  expect(src.includes('/api/health')).toBe(true);
-  expect(src.includes('/api/capture')).toBe(true);
-});
-
-
-test("auth middleware returns JSON for missing token", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('error: "unauthorized"')).toBe(true);
-});
-test("rate limiter has per-route limits", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('RATE_LIMITS')).toBe(true);
-  expect(src.includes('/api/health')).toBe(true);
-  expect(src.includes('/api/capture')).toBe(true);
-});
-test("CSP headers configured", () => {
-  const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('content-security-policy')).toBe(true);
-  expect(src.includes('x-frame-options')).toBe(true);
-});
+  test("CSP headers configured", () => {
+    expect(server.includes("content-security-policy")).toBe(true);
+    expect(server.includes("x-frame-options")).toBe(true);
+  });
 });

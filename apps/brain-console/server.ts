@@ -427,8 +427,6 @@ function structuredLog(level: string, reqId: string, route: string, status: numb
   const entry = { ts: new Date().toISOString(), level, reqId, traceId, route, status, msg };
   console.log("[json]", JSON.stringify(entry));
 }
-  console.log(JSON.stringify({ ts: new Date().toISOString(), level, reqId, route, status, msg }));
-}
 
 // ---------- (42) rate limit + logging ----------
 const hits: Record<string, Record<string, number[]>> = {};
