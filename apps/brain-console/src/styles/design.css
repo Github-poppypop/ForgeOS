@@ -478,3 +478,19 @@ ul.mono { list-style: none; padding: 0; }
 .tour-highlight { position: relative; z-index: 253; box-shadow: 0 0 0 4px var(--accent), 0 0 24px var(--shadow-glow-accent) !important; border-radius: var(--radius-sm); }
 .tour-skip { position: fixed; bottom: 16px; right: 16px; z-index: 253; }
 .hidden { display: none !important; }
+
+@media print {
+  .navbar, .sidebar, .fab, .toast, #shortcuts-overlay, [data-tooltip]::after { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .main { margin: 0 !important; padding: 0 !important; }
+  .card { border: 1px solid #ddd !important; box-shadow: none !important; }
+  a { text-decoration: none !important; color: #000 !important; }
+}
+
+@media print {
+  .navbar, .sidebar, .fab, .toast, #shortcuts-overlay, [data-tooltip]::after { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .main { margin: 0 !important; padding: 0 !important; }
+  .card { border: 1px solid #ddd !important; box-shadow: none !important; }
+  a { text-decoration: none !important; color: #000 !important; }
+}

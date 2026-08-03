@@ -12,6 +12,21 @@ function tooltip(label, tip){
   return `<span data-tooltip="${label}">${label}</span>`;
 }
 
+function emptyState(title, hint=''){
+  return `<div class="card" style="text-align:center;padding:32px;"><div style="font-size:48px;margin-bottom:8px;">📭</div><h3>${title}</h3><p class="muted">${hint}</p></div>`;
+}
+
+function confirmAction(title, message) {
+  return new Promise((resolve) => {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:200;';
+    el.innerHTML = `<div class="card"><h3>${title}</h3><p class="muted">${message}</p><div class="row" style="margin-top:12px;gap:8px;justify-content:flex-end;"><button class="btn secondary" id="cfm-cancel">Cancel</button><button class="btn danger" id="cfm-ok">Confirm</button></div></div>`;
+    document.body.appendChild(el);
+    el.querySelector('#cfm-cancel').addEventListener('click', () => { el.remove(); resolve(false); });
+    el.querySelector('#cfm-ok').addEventListener('click', () => { el.remove(); resolve(true); });
+  });
+}
+
 // ---------- (1) global error handlers ----------
 window.addEventListener("error", (e) => showFatal(e.message || String(e.error)));
 window.addEventListener("unhandledrejection", (e) => showFatal(String(e.reason && e.reason.message ? e.reason.message : e.reason)));
@@ -179,7 +194,7 @@ function startEdit(slug, body) {
   $("#main").innerHTML = `<h1 class="mono">${DOMPurify.sanitize(slug)}</h1>
     <textarea id="ebody" rows="16" style="width:100%;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono)">${DOMPurify.sanitize(body)}</textarea>
     <div class="row" style="margin-top:8px">
-      <button class="btn primary" id="save" data-tooltip="Save current state">Save</button>
+      <button class="btn primary" id="save" data-tooltip="Save current state" data-tooltip="Save current state">Save</button>
       <button class="btn secondary" id="cancel">Cancel</button>
     </div>`;
   const type = slug.split("/")[0] || "note";
@@ -368,7 +383,7 @@ async function renderMissions() {
           <option value="">agent…</option>
           ${agentOptions}
         </select>
-        <button class="btn primary" id="d-go" data-tooltip="Send mission to agent">Dispatch</button>
+        <button class="btn primary" id="d-go" data-tooltip="Send mission to agent" data-tooltip="Send mission to agent">Dispatch</button>
         <pre id="d-out" class="code json" style="margin-top:8px;min-height:0"></pre>
       </div>
     </div>
@@ -604,7 +619,7 @@ async function renderMCP() {
   crumb([["ForgeOS", "#/dashboard"], ["MCP"]]);
   $("#main").innerHTML = `<h1>MCP / Agent Tools</h1>
     <div class="card"><p class="muted">The console owns the isolated brain and exposes agent tooling. Connect agent runtimes here.</p>
-    <button class="btn secondary" id="probe">Probe /api/status</button><pre id="h" class="code json" style="margin-top:12px"></pre></div>`;
+    <button class="btn secondary" id="probe" data-tooltip="Probe API status">Probe /api/status</button><pre id="h" class="code json" style="margin-top:12px"></pre></div>`;
   $("#probe").addEventListener("click", () => withLoading($("#probe"), async () => {
     const r = await safe(() => api.status());
     $("#h").textContent = JSON.stringify(r, null, 2);
@@ -641,7 +656,7 @@ async function renderEmbed() {
   crumb([["ForgeOS", "#/dashboard"], ["Embeddings"]]);
   $("#main").innerHTML = `<h1>Embedding Admin</h1>
     <div class="card"><p class="muted">Local Ollama <span class="mono">mxbai-embed-large</span> (1024d). Re-embed after captures.</p>
-    <button class="btn primary" id="re">Re-embed all</button><pre id="o" class="code json" style="margin-top:12px"></pre></div>`;
+    <button class="btn primary" id="re" data-tooltip="Re-embed all pages">Re-embed all</button><pre id="o" class="code json" style="margin-top:12px"></pre></div>`;
   $("#re").addEventListener("click", () => withLoading($("#re"), async () => {
     const r = await safe(() => api.embed());
     $("#o").textContent = (r.out || "") + "\n" + (r.err || "");
@@ -1633,3 +1648,81 @@ function shell() {
   route();
 }
 shell();
+
+// ---------- Keyboard shortcuts cheatsheet ----------
+function renderShortcuts() {
+  const el = document.createElement('div');
+  el.id = 'shortcuts-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:200;';
+  el.innerHTML = `
+    <div class="card" style="max-width:520px;width:90%;max-height:80vh;overflow:auto;">
+      <h2>Keyboard Shortcuts</h2>
+      <table class="table" style="margin-top:8px;">
+        <tr><th>Shortcut</th><th>Action</th></tr>
+        <tr><td class="mono">?</td><td>Show this cheatsheet</td></tr>
+        <tr><td class="mono">Cmd/Ctrl + K</td><td>Command palette</td></tr>
+        <tr><td class="mono">Cmd/Ctrl + /</td><td>Focus search</td></tr>
+        <tr><td class="mono">Esc</td><td>Close modal / palette</td></tr>
+        <tr><td class="mono">1-9</td><td>Jump to nav item</td></tr>
+      </table>
+      <div style="margin-top:12px;text-align:right;"><button class="btn secondary" id="close-shortcuts">Close</button></div>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', (e) => { if (e.target === el || e.target.id === 'close-shortcuts') el.remove(); });
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === '?' && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); renderShortcuts(); }
+});
+
+// ---------- Column visibility toggles ----------
+function columnToggle(headerEl, tableEl) {
+  const cols = Array.from(headerEl.querySelectorAll('th'));
+  const menu = document.createElement('div');
+  menu.className = 'card';
+  menu.style.cssText = 'position:absolute;top:100%;right:0;z-index:50;min-width:180px;padding:8px;';
+  cols.forEach((th, i) => {
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer;';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = true;
+    cb.addEventListener('change', () => { tableEl.querySelectorAll('tr').forEach(r => r.children[i].style.display = cb.checked ? '' : 'none'); });
+    label.appendChild(cb); label.appendChild(document.createTextNode(th.textContent));
+    menu.appendChild(label);
+  });
+  headerEl.style.position = 'relative';
+  headerEl.appendChild(menu);
+  document.addEventListener('click', (e) => { if (!headerEl.contains(e.target)) menu.remove(); }, { once: true });
+}
+
+// ---------- Bulk actions for vault/audit ----------
+function bulkActions(containerId, rowSelector) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const bar = document.createElement('div');
+  bar.className = 'card';
+  bar.style.cssText = 'margin-bottom:8px;padding:8px;display:flex;gap:8px;align-items:center;';
+  const selectAll = document.createElement('input'); selectAll.type = 'checkbox'; selectAll.id = containerId + '-all';
+  const label = document.createElement('span'); label.textContent = 'Select all'; label.className = 'muted';
+  const delBtn = document.createElement('button'); delBtn.className = 'btn danger'; delBtn.textContent = 'Delete selected';
+  bar.append(selectAll, label, delBtn);
+  container.insertBefore(bar, container.firstChild);
+  selectAll.addEventListener('change', () => {
+    container.querySelectorAll(rowSelector + ' input[type=checkbox]').forEach(cb => cb.checked = selectAll.checked);
+  });
+  delBtn.addEventListener('click', () => {
+    const checked = container.querySelectorAll(rowSelector + ' input[type=checkbox]:checked');
+    if (!checked.length) return;
+    if (!confirm('Delete ' + checked.length + ' items?')) return;
+    checked.forEach(cb => cb.closest(rowSelector).remove());
+    bar.remove();
+  });
+  container.querySelectorAll(rowSelector).forEach(row => {
+    const cb = document.createElement('input'); cb.type = 'checkbox';
+    row.insertBefore(cb, row.firstChild);
+  });
+}
+
+// ---------- Confirmation modal helper ----------
+
+// ---------- Column visibility toggles ----------
+
