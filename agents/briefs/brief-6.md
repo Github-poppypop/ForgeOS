@@ -14,3 +14,7 @@ Track spend, licensing, and cost controls.
 ## Success Criteria
 - No secrets in git
 - Compliance doc written
+
+## Coordination
+- Report results to CEO via 
+- Commit all changes to 

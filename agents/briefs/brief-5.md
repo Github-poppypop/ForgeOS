@@ -15,3 +15,7 @@ Improve onboarding and community visibility.
 - README updated
 - 3 screenshots added
 - 1 announcement drafted
+
+## Coordination
+- Report results to CEO via 
+- Commit all changes to 

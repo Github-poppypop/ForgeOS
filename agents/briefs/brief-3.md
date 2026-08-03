@@ -15,3 +15,7 @@ Define product roadmap for Brain Console and poolleague.
 ## Success Criteria
 - Roadmap document created
 - 4 new panel proposals written
+
+## Coordination
+- Report results to CEO via 
+- Commit all changes to 

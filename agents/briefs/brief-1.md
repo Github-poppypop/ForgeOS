@@ -1,19 +1,52 @@
-# Mission Brief 1: CEO — Org Coherence
+# Master Mission Brief: CEO — Org-Wide Sync
 Mission ID: CEO-20260803
 Owner: CEO
 Reports To: Board
 
 ## Objective
-Ensure ForgeOS Brain Console and poolleague are aligned with ORG.md and roadmap.
+Synchronize ForgeOS Brain Console and poolleague across all C-suite domains.
 
-## Tasks
-1. Review  in  and .
-2. Identify top 3 blockers across both projects.
-3. Assign each blocker to the correct C-suite owner (CTO/CPO/COO/CMO/CFO).
-4. Write a single mission brief for each owner under .
-5. Commit all changes to .
+## Context
+- ForgeOS Brain Console: 
+- poolleague:  (git submodule)
+- All agents use forge profile: 
+- Git remote:  at 
+
+## C-Suite Assignments
+
+### CTO (brief-2)
+- Run unit tests in both apps
+- Fix any failing tests
+- Verify  routes return 200
+- Document security gaps
+
+### CPO (brief-3)
+- Review  in both apps
+- Prioritize backlog into Next/Later/Never
+- Propose 2 new panels for each app
+
+### COO (brief-4)
+- Verify tmux farm health (10 sessions)
+- Ensure VPS :7777 and :7778 servers running
+- Document ops runbook
+
+### CMO (brief-5)
+- Update README for both apps
+- Draft announcement for poolleague
+- Add demo screenshots
+
+### CFO (brief-6)
+- Audit API keys and secrets
+- Verify no secrets in git history
+- Write compliance doc
+
+### Board (brief-7)
+- Review ORG.md and GOVERNANCE.md
+- Propose 1 ORG.md amendment
+- Ratify or reject CEO Q3 roadmap
 
 ## Success Criteria
-- 3 blockers identified and assigned
-- 3 owner briefs created
-- All changes pushed to GitHub
+- All 5 C-suite agents complete their briefs
+- All changes committed and pushed to origin/master
+- No test failures in either app
+- Both apps healthy on their ports
