@@ -494,3 +494,33 @@ ul.mono { list-style: none; padding: 0; }
   .card { border: 1px solid #ddd !important; box-shadow: none !important; }
   a { text-decoration: none !important; color: #000 !important; }
 }
+
+/* ---------- Mobile responsive ---------- */
+@media (max-width: 768px) {
+  .sidebar { width: 100%; position: fixed; bottom: 0; top: auto; height: 60px; flex-direction: row; overflow-x: auto; padding: 8px; gap: 4px; z-index: 100; }
+  .main { margin-left: 0; margin-bottom: 60px; padding: 12px; }
+  .navbar { padding: 8px 12px; }
+  .grid { grid-template-columns: 1fr; }
+  .table { font-size: 12px; }
+  .table th, .table td { padding: 6px 4px; }
+  .card { padding: 12px; }
+  h1 { font-size: 20px; }
+  .fab { bottom: 80px; }
+  .shortcuts-overlay table { font-size: 14px; }
+}
+@media (max-width: 480px) {
+  .main { padding: 8px; }
+  .card { padding: 8px; }
+  .btn { padding: 6px 12px; font-size: 14px; }
+  .input { font-size: 14px; padding: 8px; }
+}
+
+@media print {
+  .navbar, .sidebar, .fab, .toast, #shortcuts-overlay, [data-tooltip]::after { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .main { margin: 0 !important; padding: 0 !important; }
+  .card { border: 1px solid #ddd !important; box-shadow: none !important; break-inside: avoid; }
+  a { text-decoration: none !important; color: #000 !important; }
+  table { page-break-inside: avoid; }
+  h1, h2, h3 { page-break-after: avoid; }
+}

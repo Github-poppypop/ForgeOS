@@ -1191,8 +1191,57 @@ async function renderPlugins() {
 }
 
 // ===================== ROUTER =====================
+
+
+// ---------- Push notifications ----------
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return 'unsupported';
+  const perm = await Notification.requestPermission();
+  return perm;
+}
+function showNotification(title, body, icon) {
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body, icon: icon || '/favicon.ico' });
+  }
+}
+// Register service worker for push
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    console.log('SW registered for push');
+  }).catch(e => console.warn('SW failed:', e));
+}
+// ---------- Plugin hot-reload UI ----------
+async function reloadPlugins() {
+  const btn = document.getElementById('plugin-reload-btn');
+  if (btn) btn.textContent = 'Reloading...';
+  await api.post('/api/hotreload', {}, { headers: { 'x-reload-secret': '' } }).catch(() => ({}));
+  if (btn) btn.textContent = 'Reload Plugins';
+  toast('Plugins reloaded');
+}
 // ---------- Webhook management panel ----------
+
 async function renderWebhooks() {
+  const list = await api.listWebhooks().catch(() => ({ webhooks: [] }));
+  const dead = await api.get('/api/webhooks/dead-letter').catch(() => ({ dead: [] }));
+  document.querySelector("main").innerHTML = `<h1>Webhooks</h1>
+    <div class="card"><h3>Create Webhook</h3>
+      <input id="wh-url" class="input" placeholder="https://example.com/hook"/>
+      <input id="wh-events" class="input" placeholder="mission.created,agent.completed"/>
+      <input id="wh-secret" class="input" placeholder="optional secret"/>
+      <button class="btn" id="wh-create">Create</button>
+    </div>
+    <h2>Active Webhooks</h2>
+    <div id="wh-list">${(list.webhooks||[]).map(w => `<div class="card"><b>${w.url}</b><br/><span class="muted">${w.events.join(", ")} ${w.active ? "✅" : "⏸️"}</span></div>`).join("")}</div>
+    <h2>Dead Letter Queue</h2>
+    <div id="dlq-list">${(dead.dead||[]).map(d => `<div class="card"><b>${d.url}</b><br/><span class="muted">${d.event} — ${d.error}</span></div>`).join("")}</div>`;
+  $("#wh-create")?.addEventListener("click", async () => {
+    const url = $("#wh-url")?.value;
+    const events = ($("#wh-events")?.value || "").split(",").map(s => s.trim()).filter(Boolean);
+    await api.createWebhook(url, events, $("#wh-secret")?.value);
+    renderWebhooks();
+  });
+}
+
   const list = await api.listWebhooks().catch(() => ({ webhooks: [] }));
   document.querySelector("main").innerHTML = `<h1>Webhooks</h1>
     <div class="card"><h3>Create Webhook</h3>
@@ -1208,7 +1257,6 @@ async function renderWebhooks() {
     await api.createWebhook(url, events, $("#wh-secret")?.value);
     renderWebhooks();
   });
-}
 
 // ---------- Drag-and-drop kanban ----------
 function initKanban(containerId) {
@@ -1234,6 +1282,65 @@ function initKanban(containerId) {
   });
 }
 
+
+// ---------- Virtual scrolling ----------
+function initVirtualScroll(containerId, rowHeight = 40, buffer = 10) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const rows = Array.from(container.querySelectorAll('tr'));
+  const total = rows.length;
+  const viewport = document.createElement('div');
+  viewport.style.cssText = `height:${total * rowHeight}px;position:relative;overflow:auto;`;
+  const view = document.createElement('div');
+  view.style.cssText = 'position:absolute;top:0;left:0;right:0;';
+  container.innerHTML = '';
+  container.appendChild(viewport);
+  viewport.appendChild(view);
+  function render() {
+    const scrollTop = viewport.scrollTop;
+    const start = Math.max(0, Math.floor(scrollTop / rowHeight) - buffer);
+    const end = Math.min(total, Math.ceil((scrollTop + viewport.clientHeight) / rowHeight) + buffer);
+    let html = '';
+    for (let i = start; i < end; i++) {
+      html += rows[i].outerHTML;
+    }
+    view.innerHTML = html;
+    view.style.transform = `translateY(${start * rowHeight}px)`;
+  }
+  viewport.addEventListener('scroll', render);
+  render();
+}
+
+// ---------- Lazy panel loading ----------
+const panelCache = {};
+async function loadPanel(name) {
+  if (panelCache[name]) return panelCache[name]();
+  // In production, these would be separate chunks; for now, wrap existing render fns
+  const fn = window[name];
+  if (!fn) return '<div class="card">Panel not found</div>';
+  const html = await fn();
+  return html;
+}
+
+// ---------- Offline capture queue ----------
+const offlineQueue = [];
+async function queueCapture(slug, body) {
+  const item = { slug, body, ts: Date.now() };
+  offlineQueue.push(item);
+  localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
+  toast('Saved offline — will sync when online');
+}
+async function flushOfflineQueue() {
+  if (!navigator.onLine || !offlineQueue.length) return;
+  const batch = offlineQueue.splice(0, 10);
+  await api.batchCapture(batch);
+  localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
+  toast(`Synced ${batch.length} captures`);
+}
+window.addEventListener('online', flushOfflineQueue);
+// Load queued captures on startup
+const saved = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+offlineQueue.push(...saved);
 // ---------- Live search/filter ----------
 function initLiveSearch(containerId, rowSelector, delay = 200) {
   const container = document.getElementById(containerId);

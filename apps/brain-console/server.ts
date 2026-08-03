@@ -100,6 +100,29 @@ function csrfMiddleware(c: any, next: any) {
   return next();
 }
 app.get("/api/csrf", (c) => { const t = csrfToken(); csrfStore[t] = Date.now(); c.setHeader("set-cookie", `csrf=${t}; Path=/; HttpOnly; SameSite=Strict`); c.json({ csrf: t }); });
+
+// ---------- Model fallback chains ----------
+const MODEL_FALLBACKS: Record<string, string[]> = {
+  "stepfun/step-3.7-flash:free": ["nous/hy3:free", "openai/gpt-4o-mini"],
+  "default": ["openai/gpt-4o-mini", "anthropic/claude-3-haiku"]
+};
+async function callModelWithFallback(model: string, messages: any[]) {
+  const fallbacks = MODEL_FALLBACKS[model] || MODEL_FALLBACKS["default"];
+  const models = [model, ...fallbacks];
+  for (const m of models) {
+    try {
+      const res = await fetch(OLLAMA_BASE_URL.replace('/v1', '/api/chat'), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: m, messages, stream: false })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      structuredLog("warn", crypto.randomUUID(), "model", 0, `fallback ${m}: ${e?.message ?? e}`);
+    }
+  }
+  throw new Error("all models failed");
+}
 const webhookStore: WebhookSubscription[] = [];
 
 function webhookEventsForMission(missionId: string, eventType: WebhookEvent) {
@@ -131,6 +154,11 @@ async function dispatchWebhook(webhook: WebhookSubscription, eventType: WebhookE
 
 
 // ---------- Webhook CRUD ----------
+
+app.get("/api/webhooks/dead-letter", (c) => {
+  const dead = webhookStore.flatMap(w => w.dead || []);
+  c.json({ ok: true, dead });
+});
 app.get("/api/webhooks", (c) => {
   const list = webhookStore.map(w => ({ id: w.id, url: w.url, events: w.events, active: w.active, secret: !!w.secret }));
   c.json({ ok: true, webhooks: list });
@@ -395,6 +423,10 @@ function reqId(req: Request) {
   return req.headers.get('x-request-id') || crypto.randomUUID();
 }
 function structuredLog(level: string, reqId: string, route: string, status: number, msg: string) {
+  const traceId = process.env.OTEL_TRACE_ID || crypto.randomUUID();
+  const entry = { ts: new Date().toISOString(), level, reqId, traceId, route, status, msg };
+  console.log("[json]", JSON.stringify(entry));
+}
   console.log(JSON.stringify({ ts: new Date().toISOString(), level, reqId, route, status, msg }));
 }
 
@@ -433,6 +465,9 @@ function rateHeaders(ip: string, pathname: string) {
 }
 
 function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
+  const reqId = crypto.randomUUID();
+  structuredLog("info", reqId, "response", status, "");
+  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders(), ...securityHeaders(), "x-request-id": reqId, ...extraHeaders } });
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders(), ...securityHeaders(), ...extraHeaders } });
 }
 

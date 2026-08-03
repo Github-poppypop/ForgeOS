@@ -2,10 +2,18 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
+  <link rel="manifest" href="/manifest.json"/>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ForgeOS Brain Console</title>
   <link rel="icon" href="/favicon.ico" type="image/x-icon" />
   <link rel="stylesheet" href="/src/styles/design.css" />
+
+  <script src="https://browser.sentry-cdn.com/7.64.0/bundle.min.js" crossorigin="anonymous"></script>
+  <script>
+    if (window.SENTRY_DSN) {
+      Sentry.init({ dsn: window.SENTRY_DSN, tracesSampleRate: 0.1 });
+    }
+  </script>
 </head>
 <body>
   <div id="app"></div>
