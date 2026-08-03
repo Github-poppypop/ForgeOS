@@ -7,6 +7,11 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const app = $("#app");
 
+function tooltip(label, tip){
+  if(!tip) return label;
+  return `<span data-tooltip="${label}">${label}</span>`;
+}
+
 // ---------- (1) global error handlers ----------
 window.addEventListener("error", (e) => showFatal(e.message || String(e.error)));
 window.addEventListener("unhandledrejection", (e) => showFatal(String(e.reason && e.reason.message ? e.reason.message : e.reason)));
@@ -111,8 +116,8 @@ async function renderDashboard() {
     <div class="card" style="margin-top:16px"><h2>Quick actions</h2>
       <div class="row">
         <a class="btn primary" href="#/roles">Roles</a>
-        <a class="btn secondary" href="#/search">Search</a>
-        <a class="btn secondary" href="#/capture">Capture</a>
+        <a class="btn secondary" href="#/search" data-tooltip="Search across all brains">Search</a>
+        <a class="btn secondary" href="#/capture" data-tooltip="Create new brain page">Capture</a>
         <a class="btn secondary" href="#/embed">Re-embed</a>
       </div>
     </div>
@@ -150,7 +155,7 @@ async function renderRoles() {
 
 async function renderPage(slug) {
   slug = decodeURIComponent(slug);
-  crumb([["ForgeOS", "#/dashboard"], ["Roles", "#/roles"], [slug]]);
+  crumb([["ForgeOS", "#/dashboard"], ["Roles", tooltip("Roles", "Manage brain roles and permissions"), "#/roles"], [slug]]);
   $("#main").innerHTML = skelGrid(3, 200);
   const p = await safe(() => api.page(slug)).catch(() => null);
   if (!p || !p.body) { $("#main").innerHTML = empty("Page not found in brain.", `<a class="btn secondary" href="#/capture">Capture it</a>`); return; }
@@ -174,7 +179,7 @@ function startEdit(slug, body) {
   $("#main").innerHTML = `<h1 class="mono">${DOMPurify.sanitize(slug)}</h1>
     <textarea id="ebody" rows="16" style="width:100%;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono)">${DOMPurify.sanitize(body)}</textarea>
     <div class="row" style="margin-top:8px">
-      <button class="btn primary" id="save">Save</button>
+      <button class="btn primary" id="save" data-tooltip="Save current state">Save</button>
       <button class="btn secondary" id="cancel">Cancel</button>
     </div>`;
   const type = slug.split("/")[0] || "note";
@@ -363,7 +368,7 @@ async function renderMissions() {
           <option value="">agent…</option>
           ${agentOptions}
         </select>
-        <button class="btn primary" id="d-go">Dispatch</button>
+        <button class="btn primary" id="d-go" data-tooltip="Send mission to agent">Dispatch</button>
         <pre id="d-out" class="code json" style="margin-top:8px;min-height:0"></pre>
       </div>
     </div>
@@ -493,6 +498,7 @@ async function renderMissions() {
     const out = $("#d-out");
     if (out) out.textContent = JSON.stringify(r, null, 2);
     toast(r?.queued ? `dispatched ${agent} on ${mid}` : "dispatch failed", r?.queued ? "ok" : "err");
+    if (r?.queued) notify(`Agent ${agent} dispatched on ${mid}`, "ok");
   });
   
   // Auto-refresh missions every 5s
@@ -620,7 +626,7 @@ async function renderVault() {
 
 async function renderVaultFile(file) {
   file = decodeURIComponent(file);
-  crumb([["ForgeOS", "#/dashboard"], ["Vault", "#/vault"], [file]]);
+  crumb([["ForgeOS", "#/dashboard"], ["Vault", tooltip("Vault", "Secret and credential vault"), "#/vault"], [file]]);
   $("#main").innerHTML = skelGrid(4, 160);
   // read via backend passthrough (reuse page fetch is brain-only; read file directly is not exposed,
   // so show a note + link to open in editor)
@@ -708,6 +714,7 @@ function renderConfig() {
       <select id="theme" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
         <option value="dark" ${theme === "dark" ? "selected" : ""}>dark</option>
         <option value="light" ${theme === "light" ? "selected" : ""}>light</option>
+        <option value="auto" ${theme === "auto" ? "selected" : ""}>auto (system)</option>
         <option value="hc" ${theme === "hc" ? "selected" : ""}>high-contrast</option>
       </select>
       <button class="btn secondary" id="apply">Apply (persists)</button>
@@ -812,17 +819,375 @@ async function renderGovernance() {
     </div>`;
 }
 
+
+// ---------- Phase 11: notification system ----------
+function notify(msg, kind = "info") {
+  const key = "forgeos-notifications";
+  const list = JSON.parse(localStorage.getItem(key) || "[]");
+  list.unshift({ msg, kind, ts: Date.now() });
+  localStorage.setItem(key, JSON.stringify(list.slice(0, 50)));
+  toast(msg, kind);
+}
+
+// ---------- Phase 11: work item templates ----------
+const WORK_ITEM_TEMPLATES = {
+  "feature": { title: "Feature: [name]", status: "todo", priority: "medium", assignee: "agent-1" },
+  "bugfix": { title: "Bugfix: [description]", status: "todo", priority: "high", assignee: "agent-1" },
+  "mission": { title: "Mission: [objective]", status: "todo", priority: "medium", assignee: "agent-1" },
+  "review": { title: "Review: [artifact]", status: "review", priority: "low", assignee: "agent-1" },
+};
+
+// ---------- Phase 11: setup wizard ----------
+async function renderWizard() {
+  crumb([["ForgeOS", "#/dashboard"], ["Setup Wizard"]]);
+  const done = localStorage.getItem("forgeos-wizard-done");
+  document.body.classList.toggle("wizard-active", !done);
+  document.body.classList.toggle("wizard-done", !!done);
+  document.querySelector("main").innerHTML = `<h1>Setup Wizard</h1>
+    <div class="card">
+      <h2>Welcome to ForgeOS Brain Console</h2>
+      <p class="muted">This wizard will guide you through the initial configuration. Estimated time: 2 minutes.</p>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="wizard-start">Start Setup</button>
+      </div>
+    </div>
+    <div id="wizard-step" class="card" style="margin-top:16px;display:none"></div>`;
+
+  const step = (idx, title, body, nextLabel = "Next") => {
+    const el = document.querySelector("#wizard-step");
+    if (!el) return;
+    el.style.display = "block";
+    el.innerHTML = `<h2>${DOMPurify.sanitize(title)}</h2>
+      <div style="margin-top:8px">${body}</div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn secondary" id="wizard-skip">Skip</button>
+        <button class="btn primary" id="wizard-next">${DOMPurify.sanitize(nextLabel)}</button>
+      </div>`;
+    let stepIdx = idx;
+    document.querySelector("#wizard-next").addEventListener("click", () => {
+      stepIdx += 1;
+      runWizardStep(stepIdx);
+    });
+    document.querySelector("#wizard-skip").addEventListener("click", () => finishWizard());
+  };
+
+  const runWizardStep = (idx) => {
+    if (idx === 1) {
+      step(idx, "Console Configuration", `
+        <p class="muted">Set the port and token for your local console.</p>
+        <div class="row" style="margin-top:8px"><label>Port</label><input id="w-port" class="mono" value="7777" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>Token</label><input id="w-token" class="mono" placeholder="optional" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      `);
+    } else if (idx === 2) {
+      step(idx, "Brain & Model", `
+        <p class="muted">Configure your gbrain path and Ollama endpoint.</p>
+        <div class="row" style="margin-top:8px"><label>GBRAIN_HOME</label><input id="w-gbrain" class="mono" value="C:\ForgeOS" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>Ollama URL</label><input id="w-ollama" class="mono" value="http://localhost:11434/v1" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      `);
+    } else if (idx === 3) {
+      step(idx, "VPS Connection", `
+        <p class="muted">Connect to your VPS for agent orchestration.</p>
+        <div class="row" style="margin-top:8px"><label>Host</label><input id="w-host" class="mono" placeholder="host" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>SSH Port</label><input id="w-ssh" class="mono" value="2222" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      `);
+    } else if (idx === 4) {
+      step(idx, "First Mission", `
+        <p class="muted">Create your first mission and dispatch an agent.</p>
+        <div class="row" style="margin-top:8px"><label>Mission title</label><input id="w-title" class="mono" value="Demo mission" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      `, "Launch");
+    } else {
+      finishWizard();
+    }
+  };
+
+  const finishWizard = async () => {
+    localStorage.setItem("forgeos-wizard-done", "true");
+    document.body.classList.add("wizard-done");
+    document.body.classList.remove("wizard-active");
+    const port = (document.querySelector("#w-port")?.value || "").trim() || "7777";
+    const title = (document.querySelector("#w-title")?.value || "").trim() || "Demo mission";
+    if (title) {
+      try {
+        await safe(() => api.capture("missions/" + Date.now(), "mission", "# " + title));
+        toast("Created first mission", "ok");
+      } catch {}
+    }
+    location.hash = "#/projects";
+  };
+
+  document.querySelector("#wizard-start").addEventListener("click", () => runWizardStep(1));
+}
+
+// ---------- Phase 11: project management ----------
+async function renderProjects() {
+  crumb([["ForgeOS", "#/dashboard"], ["Projects"]]);
+  document.querySelector("main").innerHTML = `<h1>Project Management</h1>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>Work Items</h2>
+        <button class="btn primary" id="new-work">New Work Item</button>
+      </div>
+      <div id="project-stats"></div>
+      <div id="project-board" class="grid cols-4" style="margin-top:12px">
+        ${["todo","in-progress","review","done"].map(status => `
+          <div class="card">
+            <h3>${DOMPurify.sanitize(status.replace("-"," "))}</h3>
+            <div id="col-${status}" class="project-col" data-status="${status}"></div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+    <div id="project-modal" class="modal-backdrop" style="display:none">
+      <div class="modal">
+        <h2>Work Item</h2>
+        <div class="row" style="margin-top:8px"><label>Title</label><input id="p-title" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>Assignee</label><input id="p-assignee" class="mono" value="agent-1" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>Template</label><select id="p-template" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="">custom</option>
+          <option value="feature">Feature</option>
+          <option value="bugfix">Bugfix</option>
+          <option value="mission">Mission</option>
+          <option value="review">Review</option>
+        </select></div>
+        <div class="row" style="margin-top:8px"><label>Priority</label><select id="p-priority" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="low">low</option><option value="medium" selected>medium</option><option value="high">high</option>
+        </select></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="p-save">Save</button>
+          <button class="btn secondary" id="p-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+
+  const STORE_KEY = "forgeos-work-items";
+  const load = () => JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+  const save = (items) => localStorage.setItem(STORE_KEY, JSON.stringify(items));
+
+  const renderBoard = () => {
+    const items = load();
+    ["todo","in-progress","review","done"].forEach(status => {
+      const col = document.querySelector(`#col-${status}`);
+      if (!col) return;
+      const list = items.filter(i => i.status === status);
+      col.innerHTML = list.map(i => `
+        <div class="card" data-id="${DOMPurify.sanitize(i.id)}">
+          <div class="row" style="justify-content:space-between">
+            <strong>${DOMPurify.sanitize(i.title)}</strong>
+            <span class="pill ${i.priority==="high"?"warn":""}">${DOMPurify.sanitize(i.priority)}</span>
+          </div>
+          <p class="muted mono">${DOMPurify.sanitize(i.assignee || "unassigned")}</p>
+          <div class="row" style="margin-top:8px;gap:6px">
+            ${status !== "todo" ? `<button class="btn secondary" data-move="${DOMPurify.sanitize(i.id)}" data-to="todo">←</button>` : ""}
+            ${status !== "done" ? `<button class="btn secondary" data-move="${DOMPurify.sanitize(i.id)}" data-to="${status==="todo"?"in-progress":status==="in-progress"?"review":"done"}">→</button>` : ""}
+            <button class="btn secondary" data-delete="${DOMPurify.sanitize(i.id)}">×</button>
+          </div>
+        </div>
+      `).join("") || `<p class="muted">no items</p>`;
+    });
+  };
+
+
+  // ---------- Phase 11: burndown + velocity ----------
+  const renderStats = () => {
+    const items = load();
+    const total = items.length;
+    const done = items.filter(i => i.status === "done").length;
+    const inProgress = items.filter(i => i.status === "in-progress").length;
+    const review = items.filter(i => i.status === "review").length;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    const stats = $(`#project-stats`);
+    if (stats) {
+      stats.innerHTML = `
+        <div class="grid cols-4" style="margin-top:12px">
+          <div class="card"><h3>${total}</h3><p class="muted">Total</p></div>
+          <div class="card"><h3>${inProgress}</h3><p class="muted">In Progress</p></div>
+          <div class="card"><h3>${review}</h3><p class="muted">Review</p></div>
+          <div class="card"><h3>${pct}%</h3><p class="muted">Complete</p></div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h3>Burndown</h3>
+          <div class="progress-track" style="height:24px;margin-top:8px">
+            <div class="progress-bar" style="width:${pct}%;height:100%"></div>
+          </div>
+          <p class="muted" style="margin-top:8px">${done} of ${total} items done</p>
+        </div>
+      `;
+    }
+  };
+
+  const originalRender = renderBoard;
+  renderBoard = () => { originalRender(); renderStats(); };
+
+
+  renderBoard();
+  document.querySelector("#new-work").addEventListener("click", () => {
+    document.querySelector("#project-modal").style.display = "block";
+    document.querySelector("#p-title").value = "";
+    document.querySelector("#p-assignee").value = "agent-1";
+  });
+  document.querySelector("#p-cancel").addEventListener("click", () => { document.querySelector("#project-modal").style.display = "none"; });
+  document.querySelector("#p-save").addEventListener("click", () => {
+    const title = document.querySelector("#p-title").value.trim();
+    if (!title) return;
+    const items = load();
+    items.push({ id: String(Date.now()), title, status: "todo", priority: document.querySelector("#p-priority").value, assignee: document.querySelector("#p-assignee").value.trim() || "unassigned" });
+    save(items);
+    document.querySelector("#project-modal").style.display = "none";
+    renderBoard();
+    toast("work item created", "ok");
+  });
+  document.querySelector("#project-board").addEventListener("click", (e) => {
+    const moveBtn = e.target.closest("[data-move]");
+    const delBtn = e.target.closest("[data-delete]");
+    if (moveBtn) {
+      const items = load();
+      const item = items.find(i => i.id === moveBtn.dataset.move);
+      if (item) { item.status = moveBtn.dataset.to; save(items); renderBoard(); }
+    }
+    if (delBtn) {
+      const items = load().filter(i => i.id !== delBtn.dataset.delete);
+      save(items); renderBoard();
+    }
+  });
+}
+
+// ---------- Phase 11: settings ----------
+async function renderSettings() {
+  crumb([["ForgeOS", "#/dashboard"], ["Settings"]]);
+  document.querySelector("main").innerHTML = `<h1 data-tooltip="Open settings">Settings</h1>
+    <div class="card">
+      <h2>Environment</h2>
+      <p class="muted">These values are loaded from the server process. Changing them requires a server restart.</p>
+      <div id="settings-env" class="mono" style="margin-top:8px;line-height:1.8"></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Preferences</h2>
+      <div class="row" style="margin-top:8px">
+        <label>Theme</label>
+        <select id="s-theme" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="system">System</option>
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="hc">High contrast</option>
+          <option value="midnight">Midnight</option>
+          <option value="solarized-light">Solarized light</option>
+          <option value="retro">Retro</option>
+          <option value="matrix">Matrix</option>
+          <option value="ocean">Ocean</option>
+        </select>
+      </div>
+      <div class="row" style="margin-top:8px"><button class="btn primary" id="s-save">Save preferences</button></div>
+    </div>`;
+  try {
+    const s = await safe(api.status).catch(() => null);
+    const env = document.querySelector("#settings-env");
+    if (env && s) {
+      env.innerHTML = [
+        ["Port", s.console_port || "—"],
+        ["GBRAIN_HOME", s.gbrain_home || "C:\ForgeOS"],
+        ["Ollama", s.ollama ? "http://localhost:11434/v1" : "off"],
+        ["Auth", s.auth ? "enabled" : "disabled"],
+        ["Embedding model", s.embedding_model || "—"],
+      ].map(([k,v]) => `<div><span class="muted">${k}:</span> <span>${DOMPurify.sanitize(v)}</span></div>`).join("");
+    }
+  } catch {}
+  const saved = localStorage.getItem("forgeos-theme") || "system";
+  const themeSel = document.querySelector("#s-theme");
+  if (themeSel) themeSel.value = saved;
+  document.querySelector("#s-save").addEventListener("click", () => {
+    const val = document.querySelector("#s-theme").value;
+    localStorage.setItem("forgeos-theme", val);
+    applyTheme(val);
+    toast("preferences saved", "ok");
+  });
+}
+
+// ---------- Phase 11: workflows ----------
+async function renderWorkflows() {
+  crumb([["ForgeOS", "#/dashboard"], ["Workflows"]]);
+  document.querySelector("main").innerHTML = `<h1>Agent Workflows</h1>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>Workflows</h2>
+        <button class="btn primary" id="new-workflow">New workflow</button>
+      </div>
+      <pre id="workflow-out" class="code json" style="margin-top:12px"></pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.workflows).catch(() => ({ workflows: [] }));
+      const out = document.querySelector("#workflow-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      const out = document.querySelector("#workflow-out");
+      if (out) out.textContent = "workflow error: " + errMsg(e);
+    }
+  };
+  refresh();
+  document.querySelector("#new-workflow").addEventListener("click", async () => {
+    const title = prompt("Workflow title:");
+    if (!title) return;
+    const r = await safe(() => api.createWorkflow({ title, steps: [] })).catch(e => ({ error: errMsg(e) }));
+    toast(r.error ? "workflow failed: " + r.error : "workflow created", r.error ? "err" : "ok");
+    refresh();
+  });
+}
+
+// ---------- Phase 11: marketplace ----------
+async function renderMarketplace() {
+  crumb([["ForgeOS", "#/dashboard"], ["Marketplace"]]);
+  document.querySelector("main").innerHTML = `<h1>Agent Marketplace</h1>
+    <div class="card">
+      <h2>Discoverable agents</h2>
+      <pre id="market-out" class="code json" style="margin-top:12px"></pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.marketplace).catch(() => ({ marketplace: [] }));
+      const out = document.querySelector("#market-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      const out = document.querySelector("#market-out");
+      if (out) out.textContent = "marketplace error: " + errMsg(e);
+    }
+  };
+  refresh();
+}
+
+// ---------- Phase 11: plugins ----------
+async function renderPlugins() {
+  crumb([["ForgeOS", "#/dashboard"], ["Plugins"]]);
+  document.querySelector("main").innerHTML = `<h1>Plugins</h1>
+    <div class="card">
+      <h2>Loaded modules</h2>
+      <pre id="plugin-out" class="code json" style="margin-top:12px"></pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.plugins).catch(() => ({ plugins: [] }));
+      const out = document.querySelector("#plugin-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      const out = document.querySelector("#plugin-out");
+      if (out) out.textContent = "plugin error: " + errMsg(e);
+    }
+  };
+  refresh();
+}
+
 // ===================== ROUTER =====================
 const NAV = [
-  ["Command Center", "command"], ["Governance", "governance"], ["Dashboard", "dashboard"], ["Roles", "roles"], ["Org", "org"], ["Timeline", "timeline"], ["Ledger", "ledger"],
-  ["Search", "search"], ["Capture", "capture"], ["Decisions", "decisions"], ["Missions", "missions"], ["MCP", "mcp"], ["Vault", "vault"],
-  ["Embeddings", "embed"], ["Federation", "federation"], ["Audit", "audit"], ["Schema", "schema"], ["Config", "config"],
+  ["Command Center", tooltip("Command Center", "Command Center overview"), "command"], ["Governance", tooltip("Governance", "View and manage ForgeOS governance"), "governance"], ["Dashboard", tooltip("Dashboard", "Console dashboard with system metrics"), "dashboard"], ["Roles", "roles"], ["Org", tooltip("Org", "Organization chart and structure"), "org"], ["Timeline", tooltip("Timeline", "Decision timeline and history"), "timeline"], ["Ledger", tooltip("Ledger", "Decision ledger with filters"), "ledger"],
+  ["Search", tooltip("Search", "Search across brains and pages"), "search"], ["Capture", tooltip("Capture", "Capture and create new brain pages"), "capture"], ["Decisions", tooltip("Decisions", "Decision management and tracking"), "decisions"], ["Missions", tooltip("Missions", "Agent missions and dispatch"), "missions"], ["MCP", tooltip("MCP", "Model Context Protocol tools"), "mcp"], ["Vault", "vault"],
+  ["Embeddings", "embed"], ["Federation", tooltip("Federation", "Cross-brain federation status"), "federation"], ["Audit", tooltip("Audit", "Audit log and compliance trail"), "audit"], ["Schema", tooltip("Schema", "Brain schema explorer"), "schema"], ["Config", "config"],
+  ["Projects", tooltip("Projects", "Project management and kanban"), "projects"], ["Wizard", tooltip("Wizard", "Setup wizard for first-time config"), "wizard"], ["Settings", tooltip("Settings", "Console settings and configuration"), "settings"], ["Workflows", tooltip("Workflows", "Agent workflow management"), "workflows"], ["Marketplace", tooltip("Marketplace", "Browse discoverable agents"), "marketplace"], ["Plugins", tooltip("Plugins", "Manage console plugins"), "plugins"],
 ];
 
 const routes = {
   command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, timeline: renderTimeline, ledger: renderLedger,
   search: renderSearch, capture: renderCapture, decisions: renderDecisions, missions: renderMissions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
   embed: renderEmbed, federation: renderFederation, audit: renderAudit, schema: renderSchema, config: renderConfig,
+  projects: renderProjects, wizard: renderWizard, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins,
 };
 
 // ---------- (50) per-panel error boundary ----------
@@ -997,9 +1362,9 @@ function statTile(label, value, delta, deltaDir="up") {
 // =====================================================================
 
 // ---------- (5) 404 route ----------
-const KNOWN = new Set(["command","governance","dashboard","roles","org","timeline","ledger","search","capture","decisions","missions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page"]);
+const KNOWN = new Set(["command","governance","dashboard","roles","org","timeline","ledger","search","capture","decisions","missions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page","projects","wizard","settings","workflows","marketplace","plugins"]);
 // ---------- (10) favicon/title per panel ----------
-const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", timeline:"Timeline", ledger:"Decision Ledger", search:"Search", capture:"Capture", decisions:"Decisions", missions:"Missions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page" };
+const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", timeline:"Timeline", ledger:"Decision Ledger", search:"Search", capture:"Capture", decisions:"Decisions", missions:"Missions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page", projects:"Projects", wizard:"Setup Wizard", settings:"Settings", workflows:"Workflows", marketplace:"Marketplace", plugins:"Plugins" };
 
 // ---------- (11) restore last panel ----------
 function lastPanel() { return localStorage.getItem("forgeos-last") || "command"; }
@@ -1068,6 +1433,27 @@ document.addEventListener("keydown", e => {
   if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); openCmdk(); }
   if (e.key === "Escape") { $("#cmdk").classList.remove("open"); }
   if (e.key === "?") { e.preventDefault(); showShortcuts(); }
+  // quick nav: 1-9 jumps to panel
+  if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key >= "1" && e.key <= "9") {
+    const idx = Number(e.key) - 1;
+    const target = NAV[idx];
+    if (target && !$("cmdk").classList.contains("open")) { e.preventDefault(); location.hash = "#/" + target[1]; }
+  }
+  // g + 1-9 quick goto
+  if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "g") {
+    const listener = (ev) => {
+      if (ev.key >= "1" && ev.key <= "9") {
+        const idx = Number(ev.key) - 1;
+        const target = NAV[idx];
+        if (target) { ev.preventDefault(); location.hash = "#/" + target[1]; }
+        document.removeEventListener("keydown", listener);
+      } else if (ev.key !== "g" && ev.key !== "Shift" && ev.key !== "CapsLock") {
+        document.removeEventListener("keydown", listener);
+      }
+    };
+    document.addEventListener("keydown", listener);
+    setTimeout(() => document.removeEventListener("keydown", listener), 800);
+  }
 });
 function showShortcuts() {
   const back = document.createElement("div");
@@ -1075,6 +1461,8 @@ function showShortcuts() {
   back.innerHTML = `<div class="modal"><h2>Keyboard shortcuts</h2>
     <ul class="mono" style="line-height:1.9">
       <li>⌘K / Ctrl+K — command palette</li>
+      <li>1-9 — jump to nav panel</li>
+      <li>G then 1-9 — quick goto panel</li>
       <li>↑ / ↓ — move in sidebar</li>
       <li>? — this sheet</li>
       <li>Esc — close palette / modal</li>
@@ -1083,6 +1471,74 @@ function showShortcuts() {
   document.body.appendChild(back);
   back.querySelector("#c").addEventListener("click", () => back.remove());
 }
+
+// ---------- (66) onboarding tour ----------
+const TOUR_KEY = "forgeos-tour-done";
+const TOUR_STEPS = [
+  { title: "Welcome to ForgeOS", body: "This is your Brain Console — the control room for the ForgeOS engineering organization. Let's take a quick tour.", target: "#app" },
+  { title: "Navigation", body: "Use the sidebar to jump between panels: Command Center, Governance, Search, Missions, and more.", target: "#sidebar" },
+  { title: "Command Palette", body: "Press ⌘K (or Ctrl+K) to open the command palette. Type to fuzzy-search panels and hit Enter to jump.", target: "#cmdkbtn" },
+  { title: "Theme", body: "Switch themes in Config. Try dark, light, or auto to match your system preference.", target: "#app" },
+  { title: "Keyboard shortcuts", body: "Press ? anytime to see shortcuts. Use 1-9 to jump directly to a panel.", target: "#app" },
+  { title: "You're ready", body: "Capture decisions, run missions, and keep the brain healthy. Enjoy ForgeOS!", target: "#app" },
+];
+let tourStep = 0;
+function startTour() {
+  if (localStorage.getItem(TOUR_KEY)) return;
+  tourStep = 0;
+  document.getElementById("tourbtn") && (document.getElementById("tourbtn").style.display = "none");
+  renderTourStep();
+}
+function renderTourStep() {
+  const step = TOUR_STEPS[tourStep];
+  const card = $("#tour-card");
+  const dots = $("#tour-dots");
+  const backdrop = $("#tour-backdrop");
+  const overlay = $("#tour-overlay");
+  if (!card || !step) { endTour(); return; }
+  // position near target or center
+  const target = $(step.target);
+  if (target) {
+    const rect = target.getBoundingClientRect();
+    card.style.top = (rect.bottom + 12) + "px";
+    card.style.left = Math.max(16, rect.left) + "px";
+  } else {
+    card.style.top = "50%"; card.style.left = "50%"; card.style.transform = "translate(-50%, -50%)";
+  }
+  $("#tour-title").textContent = step.title;
+  $("#tour-body").textContent = step.body;
+  dots.innerHTML = TOUR_STEPS.map((_, i) => `<div class="tour-dot ${i===tourStep?"active":""}"></div>`).join("");
+  backdrop.classList.add("open");
+  overlay.classList.remove("hidden");
+  card.classList.add("open");
+  card.setAttribute("aria-hidden", "false");
+  $("#tour-prev").style.visibility = tourStep === 0 ? "hidden" : "visible";
+  $("#tour-next").textContent = tourStep === TOUR_STEPS.length - 1 ? "Finish" : "Next";
+  if (target) { target.classList.add("tour-highlight"); } else {
+    $$(".tour-highlight").forEach(el => el.classList.remove("tour-highlight"));
+  }
+}
+function endTour() {
+  $("#tour-card")?.classList.remove("open");
+  $("#tour-backdrop")?.classList.remove("open");
+  $("#tour-overlay")?.classList.add("hidden");
+  $$(".tour-highlight").forEach(el => el.classList.remove("tour-highlight"));
+  localStorage.setItem(TOUR_KEY, "1");
+  const btn = $("#tourbtn");
+  if (btn) btn.style.display = "";
+}
+document.addEventListener("click", (e) => {
+  const prev = e.target.closest("#tour-prev");
+  const next = e.target.closest("#tour-next");
+  const skip = e.target.closest("#tour-skip");
+  const tourbtn = e.target.closest("#tourbtn");
+  if (tourbtn) { e.preventDefault(); startTour(); return; }
+  if (skip) { endTour(); return; }
+  if (prev) { tourStep = Math.max(0, tourStep - 1); $$(".tour-highlight").forEach(el => el.classList.remove("tour-highlight")); renderTourStep(); return; }
+  if (next) { tourStep = Math.min(TOUR_STEPS.length - 1, tourStep + 1); $$(".tour-highlight").forEach(el => el.classList.remove("tour-highlight")); renderTourStep(); if (tourStep === TOUR_STEPS.length - 1) endTour(); return; }
+});
+// auto-start tour for first-time users
+setTimeout(() => { if (!localStorage.getItem(TOUR_KEY) && $("#tourbtn")) startTour(); }, 1500);
 
 // ---------- (19) up/down sidebar nav ----------
 document.addEventListener("keydown", e => {
@@ -1094,34 +1550,84 @@ document.addEventListener("keydown", e => {
   }
 });
 
+// ---------- (20) mobile sidebar overlay ----------
+function toggleMobileMenu() {
+  const sidebar = $("#sidebar");
+  const overlay = $("#sidebar-overlay");
+  const btn = $("#menubtn");
+  const isOpen = sidebar.classList.contains("open");
+  if (isOpen) { closeMobileMenu(); } else {
+    sidebar.classList.add("open");
+    overlay.classList.add("open");
+    overlay.setAttribute("aria-hidden", "false");
+    if (btn) { btn.setAttribute("aria-expanded", "true"); }
+    sidebar.querySelector("a")?.focus();
+  }
+}
+function closeMobileMenu() {
+  const sidebar = $("#sidebar");
+  const overlay = $("#sidebar-overlay");
+  const btn = $("#menubtn");
+  sidebar.classList.remove("open");
+  overlay.classList.remove("open");
+  overlay.setAttribute("aria-hidden", "true");
+  if (btn) { btn.setAttribute("aria-expanded", "false"); }
+}
+
+// ---------- offline service worker ----------
+async function registerSW() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    reg.addEventListener("updatefound", () => toast("update available", "ok"));
+  } catch (e) { console.warn("SW register failed", e); }
+}
+registerSW();
+
 // ===================== SHELL =====================
 // (12) sidebar collapse (persisted) + (20) mobile hamburger
 function shell() {
   const theme = localStorage.getItem("forgeos-theme") || "dark";
   document.documentElement.setAttribute("data-theme", theme);
   const collapsed = localStorage.getItem("forgeos-collapsed") === "1";
-  const sidebar = NAV.map(([label, p]) => `<a href="#/${p}">${label}</a>`).join("");
+  const sidebar = NAV.map(([label, p]) => `<a href="#/${p}" aria-label="${label}">${label}</a>`).join("");
   $("#app").innerHTML = `
-    <div class="navbar">
-      <button class="btn secondary" id="menubtn" aria-label="menu">☰</button>
+    <a href="#main" class="sr-only" id="skip-link">Skip to content</a>
+    <div class="navbar" role="banner">
+      <button class="btn secondary" id="menubtn" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="sidebar">☰</button>
       <span class="wordmark">Forge<span class="os">OS</span> Console</span>
-      <button class="btn secondary tip" data-tip="Command palette (⌘K)" id="cmdkbtn">⌘K</button>
+      <button class="btn secondary" id="cmdkbtn" aria-label="Open command palette">⌘K</button>
       <span class="spacer"></span>
-      <span class="pill ok"><span class="dot"></span> brain: owned</span>
+      <span class="pill ok" aria-label="Brain status: owned"><span class="dot"></span> brain: owned</span>
+      <button class="btn secondary" id="tourbtn" aria-label="Start onboarding tour" style="display:${localStorage.getItem('forgeos-tour-done') ? '' : 'none'}">Tour</button>
     </div>
     <div class="layout ${collapsed ? "collapsed" : ""}" id="layout">
-      <aside class="sidebar" id="sidebar">${sidebar}</aside>
-      <main class="main" id="main"></main>
+      <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+      <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">${sidebar}</aside>
+      <main class="main" id="main" role="main" aria-live="polite" aria-label="Main content"></main>
     </div>
-    <div class="breadcrumb" id="crumb"></div>
-    <div class="toasts" id="toasts"></div>
-    <div class="cmdk" id="cmdk"><input placeholder="Jump to… (↑↓ enter)"/><ul></ul></div>`;
+    <div class="breadcrumb" id="crumb" role="navigation" aria-label="Breadcrumb"></div>
+    <div class="toasts" id="toasts" role="status" aria-live="assertive" aria-atomic="true"></div>
+    <div class="cmdk" id="cmdk" role="dialog" aria-modal="true" aria-label="Command palette"><input placeholder="Jump to… (↑↓ enter)" aria-label="Search commands"/><ul></ul></div>
+    <div class="tour-overlay" id="tour-overlay" aria-hidden="true"></div>
+    <div class="tour-backdrop" id="tour-backdrop"></div>
+    <div class="tour-card" id="tour-card" role="dialog" aria-modal="true" aria-label="Onboarding tour">
+      <div class="tour-dots" id="tour-dots"></div>
+      <h2 id="tour-title"></h2>
+      <p id="tour-body"></p>
+      <div class="tour-actions">
+        <button class="btn secondary" id="tour-skip">Skip</button>
+        <div class="row">
+          <button class="btn secondary" id="tour-prev">Back</button>
+          <button class="btn primary" id="tour-next">Next</button>
+        </div>
+      </div>
+    </div>`;
   $("#cmdkbtn").addEventListener("click", openCmdk);
-  $("#menubtn").addEventListener("click", () => {
-    const l = $("#layout"); l.classList.toggle("collapsed");
-    localStorage.setItem("forgeos-collapsed", l.classList.contains("collapsed") ? "1" : "0");
-  });
-  window.addEventListener("hashchange", route);
+  $("#menubtn").addEventListener("click", toggleMobileMenu);
+  $("#sidebar-overlay").addEventListener("click", closeMobileMenu);
+  window.addEventListener("hashchange", () => { closeMobileMenu(); route(); });
+  window.addEventListener("resize", () => { if (window.innerWidth > 900) closeMobileMenu(); });
   // (2) boot self-check
   if (!$("#app").children.length) $("#main").innerHTML = empty("Failed to load shell.");
   route();
