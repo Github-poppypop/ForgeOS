@@ -1889,7 +1889,7 @@ function shell() {
   const theme = localStorage.getItem("forgeos-theme") || "dark";
   document.documentElement.setAttribute("data-theme", theme);
   const collapsed = localStorage.getItem("forgeos-collapsed") === "1";
-  const sidebar = NAV.map(([label, p]) => `<a href="#/${p}" aria-label="${label}">${label}</a>`).join("");
+  const sidebar = NAV.map(([label, , p]) => `<a href="#/${p}" aria-label="${label}">${label}</a>`).join("");
   $("#app").innerHTML = `
     <a href="#main" class="sr-only" id="skip-link">Skip to content</a>
     <div class="navbar" role="banner">
