@@ -565,6 +565,18 @@ const server = serve({
     if (!p.startsWith("/api/")) { const r = serveStatic(p); log(req, Date.now() - t0, 200); return r; }
 
     try {
+      // ---------- Versioned API wrappers ----------
+      const isVersioned = /^\/api\/v(1|2)\//.test(p);
+      const innerHandler = (innerPath: string) => innerApiHandler(innerPath, req);
+      if (isVersioned) {
+        return handleVersionedRoute(p, req, innerHandler);
+      }
+
+      // ---------- Unversioned API ----------
+      const res = innerApiHandler(p, req);
+      const headers = new Headers(res.headers);
+      headers.set("x-api-version", API_VERSION);
+      return new Response(res.body, { status: res.status, headers });
       // (47) auth routes
       if (p === "/api/auth/login" && req.method === "POST") {
         const body = await req.json().catch(() => ({}));
@@ -1019,20 +1031,6 @@ const server = serve({
 
       return json({ queued: true, missionId, agent, session, logFile, decisionSlug: dispatchSlug });
     }
-
-      if (p === "/api/timeline" && req.method === "GET") {
-        startLogReader(logFile, missionId);
-
-        // Dispatch the decision capture to the brain (fire-and-forget)
-        const dispatchSlug = `decisions/agent-dispatch-${missionId}-${Date.now()}`;
-        const dispatchNote = `[dispatch] agent="${agent}" mission=${missionId} status=${m.status} ts=${new Date().toISOString()}`;
-        runGbrain(["capture", "--type", "decision", "--slug", dispatchSlug, "--stdin"], {
-          stdin: dispatchNote,
-          timeoutMs: 30000,
-        }).catch(() => {});
-
-        return json({ queued: true, missionId, agent, session, logFile, decisionSlug: dispatchSlug });
-      }
 
       if (p === "/api/timeline" && req.method === "GET") {
         const items = [

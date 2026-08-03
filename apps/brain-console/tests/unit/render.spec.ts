@@ -29,6 +29,12 @@ describe("render functions in src/app.js", () => {
     "renderEmbed",
     "renderThemeSwitcher",
     "renderCmdk",
+    "renderWizard",
+    "renderProjects",
+    "renderSettings",
+    "renderWorkflows",
+    "renderMarketplace",
+    "renderPlugins",
   ];
 
   for (const fn of expectedFunctions) {
