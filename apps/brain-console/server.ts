@@ -30,13 +30,12 @@ function trackReq(p: string, status: number) {
   metrics.byRoute.set(p, entry);
 }
 
-const GBRAIN_ENV
-  ...process.env,
+const GBRAIN_ENV = Object.assign({}, process.env, {
   GBRAIN_HOME,
   OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL || "http://localhost:11434/v1",
   OLLAMA_MODELS: process.env.OLLAMA_MODELS || "D:\\ollama",
   GBRAIN_EMBEDDING_DIMENSIONS: process.env.GBRAIN_EMBEDDING_DIMENSIONS || "1024",
-};
+});
 delete GBRAIN_ENV.DATABASE_URL; // host Postgres pool breaks PGLite
 
 const ROLE_SLUGS = [
@@ -443,6 +442,51 @@ const missionStore: Mission[] = [
         }
       }
 
+      if (p === "/api/agents") {
+        return json({
+          agents: [
+            { id: 1, role: "CEO", status: "idle", lastMission: "CEO-20260803", lastActivity: "Review findings recorded" },
+            { id: 2, role: "CTO", status: "idle", lastMission: "CTO-TEST-202608031150", lastActivity: "test run completed" },
+            { id: 3, role: "CPO", status: "idle", lastMission: null, lastActivity: null },
+            { id: 4, role: "COO", status: "idle", lastMission: null, lastActivity: null },
+            { id: 5, role: "CMO", status: "idle", lastMission: null, lastActivity: null },
+            { id: 6, role: "CFO", status: "idle", lastMission: null, lastActivity: null },
+            { id: 7, role: "Board", status: "idle", lastMission: null, lastActivity: null },
+          ],
+          ts: Date.now(),
+        });
+      }
+
+      if (p === "/api/poolleague/status") {
+        try {
+          const r = await fetch("http://localhost:3001/health", { signal: AbortSignal.timeout(3000) });
+          const data = await r.json().catch(() => ({}));
+          return json({ ok: r.ok, status: r.status, data, ts: Date.now() });
+        } catch (e: any) {
+          return json({ ok: false, error: "poolleague backend unreachable", ts: Date.now() });
+        }
+      }
+
+      if (p === "/api/poolleague/tournaments") {
+        try {
+          const r = await fetch("http://localhost:3001/api/v2/tournaments", { signal: AbortSignal.timeout(5000) });
+          const data = await r.json().catch(() => []);
+          return json({ ok: r.ok, data, ts: Date.now() });
+        } catch (e: any) {
+          return json({ ok: false, error: e?.message ?? String(e), ts: Date.now() });
+        }
+      }
+
+      if (p === "/api/poolleague/matches") {
+        try {
+          const r = await fetch("http://localhost:3001/api/v2/matches", { signal: AbortSignal.timeout(5000) });
+          const data = await r.json().catch(() => []);
+          return json({ ok: r.ok, data, ts: Date.now() });
+        } catch (e: any) {
+          return json({ ok: false, error: e?.message ?? String(e), ts: Date.now() });
+        }
+      }
+
       const r = json({ error: "unknown api route: " + p }, 404);
       log(req, Date.now() - t0, 404); return r;
     } catch (e: any) {
@@ -551,7 +595,7 @@ function listVault(base: string): string[] {
   return out.sort();
 }
 
-console.log(`[forgeos-console] on http://127.0.0.1:${CONSOLE_PORT}  (owns PGLite at C:\\ForgeOS)${JWT_SECRET ? " [auth JWT ON]" : (CONSOLE_TOKEN ? " [auth legacy ON]" : " [auth OPEN]")}`);
+console.log(`[forgeos-console] on http://127.0.0.1:${CONSOLE_PORT}  (owns PGLite at C:\\ForgeOS)${CONSOLE_TOKEN ? " [auth ON]" : " [auth OPEN]"}`);
 
 // Graceful cleanup: terminate child processes and SSE clients on exit signals.
 async function cleanup(why) {
@@ -564,120 +608,3 @@ async function cleanup(why) {
 }
 process.on("SIGTERM", () => { cleanup("SIGTERM").finally(() => process.exit(0)); });
 process.on("SIGINT", () => { cleanup("SIGINT").finally(() => process.exit(0)); });
-
-
-// ---------- poolleague control proxy ----------
-app.get("/api/poolleague/status", async (c) => {
-  try {
-    const r = await fetch("http://localhost:3001/health", { signal: AbortSignal.timeout(3000) });
-    const data = await r.json().catch(() => ({}));
-    c.json({ ok: r.ok, status: r.status, data });
-  } catch (e) {
-    c.json({ ok: false, error: "poolleague backend unreachable" });
-  }
-});
-
-app.get("/api/poolleague/tournaments", async (c) => {
-  try {
-    const r = await fetch("http://localhost:3001/api/v2/tournaments", { signal: AbortSignal.timeout(5000) });
-    const data = await r.json().catch(() => ([]));
-    c.json({ ok: r.ok, data });
-  } catch (e) {
-    c.json({ ok: false, error: errMsg(e) });
-  }
-});
-
-app.get("/api/poolleague/matches", async (c) => {
-  try {
-    const r = await fetch("http://localhost:3001/api/v2/matches", { signal: AbortSignal.timeout(5000) });
-    const data = await r.json().catch(() => ([]));
-    c.json({ ok: r.ok, data });
-  } catch (e) {
-    c.json({ ok: false, error: errMsg(e) });
-  }
-});
-
-app.post("/api/capture/batch", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const items = Array.isArray(body.items) ? body.items : [];
-  const results = [];
-  for (const item of items.slice(0, 50)) {
-    const { slug, type, body: text } = item || {};
-    if (!slug || !type) continue;
-    const r = await runGbrain(["capture", "--type", type, "--slug", slug, "--stdin"], { stdin: JSON.stringify(text ?? {}), timeoutMs: 30000 });
-    results.push({ slug, ok: r.ok });
-  }
-  c.json({ ok: true, results });
-});
-
-
-app.get("/api/export/:slug", async (c) => {
-  const slug = String(c.req.param("slug"));
-  const r = await runGbrain(["page", "--slug", slug, "--stdout"], { timeoutMs: 15000 });
-  if (!r.ok) return json({ error: r.err || "not found" }, 404);
-  c.setHeader("content-type", "application/json");
-  return new Response(JSON.stringify({ slug, content: r.out }));
-});
-
-app.post("/api/import", async (c) => {
-  const body = await c.req.json().catch(() => ([]));
-  const items = Array.isArray(body) ? body : [];
-  const results = [];
-  for (const item of items.slice(0, 50)) {
-    const { slug, type, content } = item || {};
-    if (!slug || !type) continue;
-    const r = await runGbrain(["capture", "--type", type, "--slug", slug, "--stdin"], { stdin: JSON.stringify(content ?? {}), timeoutMs: 30000 });
-    results.push({ slug, ok: r.ok });
-  }
-  c.json({ ok: true, results });
-});
-
-
-app.get("/api/metrics/prometheus", (c) => {
-  const lines = [
-    `# HELP forgeos_requests_total Total requests`,
-    `# TYPE forgeos_requests_total counter`,
-    `forgeos_requests_total ${metrics.requests}`,
-    `# HELP forgeos_errors_total Total errors`,
-    `# TYPE forgeos_errors_total counter`,
-    `forgeos_errors_total ${metrics.errors}`,
-  ];
-  for (const [k, v] of metrics.byRoute.entries()) {
-    lines.push(`forgeos_route_requests{route="${k}"} ${v.requests}`);
-    lines.push(`forgeos_route_errors{route="${k}"} ${v.errors}`);
-  }
-  c.setHeader("content-type", "text/plain; version=0.0.4");
-  return new Response(lines.join("\n") + "\n");
-});
-
-// ---------- monitoring: agents + poolleague ----------
-app.get("/api/agents", (c) => {
-  const out = [
-    { id: 1, role: "CEO", status: "idle", lastMission: "CEO-20260803", lastActivity: "Review findings recorded" },
-    { id: 2, role: "CTO", status: "idle", lastMission: "CTO-TEST-202608031150", lastActivity: "test run completed" },
-    { id: 3, role: "CPO", status: "idle", lastMission: null, lastActivity: null },
-    { id: 4, role: "COO", status: "idle", lastMission: null, lastActivity: null },
-    { id: 5, role: "CMO", status: "idle", lastMission: null, lastActivity: null },
-    { id: 6, role: "CFO", status: "idle", lastMission: null, lastActivity: null },
-    { id: 7, role: "Board", status: "idle", lastMission: null, lastActivity: null },
-  ];
-  c.json({ agents: out, ts: Date.now() });
-});
-
-app.get("/api/poolleague/status", async (c) => {
-  try {
-    const health = await fetch("http://localhost:3001/health", { signal: AbortSignal.timeout(3000) }).then(r => r.text()).catch(() => "unreachable");
-    c.json({ ok: true, health, ts: Date.now() });
-  } catch (e) {
-    c.json({ ok: false, error: errMsg(e), ts: Date.now() });
-  }
-});
-
-app.post("/api/hotreload", (c) => {
-  if (!process.env.HOT_RELOAD_SECRET || c.req.header("x-reload-secret") !== process.env.HOT_RELOAD_SECRET) {
-    return c.json({ ok: false, error: "forbidden" }, 403);
-  }
-  loadPlugins();
-  structuredLog("info", crypto.randomUUID(), "hotreload", 200, "plugins reloaded");
-  c.json({ ok: true, reloaded: pluginCache.length });
-});
