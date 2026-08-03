@@ -282,6 +282,10 @@ const server = serve({
         return json({ base: "C:\\ForgeOS\\vault", files: listVault("C:\\ForgeOS\\vault"), git: "branch master (untracked role pages)" });
       }
 
+      if (p === "/api/webhooks") {
+        return json({ webhooks: [], deadLetter: [], ts: Date.now() });
+      }
+
       // (44) backup brain — gzip of a JSON bundle (Bun.zip unavailable on this runtime)
       if (p === "/api/backup" && req.method === "POST") {
         const fs = await import("node:fs");
