@@ -852,6 +852,16 @@ const WORK_ITEM_TEMPLATES = {
   "review": { title: "Review: [artifact]", status: "review", priority: "low", assignee: "agent-1" },
 };
 
+// ---------- Sentry error tracking ----------
+function initSentry() {
+  if (typeof Sentry === "undefined") return;
+  Sentry.init({
+    dsn: window.SENTRY_DSN || "https://YOUR_DSN@o123.ingest.sentry.io/123",
+    environment: location.hostname === "localhost" ? "development" : "production",
+    tracesSampleRate: 0.1,
+  });
+}
+
 // ---------- Phase 11: setup wizard ----------
 async function renderWizard() {
   crumb([["ForgeOS", "#/dashboard"], ["Setup Wizard"]]);
