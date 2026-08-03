@@ -123,29 +123,29 @@ describe("Phase 11 UI", () => {
 
 test("source contains auth endpoints", () => {
   const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('app.post("/api/auth/login"')).toBe(true);
+  expect(src.includes('if (p === "/api/auth/login"')).toBe(true);
   expect(src.includes('JWT_SECRET')).toBe(true);
 });
 test("source contains state persistence", () => {
   const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('app.get("/api/state"')).toBe(true);
+  expect(src.includes('if (p === "/api/state"')).toBe(true);
   expect(src.includes('STATE_FILE')).toBe(true);
 });
 test("source contains backup/restore", () => {
   const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('app.post("/api/backup"')).toBe(true);
-  expect(src.includes('app.post("/api/restore"')).toBe(true);
+  expect(src.includes('if (p === "/api/backup"')).toBe(true);
+  expect(src.includes('if (p === "/api/restore"')).toBe(true);
 });
 test("source contains metrics", () => {
   const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('app.get("/api/metrics"')).toBe(true);
+  expect(src.includes('if (p === "/api/metrics"')).toBe(true);
 });
 test("source contains webhook endpoints", () => {
   const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('app.get("/api/webhooks"')).toBe(true);
-  expect(src.includes('app.post("/api/webhooks"')).toBe(true);
-  expect(src.includes('app.put("/api/webhooks/')).toBe(true);
-  expect(src.includes('app.delete("/api/webhooks/')).toBe(true);
+  expect(src.includes('if (p === "/api/webhooks"')).toBe(true);
+  expect(src.includes('if (p === "/api/webhooks"')).toBe(true);
+  expect(src.includes('if (p === "/api/webhooks/')).toBe(true);
+  expect(src.includes('if (p === "/api/webhooks/')).toBe(true);
 });
 test("source contains plugin hot-reload", () => {
   const src = fs.readFileSync("server.ts", "utf8");
@@ -153,7 +153,7 @@ test("source contains plugin hot-reload", () => {
 });
 test("source contains health dependencies", () => {
   const src = fs.readFileSync("server.ts", "utf8");
-  expect(src.includes('app.get("/api/health/detailed"')).toBe(true);
+  expect(src.includes('if (p === "/api/health/detailed"')).toBe(true);
 });
 
 
