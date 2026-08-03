@@ -852,6 +852,100 @@ const WORK_ITEM_TEMPLATES = {
   "review": { title: "Review: [artifact]", status: "review", priority: "low", assignee: "agent-1" },
 };
 
+// ---------- Sentry error tracking ----------
+function initSentry() {
+  if (typeof Sentry === "undefined") return;
+  Sentry.init({
+    dsn: window.SENTRY_DSN || "https://YOUR_DSN@o123.ingest.sentry.io/123",
+    environment: location.hostname === "localhost" ? "development" : "production",
+    tracesSampleRate: 0.1,
+  });
+}
+
+// ---------- PoolLeague control panel ----------
+async function renderPoolleague() {
+  crumb([["ForgeOS", "#/dashboard"], ["PoolLeague"]]);
+  document.querySelector("main").innerHTML = `
+    <h1>PoolLeague Control</h1>
+    <div class="grid cols-2">
+      <div class="card">
+        <h2>Backend Status</h2>
+        <pre id="poolleague-status" class="code json">loading...</pre>
+      </div>
+      <div class="card">
+        <h2>Actions</h2>
+        <button class="btn primary" id="poolleague-refresh">Refresh</button>
+        <button class="btn secondary" id="poolleague-open-web">Open Web UI</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Tournaments</h2>
+      <pre id="poolleague-tournaments" class="code json">loading...</pre>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Matches</h2>
+      <pre id="poolleague-matches" class="code json">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const [status, tournaments, matches] = await Promise.all([
+        safe(api.poolleagueStatus).catch(() => ({ ok: false })),
+        safe(api.poolleagueTournaments).catch(() => ({ ok: false, data: [] })),
+        safe(api.poolleagueMatches).catch(() => ({ ok: false, data: [] })),
+      ]);
+      const statusEl = document.querySelector("#poolleague-status");
+      const tournamentsEl = document.querySelector("#poolleague-tournaments");
+      const matchesEl = document.querySelector("#poolleague-matches");
+      if (statusEl) statusEl.textContent = JSON.stringify(status, null, 2);
+      if (tournamentsEl) tournamentsEl.textContent = JSON.stringify(tournaments.data || [], null, 2);
+      if (matchesEl) matchesEl.textContent = JSON.stringify(matches.data || [], null, 2);
+    } catch (e) {
+      toast("poolleague error: " + errMsg(e), "err");
+    }
+  };
+  refresh();
+  document.querySelector("#poolleague-refresh").addEventListener("click", refresh);
+  document.querySelector("#poolleague-open-web").addEventListener("click", () => {
+    window.open("http://localhost:3000", "_blank");
+  });
+}
+
+// ---------- Monitoring: live agent + PoolLeague status ----------
+async function renderMonitoring() {
+  crumb([["ForgeOS", "#/dashboard"], ["Monitoring"]]);
+  $("main").innerHTML = `
+    <h1>Monitoring</h1>
+    <div class="grid cols-2">
+      <div class="card">
+        <h2>C-Suite Agents</h2>
+        <div id="agent-status">loading...</div>
+      </div>
+      <div class="card">
+        <h2>PoolLeague</h2>
+        <pre id="poolleague-monitor" class="code json">loading...</pre>
+      </div>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const [agents, poolleague] = await Promise.all([
+        safe(api.monitoringAgents).catch(() => ({ agents: [] })),
+        safe(api.poolleagueStatus).catch(() => ({ ok: false })),
+      ]);
+      const agentEl = document.querySelector("#agent-status");
+      const poolEl = document.querySelector("#poolleague-monitor");
+      if (agentEl) {
+        const list = (agents.agents || []).map(a => `<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="mono">${a.role}</span><span class="pill ${a.status==='idle'?'ok':'warn'}">${a.status}</span></div>`).join("");
+        agentEl.innerHTML = list || "<p class='muted'>no agent data</p>";
+      }
+      if (poolEl) poolEl.textContent = JSON.stringify(poolleague, null, 2);
+    } catch (e) {
+      toast("monitor error: " + errMsg(e), "err");
+    }
+  };
+  refresh();
+  setInterval(refresh, 5000);
+}
+
 // ---------- Phase 11: setup wizard ----------
 async function renderWizard() {
   crumb([["ForgeOS", "#/dashboard"], ["Setup Wizard"]]);
@@ -1242,22 +1336,6 @@ async function renderWebhooks() {
   });
 }
 
-  const list = await api.listWebhooks().catch(() => ({ webhooks: [] }));
-  document.querySelector("main").innerHTML = `<h1>Webhooks</h1>
-    <div class="card"><h3>Create Webhook</h3>
-      <input id="wh-url" class="input" placeholder="https://example.com/hook"/>
-      <input id="wh-events" class="input" placeholder="mission.created,agent.completed"/>
-      <input id="wh-secret" class="input" placeholder="optional secret"/>
-      <button class="btn" id="wh-create">Create</button>
-    </div>
-    <div id="wh-list">${(list.webhooks||[]).map(w => `<div class="card"><b>${w.url}</b><br/><span class="muted">${w.events.join(", ")} ${w.active ? "✅" : "⏸️"}</span></div>`).join("")}</div>`;
-  $("#wh-create")?.addEventListener("click", async () => {
-    const url = $("#wh-url")?.value;
-    const events = ($("#wh-events")?.value || "").split(",").map(s => s.trim()).filter(Boolean);
-    await api.createWebhook(url, events, $("#wh-secret")?.value);
-    renderWebhooks();
-  });
-
 // ---------- Drag-and-drop kanban ----------
 function initKanban(containerId) {
   const container = document.getElementById(containerId);
@@ -1322,25 +1400,60 @@ async function loadPanel(name) {
   return html;
 }
 
-// ---------- Offline capture queue ----------
-const offlineQueue = [];
-async function queueCapture(slug, body) {
-  const item = { slug, body, ts: Date.now() };
-  offlineQueue.push(item);
-  localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
+// ---------- Offline capture queue (IndexedDB) ----------
+let offlineDB = null;
+function openOfflineDB() {
+  return new Promise((resolve, reject) => {
+    if (offlineDB) return resolve(offlineDB);
+    const req = indexedDB.open('forgeos-offline', 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('captures')) {
+        db.createObjectStore('captures', { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => { offlineDB = req.result; resolve(offlineDB); };
+    req.onerror = () => reject(req.error);
+  });
+}
+async function queueCapture(data) {
+  const db = await openOfflineDB();
+  const tx = db.transaction('captures', 'readwrite');
+  tx.objectStore('captures').add({ ...data, ts: Date.now() });
+  await new Promise((resolve, reject) => {
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
   toast('Saved offline — will sync when online');
 }
 async function flushOfflineQueue() {
-  if (!navigator.onLine || !offlineQueue.length) return;
-  const batch = offlineQueue.splice(0, 10);
-  await api.batchCapture(batch);
-  localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-  toast(`Synced ${batch.length} captures`);
+  if (!navigator.onLine) return;
+  const db = await openOfflineDB();
+  const tx = db.transaction('captures', 'readwrite');
+  const store = tx.objectStore('captures');
+  const items = await new Promise((resolve, reject) => {
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  if (!items.length) return;
+  for (const item of items) {
+    try {
+      await api.capture(item.slug, item.type || 'note', item.body);
+    } catch (e) {
+      toast('sync failed: ' + errMsg(e), 'err');
+      return;
+    }
+  }
+  const clearTx = db.transaction('captures', 'readwrite');
+  clearTx.objectStore('captures').clear();
+  await new Promise((resolve, reject) => {
+    clearTx.oncomplete = resolve;
+    clearTx.onerror = () => reject(clearTx.error);
+  });
+  toast(`Synced ${items.length} captures`, 'ok');
 }
 window.addEventListener('online', flushOfflineQueue);
-// Load queued captures on startup
-const saved = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
-offlineQueue.push(...saved);
 // ---------- Live search/filter ----------
 function initLiveSearch(containerId, rowSelector, delay = 200) {
   const container = document.getElementById(containerId);
@@ -1366,14 +1479,14 @@ const NAV = [
   ["Command Center", tooltip("Command Center", "Command Center overview"), "command"], ["Governance", tooltip("Governance", "View and manage ForgeOS governance"), "governance"], ["Dashboard", tooltip("Dashboard", "Console dashboard with system metrics"), "dashboard"], ["Roles", "roles"], ["Org", tooltip("Org", "Organization chart and structure"), "org"], ["Timeline", tooltip("Timeline", "Decision timeline and history"), "timeline"], ["Ledger", tooltip("Ledger", "Decision ledger with filters"), "ledger"],
   ["Search", tooltip("Search", "Search across brains and pages"), "search"], ["Capture", tooltip("Capture", "Capture and create new brain pages"), "capture"], ["Decisions", tooltip("Decisions", "Decision management and tracking"), "decisions"], ["Missions", tooltip("Missions", "Agent missions and dispatch"), "missions"], ["MCP", tooltip("MCP", "Model Context Protocol tools"), "mcp"], ["Vault", "vault"],
   ["Embeddings", "embed"], ["Federation", tooltip("Federation", "Cross-brain federation status"), "federation"], ["Audit", tooltip("Audit", "Audit log and compliance trail"), "audit"], ["Schema", tooltip("Schema", "Brain schema explorer"), "schema"], ["Config", "config"],
-  ["Projects", tooltip("Projects", "Project management and kanban"), "projects"], ["Wizard", tooltip("Wizard", "Setup wizard for first-time config"), "wizard"], ["Settings", tooltip("Settings", "Console settings and configuration"), "settings"], ["Workflows", tooltip("Workflows", "Agent workflow management"), "workflows"], ["Marketplace", tooltip("Marketplace", "Browse discoverable agents"), "marketplace"], ["Plugins", tooltip("Plugins", "Manage console plugins"), "plugins"],
+  ["Projects", tooltip("Projects", "Project management and kanban"), "projects"], ["Wizard", tooltip("Wizard", "Setup wizard for first-time config"), "wizard"], ["Monitoring", tooltip("Monitoring", "Live agent and PoolLeague status"), "monitoring"], ["Settings", tooltip("Settings", "Console settings and configuration"), "settings"], ["Workflows", tooltip("Workflows", "Agent workflow management"), "workflows"], ["Marketplace", tooltip("Marketplace", "Browse discoverable agents"), "marketplace"], ["Plugins", tooltip("Plugins", "Manage console plugins"), "plugins"],
 ];
 
 const routes = {
   command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, timeline: renderTimeline, ledger: renderLedger,
   search: renderSearch, capture: renderCapture, decisions: renderDecisions, missions: renderMissions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
   embed: renderEmbed, federation: renderFederation, audit: renderAudit, schema: renderSchema, config: renderConfig,
-  projects: renderProjects, wizard: renderWizard, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins,
+  projects: renderProjects, wizard: renderWizard, monitoring: renderMonitoring, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins, webhooks: renderWebhooks,
 };
 
 // ---------- (50) per-panel error boundary ----------
@@ -1548,7 +1661,7 @@ function statTile(label, value, delta, deltaDir="up") {
 // =====================================================================
 
 // ---------- (5) 404 route ----------
-const KNOWN = new Set(["command","governance","dashboard","roles","org","timeline","ledger","search","capture","decisions","missions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page","projects","wizard","settings","workflows","marketplace","plugins"]);
+const KNOWN = new Set(["command","governance","dashboard","roles","org","timeline","ledger","search","capture","decisions","missions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page","projects","wizard","settings","workflows","marketplace","plugins","webhooks"]);
 // ---------- (10) favicon/title per panel ----------
 const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", timeline:"Timeline", ledger:"Decision Ledger", search:"Search", capture:"Capture", decisions:"Decisions", missions:"Missions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page", projects:"Projects", wizard:"Setup Wizard", settings:"Settings", workflows:"Workflows", marketplace:"Marketplace", plugins:"Plugins" };
 

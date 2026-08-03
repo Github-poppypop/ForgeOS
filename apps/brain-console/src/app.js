@@ -1336,22 +1336,6 @@ async function renderWebhooks() {
   });
 }
 
-  const list = await api.listWebhooks().catch(() => ({ webhooks: [] }));
-  document.querySelector("main").innerHTML = `<h1>Webhooks</h1>
-    <div class="card"><h3>Create Webhook</h3>
-      <input id="wh-url" class="input" placeholder="https://example.com/hook"/>
-      <input id="wh-events" class="input" placeholder="mission.created,agent.completed"/>
-      <input id="wh-secret" class="input" placeholder="optional secret"/>
-      <button class="btn" id="wh-create">Create</button>
-    </div>
-    <div id="wh-list">${(list.webhooks||[]).map(w => `<div class="card"><b>${w.url}</b><br/><span class="muted">${w.events.join(", ")} ${w.active ? "✅" : "⏸️"}</span></div>`).join("")}</div>`;
-  $("#wh-create")?.addEventListener("click", async () => {
-    const url = $("#wh-url")?.value;
-    const events = ($("#wh-events")?.value || "").split(",").map(s => s.trim()).filter(Boolean);
-    await api.createWebhook(url, events, $("#wh-secret")?.value);
-    renderWebhooks();
-  });
-
 // ---------- Drag-and-drop kanban ----------
 function initKanban(containerId) {
   const container = document.getElementById(containerId);
