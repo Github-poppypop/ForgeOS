@@ -862,6 +862,54 @@ function initSentry() {
   });
 }
 
+// ---------- PoolLeague control panel ----------
+async function renderPoolleague() {
+  crumb([["ForgeOS", "#/dashboard"], ["PoolLeague"]]);
+  document.querySelector("main").innerHTML = `
+    <h1>PoolLeague Control</h1>
+    <div class="grid cols-2">
+      <div class="card">
+        <h2>Backend Status</h2>
+        <pre id="poolleague-status" class="code json">loading...</pre>
+      </div>
+      <div class="card">
+        <h2>Actions</h2>
+        <button class="btn primary" id="poolleague-refresh">Refresh</button>
+        <button class="btn secondary" id="poolleague-open-web">Open Web UI</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Tournaments</h2>
+      <pre id="poolleague-tournaments" class="code json">loading...</pre>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Matches</h2>
+      <pre id="poolleague-matches" class="code json">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const [status, tournaments, matches] = await Promise.all([
+        safe(api.poolleagueStatus).catch(() => ({ ok: false })),
+        safe(api.poolleagueTournaments).catch(() => ({ ok: false, data: [] })),
+        safe(api.poolleagueMatches).catch(() => ({ ok: false, data: [] })),
+      ]);
+      const statusEl = document.querySelector("#poolleague-status");
+      const tournamentsEl = document.querySelector("#poolleague-tournaments");
+      const matchesEl = document.querySelector("#poolleague-matches");
+      if (statusEl) statusEl.textContent = JSON.stringify(status, null, 2);
+      if (tournamentsEl) tournamentsEl.textContent = JSON.stringify(tournaments.data || [], null, 2);
+      if (matchesEl) matchesEl.textContent = JSON.stringify(matches.data || [], null, 2);
+    } catch (e) {
+      toast("poolleague error: " + errMsg(e), "err");
+    }
+  };
+  refresh();
+  document.querySelector("#poolleague-refresh").addEventListener("click", refresh);
+  document.querySelector("#poolleague-open-web").addEventListener("click", () => {
+    window.open("http://localhost:3000", "_blank");
+  });
+}
+
 // ---------- Phase 11: setup wizard ----------
 async function renderWizard() {
   crumb([["ForgeOS", "#/dashboard"], ["Setup Wizard"]]);

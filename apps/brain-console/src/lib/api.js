@@ -53,4 +53,7 @@ export const api = {
   createWebhook: (data) =>
     req("/api/webhooks", { method: "POST", body: JSON.stringify(data) }),
   plugins: () => req("/api/plugins"),
+  poollenueStatus: () => req("/api/poolleague/status"),
+  poollenueTournaments: () => req("/api/poolleague/tournaments"),
+  poollenueMatches: () => req("/api/poolleague/matches"),
 };

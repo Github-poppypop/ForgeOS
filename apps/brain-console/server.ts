@@ -1232,6 +1232,37 @@ process.on("SIGTERM", () => { cleanup("SIGTERM").finally(() => process.exit(0));
 process.on("SIGINT", () => { cleanup("SIGINT").finally(() => process.exit(0)); });
 
 
+// ---------- poolleague control proxy ----------
+app.get("/api/poolleague/status", async (c) => {
+  try {
+    const r = await fetch("http://localhost:3001/health", { signal: AbortSignal.timeout(3000) });
+    const data = await r.json().catch(() => ({}));
+    c.json({ ok: r.ok, status: r.status, data });
+  } catch (e) {
+    c.json({ ok: false, error: "poolleague backend unreachable" });
+  }
+});
+
+app.get("/api/poolleague/tournaments", async (c) => {
+  try {
+    const r = await fetch("http://localhost:3001/api/v2/tournaments", { signal: AbortSignal.timeout(5000) });
+    const data = await r.json().catch(() => ([]));
+    c.json({ ok: r.ok, data });
+  } catch (e) {
+    c.json({ ok: false, error: errMsg(e) });
+  }
+});
+
+app.get("/api/poolleague/matches", async (c) => {
+  try {
+    const r = await fetch("http://localhost:3001/api/v2/matches", { signal: AbortSignal.timeout(5000) });
+    const data = await r.json().catch(() => ([]));
+    c.json({ ok: r.ok, data });
+  } catch (e) {
+    c.json({ ok: false, error: errMsg(e) });
+  }
+});
+
 app.post("/api/capture/batch", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const items = Array.isArray(body.items) ? body.items : [];
