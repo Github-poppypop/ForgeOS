@@ -1686,7 +1686,7 @@ async function route() {
 // ---------- (27) command palette: fuzzy + arrows + history ----------
 const MAXHIST = 8;
 function pushHist(h) { const a = JSON.parse(localStorage.getItem("forgeos-hist") || "[]"); a.unshift(h); localStorage.setItem("forgeos-hist", JSON.stringify(a.slice(0, MAXHIST))); }
-const CMDS = NAV.map(([label, p]) => ({ label, go: () => { pushHist(p); location.hash = "#/" + p; } }));
+const CMDS = NAV.map(([label, , p]) => ({ label, go: () => { pushHist(p); location.hash = "#/" + p; } }));
 let cmdkSel = 0;
 function openCmdk() {
   const el = $("#cmdk"); el.classList.add("open"); cmdkSel = 0;
@@ -1705,7 +1705,7 @@ function renderCmdk(q) {
   const ul = $("#cmdk ul");
   const hist = JSON.parse(localStorage.getItem("forgeos-hist") || "[]");
   const opts = CMDS.filter(c => c.label.toLowerCase().includes(q.toLowerCase()));
-  const histItems = q ? [] : hist.map(h => ({ label: "↺ " + (NAV.find(n => n[1] === h)?.[0] || h), go: () => location.hash = "#/" + h }));
+  const histItems = q ? [] : hist.map(h => ({ label: "↺ " + (NAV.find(n => (n[2] ?? n[1]) === h)?.[0] || h), go: () => location.hash = "#/" + h }));
   const all = q ? opts : opts.concat(histItems);
   ul.innerHTML = all.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join("") || "<li class='muted'>no match</li>";
   $$("#cmdk li").forEach((li, i) => li.addEventListener("click", () => { all[i].go(); $("#cmdk").classList.remove("open"); }));
@@ -1736,7 +1736,7 @@ document.addEventListener("keydown", e => {
   if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key >= "1" && e.key <= "9") {
     const idx = Number(e.key) - 1;
     const target = NAV[idx];
-    if (target && !$("cmdk").classList.contains("open")) { e.preventDefault(); location.hash = "#/" + target[1]; }
+    if (target && !$("cmdk").classList.contains("open")) { e.preventDefault(); location.hash = "#/" + (target[2] ?? target[1]); }
   }
   // g + 1-9 quick goto
   if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "g") {
@@ -1744,7 +1744,7 @@ document.addEventListener("keydown", e => {
       if (ev.key >= "1" && ev.key <= "9") {
         const idx = Number(ev.key) - 1;
         const target = NAV[idx];
-        if (target) { ev.preventDefault(); location.hash = "#/" + target[1]; }
+        if (target) { ev.preventDefault(); location.hash = "#/" + (target[2] ?? target[1]); }
         document.removeEventListener("keydown", listener);
       } else if (ev.key !== "g" && ev.key !== "Shift" && ev.key !== "CapsLock") {
         document.removeEventListener("keydown", listener);
