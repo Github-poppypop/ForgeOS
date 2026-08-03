@@ -87,6 +87,19 @@ type WebhookSubscription = {
   active: boolean;
 };
 
+
+let csrfStore: Record<string, number> = {};
+function csrfToken() { return crypto.randomUUID(); }
+function csrfMiddleware(c: any, next: any) {
+  if (c.req.method === "GET" || c.req.method === "OPTIONS" || c.req.method === "HEAD") return next();
+  const header = c.req.header("x-csrf-token");
+  const cookie = c.req.header("cookie")?.match(/csrf=([^;]+)/)?.[1];
+  if (!header || !cookie || header !== cookie || !csrfStore[cookie] || Date.now() - csrfStore[cookie] > 3600000) {
+    return c.json({ error: "CSRF", message: "Invalid or missing CSRF token" }, 403);
+  }
+  return next();
+}
+app.get("/api/csrf", (c) => { const t = csrfToken(); csrfStore[t] = Date.now(); c.setHeader("set-cookie", `csrf=${t}; Path=/; HttpOnly; SameSite=Strict`); c.json({ csrf: t }); });
 const webhookStore: WebhookSubscription[] = [];
 
 function webhookEventsForMission(missionId: string, eventType: WebhookEvent) {
@@ -94,27 +107,64 @@ function webhookEventsForMission(missionId: string, eventType: WebhookEvent) {
 }
 
 async function dispatchWebhook(webhook: WebhookSubscription, eventType: WebhookEvent, payload: Record<string, unknown>) {
-  const body = JSON.stringify({ event: eventType, ts: new Date().toISOString(), data: payload });
-  try {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 5000);
-    await fetch(webhook.url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-forgeos-event": eventType,
-        "x-forgeos-delivery": crypto.randomUUID(),
-        ...(webhook.secret ? { "x-forgeos-signature": Bun.hash(webhook.secret + body).toString() } : {}),
-      },
-      body,
-      signal: controller.signal,
-    });
-    clearTimeout(t);
-    structuredLog("info", crypto.randomUUID(), "webhook", 200, `delivered ${eventType} -> ${webhook.url}`);
-  } catch (e: any) {
-    structuredLog("warn", crypto.randomUUID(), "webhook", 0, `failed ${eventType} -> ${webhook.url}: ${e?.message ?? e}`);
+  const maxRetries = 3;
+  const delays = [1000, 2000, 4000];
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const body = JSON.stringify(payload);
+      const res = await fetch(webhook.url, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(webhook.secret ? { "x-forgeos-signature": Bun.hash(webhook.secret + body).toString() } : {}) },
+        body,
+      });
+      if (res.ok) { structuredLog("info", crypto.randomUUID(), "webhook", res.status, `delivered ${eventType} -> ${webhook.url}`); return; }
+      if (attempt < maxRetries) { await new Promise(r => setTimeout(r, delays[attempt])); continue; }
+      structuredLog("warn", crypto.randomUUID(), "webhook", res.status, `failed ${eventType} -> ${webhook.url}: ${res.status}`);
+    } catch (e) {
+      if (attempt < maxRetries) { await new Promise(r => setTimeout(r, delays[attempt])); continue; }
+      structuredLog("warn", crypto.randomUUID(), "webhook", 0, `failed ${eventType} -> ${webhook.url}: ${e?.message ?? e}`);
+    }
   }
 }
+
+
+
+
+// ---------- Webhook CRUD ----------
+app.get("/api/webhooks", (c) => {
+  const list = webhookStore.map(w => ({ id: w.id, url: w.url, events: w.events, active: w.active, secret: !!w.secret }));
+  c.json({ ok: true, webhooks: list });
+});
+app.post("/api/webhooks", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const url = String(body.url || "");
+  const events = Array.isArray(body.events) ? body.events : [];
+  const secret = String(body.secret || "");
+  if (!url || !events.length) return c.json({ ok: false, error: "url and events required" }, 400);
+  const wh = { id: crypto.randomUUID(), url, events, active: true, secret };
+  webhookStore.push(wh);
+  structuredLog("info", crypto.randomUUID(), "webhooks", 201, `created ${wh.id}`);
+  c.json({ ok: true, webhook: { id: wh.id, url: wh.url, events: wh.events, active: wh.active } });
+});
+app.put("/api/webhooks/:id", async (c) => {
+  const id = String(c.req.param("id"));
+  const body = await c.req.json().catch(() => ({}));
+  const wh = webhookStore.find(w => w.id === id);
+  if (!wh) return c.json({ ok: false, error: "not found" }, 404);
+  if (body.url !== undefined) wh.url = String(body.url);
+  if (body.events !== undefined) wh.events = Array.isArray(body.events) ? body.events : wh.events;
+  if (body.active !== undefined) wh.active = !!body.active;
+  structuredLog("info", crypto.randomUUID(), "webhooks", 200, `updated ${id}`);
+  c.json({ ok: true, webhook: { id: wh.id, url: wh.url, events: wh.events, active: wh.active } });
+});
+app.delete("/api/webhooks/:id", (c) => {
+  const id = String(c.req.param("id"));
+  const idx = webhookStore.findIndex(w => w.id === id);
+  if (idx === -1) return c.json({ ok: false, error: "not found" }, 404);
+  webhookStore.splice(idx, 1);
+  structuredLog("info", crypto.randomUUID(), "webhooks", 200, `deleted ${id}`);
+  c.json({ ok: true });
+});
 
 function dispatchWebhooks(eventType: WebhookEvent, payload: Record<string, unknown>) {
   for (const wh of webhookEventsForMission(payload.missionId as string, eventType)) {
@@ -331,7 +381,15 @@ const CORS_HEADERS: Record<string, string> = {
   "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
   "access-control-allow-headers": "content-type,authorization",
 };
+const SECURITY_HEADERS: Record<string, string> = {
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "x-xss-protection": "1; mode=block",
+  "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:* ws://localhost:*; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self';",
+};
 function corsHeaders() { return { ...CORS_HEADERS }; }
+function securityHeaders() { return { ...SECURITY_HEADERS }; }
+function securityHeaders() { return { ...SECURITY_HEADERS }; }
 
 function reqId(req: Request) {
   return req.headers.get('x-request-id') || crypto.randomUUID();
@@ -375,7 +433,7 @@ function rateHeaders(ip: string, pathname: string) {
 }
 
 function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
-  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders(), ...extraHeaders } });
+  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders(), ...securityHeaders(), ...extraHeaders } });
 }
 
 // ---------- (41/47) auth ----------
@@ -1120,3 +1178,12 @@ async function cleanup(why) {
 }
 process.on("SIGTERM", () => { cleanup("SIGTERM").finally(() => process.exit(0)); });
 process.on("SIGINT", () => { cleanup("SIGINT").finally(() => process.exit(0)); });
+
+app.post("/api/hotreload", (c) => {
+  if (!process.env.HOT_RELOAD_SECRET || c.req.header("x-reload-secret") !== process.env.HOT_RELOAD_SECRET) {
+    return c.json({ ok: false, error: "forbidden" }, 403);
+  }
+  loadPlugins();
+  structuredLog("info", crypto.randomUUID(), "hotreload", 200, "plugins reloaded");
+  c.json({ ok: true, reloaded: pluginCache.length });
+});

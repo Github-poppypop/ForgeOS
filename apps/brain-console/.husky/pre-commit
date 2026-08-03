@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -e
+npx prettier --write src/ tests/ server.ts
+npx eslint src/**/*.js --no-eslintrc --env browser,es2021

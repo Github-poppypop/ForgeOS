@@ -1191,6 +1191,70 @@ async function renderPlugins() {
 }
 
 // ===================== ROUTER =====================
+// ---------- Webhook management panel ----------
+async function renderWebhooks() {
+  const list = await api.listWebhooks().catch(() => ({ webhooks: [] }));
+  document.querySelector("main").innerHTML = `<h1>Webhooks</h1>
+    <div class="card"><h3>Create Webhook</h3>
+      <input id="wh-url" class="input" placeholder="https://example.com/hook"/>
+      <input id="wh-events" class="input" placeholder="mission.created,agent.completed"/>
+      <input id="wh-secret" class="input" placeholder="optional secret"/>
+      <button class="btn" id="wh-create">Create</button>
+    </div>
+    <div id="wh-list">${(list.webhooks||[]).map(w => `<div class="card"><b>${w.url}</b><br/><span class="muted">${w.events.join(", ")} ${w.active ? "✅" : "⏸️"}</span></div>`).join("")}</div>`;
+  $("#wh-create")?.addEventListener("click", async () => {
+    const url = $("#wh-url")?.value;
+    const events = ($("#wh-events")?.value || "").split(",").map(s => s.trim()).filter(Boolean);
+    await api.createWebhook(url, events, $("#wh-secret")?.value);
+    renderWebhooks();
+  });
+}
+
+// ---------- Drag-and-drop kanban ----------
+function initKanban(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  let dragged = null;
+  container.querySelectorAll(".kanban-col").forEach(col => {
+    col.addEventListener("dragover", (e) => { e.preventDefault(); col.classList.add("drag-over"); });
+    col.addEventListener("dragleave", () => col.classList.remove("drag-over"));
+    col.addEventListener("drop", (e) => {
+      e.preventDefault(); col.classList.remove("drag-over");
+      if (!dragged) return;
+      const item = dragged;
+      col.querySelector(".kanban-items").appendChild(item);
+      item.dataset.from = col.dataset.status;
+      item.dispatchEvent(new CustomEvent("kanban-move", { detail: { from: item.dataset.from, to: col.dataset.status, id: item.dataset.id } }));
+    });
+  });
+  container.querySelectorAll(".kanban-item").forEach(item => {
+    item.draggable = true;
+    item.addEventListener("dragstart", (e) => { dragged = item; e.dataTransfer.effectAllowed = "move"; });
+    item.addEventListener("dragend", () => { dragged = null; container.querySelectorAll(".kanban-col").forEach(c => c.classList.remove("drag-over")); });
+  });
+}
+
+// ---------- Live search/filter ----------
+function initLiveSearch(containerId, rowSelector, delay = 200) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const search = document.createElement("input");
+  search.type = "text"; search.placeholder = "Filter..."; search.className = "input";
+  search.style.cssText = "margin-bottom:8px;width:100%;box-sizing:border-box;";
+  container.insertBefore(search, container.firstChild);
+  let timer;
+  search.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const q = search.value.toLowerCase().trim();
+      container.querySelectorAll(rowSelector).forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = (!q || text.includes(q)) ? "" : "none";
+      });
+    }, delay);
+  });
+}
+
 const NAV = [
   ["Command Center", tooltip("Command Center", "Command Center overview"), "command"], ["Governance", tooltip("Governance", "View and manage ForgeOS governance"), "governance"], ["Dashboard", tooltip("Dashboard", "Console dashboard with system metrics"), "dashboard"], ["Roles", "roles"], ["Org", tooltip("Org", "Organization chart and structure"), "org"], ["Timeline", tooltip("Timeline", "Decision timeline and history"), "timeline"], ["Ledger", tooltip("Ledger", "Decision ledger with filters"), "ledger"],
   ["Search", tooltip("Search", "Search across brains and pages"), "search"], ["Capture", tooltip("Capture", "Capture and create new brain pages"), "capture"], ["Decisions", tooltip("Decisions", "Decision management and tracking"), "decisions"], ["Missions", tooltip("Missions", "Agent missions and dispatch"), "missions"], ["MCP", tooltip("MCP", "Model Context Protocol tools"), "mcp"], ["Vault", "vault"],

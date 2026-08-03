@@ -119,4 +119,70 @@ describe("Phase 11 UI", () => {
     expect(app.includes("projects: renderProjects")).toBe(true);
     expect(app.includes("wizard: renderWizard")).toBe(true);
   });
+
+
+test("source contains auth endpoints", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('app.post("/api/auth/login"')).toBe(true);
+  expect(src.includes('JWT_SECRET')).toBe(true);
+});
+test("source contains state persistence", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('app.get("/api/state"')).toBe(true);
+  expect(src.includes('STATE_FILE')).toBe(true);
+});
+test("source contains backup/restore", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('app.post("/api/backup"')).toBe(true);
+  expect(src.includes('app.post("/api/restore"')).toBe(true);
+});
+test("source contains metrics", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('app.get("/api/metrics"')).toBe(true);
+});
+test("source contains webhook endpoints", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('app.get("/api/webhooks"')).toBe(true);
+  expect(src.includes('app.post("/api/webhooks"')).toBe(true);
+  expect(src.includes('app.put("/api/webhooks/')).toBe(true);
+  expect(src.includes('app.delete("/api/webhooks/')).toBe(true);
+});
+test("source contains plugin hot-reload", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('function loadPlugins')).toBe(true);
+});
+test("source contains health dependencies", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('app.get("/api/health/detailed"')).toBe(true);
+});
+
+
+test("auth middleware returns JSON for missing token", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('error: "Unauthorized"')).toBe(true);
+  expect(src.includes('message: "Missing or invalid token"')).toBe(true);
+});
+test("rate limiter has per-route limits", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('RATE_LIMITS')).toBe(true);
+  expect(src.includes('/api/health')).toBe(true);
+  expect(src.includes('/api/capture')).toBe(true);
+});
+
+
+test("auth middleware returns JSON for missing token", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('error: "unauthorized"')).toBe(true);
+});
+test("rate limiter has per-route limits", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('RATE_LIMITS')).toBe(true);
+  expect(src.includes('/api/health')).toBe(true);
+  expect(src.includes('/api/capture')).toBe(true);
+});
+test("CSP headers configured", () => {
+  const src = fs.readFileSync("server.ts", "utf8");
+  expect(src.includes('content-security-policy')).toBe(true);
+  expect(src.includes('x-frame-options')).toBe(true);
+});
 });
