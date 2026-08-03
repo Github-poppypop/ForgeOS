@@ -50,6 +50,7 @@ export const api = {
   // Phase 8 — federation / webhooks / plugins
   remoteBrains: () => req("/api/federation/remote"),
   webhooks: () => req("/api/webhooks"),
+  listWebhooks: () => req("/api/webhooks"),
   createWebhook: (data) =>
     req("/api/webhooks", { method: "POST", body: JSON.stringify(data) }),
   plugins: () => req("/api/plugins"),
