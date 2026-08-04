@@ -184,8 +184,10 @@ const server = serve({
       }
 
       if (p === "/api/status") {
-        const [schema, oll] = await Promise.all([runGbrain(["schema", "active"]), ollamaOk()]);
-        return json({ console_port: CONSOLE_PORT, gbrain_health: { status: "ok", engine: "pglite", owned_by: "console" }, schema: schema.out, ollama: oll, embedding_model: "ollama:mxbai-embed-large (1024d, local)", isolation: "C:\\ForgeOS (separate from personal vaults & app brains)", auth: !!CONSOLE_TOKEN });
+        let schema = { out: "unavailable", err: "" };
+        try { schema = await runGbrain(["schema", "active"]); } catch {}
+        const oll = await ollamaOk();
+        return json({ console_port: CONSOLE_PORT, gbrain_health: { status: schema.out ? "ok" : "degraded", engine: "pglite", owned_by: "console" }, schema: schema.out, ollama: oll, embedding_model: "ollama:mxbai-embed-large (1024d, local)", isolation: "C:\\ForgeOS (separate from personal vaults & app brains)", auth: !!CONSOLE_TOKEN });
       }
 
       if (p === "/api/brains") { // (45) multi-brain metadata
