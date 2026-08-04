@@ -27,6 +27,23 @@ function confirmAction(title, message) {
   });
 }
 
+const THEME_PREFIX = "forgeos-theme-";
+function applyTheme(theme) {
+  const root = document.documentElement;
+  root.classList.remove("theme-system", "theme-dark", "theme-light", "theme-hc", "theme-midnight", "theme-solarized-light", "theme-retro", "theme-matrix", "theme-ocean", "theme-berry", "theme-graphite");
+  if (!theme || theme === "system") {
+    root.dataset.theme = "auto";
+    return;
+  }
+  root.dataset.theme = theme;
+}
+
+function applyContrast(contrast) {
+  const root = document.documentElement;
+  root.classList.remove("contrast-default", "contrast-high", "contrast-soft");
+  if (contrast) root.classList.add("contrast-" + contrast);
+}
+
 // ---------- (1) global error handlers ----------
 async function logClientError(err, extra = {}) {
   const payload = {
@@ -1512,6 +1529,19 @@ async function renderSettings() {
           <option value="ocean">Ocean</option>
         </select>
       </div>
+      <div class="row" style="margin-top:8px">
+        <label>Font size</label>
+        <input id="s-font" type="range" min="12" max="22" step="1" value="16" style="width:220px"/>
+        <span id="s-font-val" class="mono muted">16px</span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label>Contrast</label>
+        <select id="s-contrast" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="default">Default</option>
+          <option value="high">High contrast</option>
+          <option value="soft">Soft contrast</option>
+        </select>
+      </div>
       <div class="row" style="margin-top:8px"><button class="btn primary" id="s-save">Save preferences</button></div>
     </div>`;
   try {
@@ -1520,7 +1550,7 @@ async function renderSettings() {
     if (env && s) {
       env.innerHTML = [
         ["Port", s.console_port || "—"],
-        ["GBRAIN_HOME", s.gbrain_home || "C:\ForgeOS"],
+        ["GBRAIN_HOME", s.gbrain_home || "C:\\ForgeOS"],
         ["Ollama", s.ollama ? "http://localhost:11434/v1" : "off"],
         ["Auth", s.auth ? "enabled" : "disabled"],
         ["Embedding model", s.embedding_model || "—"],
@@ -1530,10 +1560,34 @@ async function renderSettings() {
   const saved = localStorage.getItem("forgeos-theme") || "system";
   const themeSel = document.querySelector("#s-theme");
   if (themeSel) themeSel.value = saved;
+  const fontInput = document.querySelector("#s-font");
+  const fontLabel = document.querySelector("#s-font-val");
+  const savedFont = localStorage.getItem("forgeos-font-size");
+  if (savedFont && fontInput) {
+    fontInput.value = savedFont;
+    if (fontLabel) fontLabel.textContent = savedFont + "px";
+  }
+  const savedContrast = localStorage.getItem("forgeos-contrast") || "default";
+  const contrastSel = document.querySelector("#s-contrast");
+  if (contrastSel) contrastSel.value = savedContrast;
+  fontInput?.addEventListener("input", () => {
+    const v = fontInput.value;
+    document.documentElement.style.setProperty("--base-font-size", v + "px");
+    if (fontLabel) fontLabel.textContent = v + "px";
+  });
+  contrastSel?.addEventListener("change", () => {
+    document.documentElement.dataset.contrast = contrastSel.value;
+  });
   document.querySelector("#s-save").addEventListener("click", () => {
-    const val = document.querySelector("#s-theme").value;
-    localStorage.setItem("forgeos-theme", val);
-    applyTheme(val);
+    const theme = document.querySelector("#s-theme").value;
+    const fontSize = document.querySelector("#s-font").value;
+    const contrast = document.querySelector("#s-contrast").value;
+    localStorage.setItem("forgeos-theme", theme);
+    localStorage.setItem("forgeos-font-size", fontSize);
+    localStorage.setItem("forgeos-contrast", contrast);
+    applyTheme(theme);
+    applyContrast(contrast);
+    document.documentElement.style.setProperty("--base-font-size", fontSize + "px");
     toast("preferences saved", "ok");
   });
 }
