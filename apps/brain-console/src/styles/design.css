@@ -114,6 +114,15 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .field label { font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
 
 .empty { padding: 24px; color: var(--text-muted); }
+
+/* ---------- empty state ---------- */
+.empty-state h3 {
+  margin: 0 0 var(--s2);
+  font-size: 18px;
+}
+.empty-state .muted {
+  margin: 0 0 var(--s3);
+}
 .code, pre.json, pre.code { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; overflow: auto; }
 table.tbl { width: 100%; border-collapse: collapse; }
 table.tbl th, table.tbl td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
@@ -497,7 +506,16 @@ ul.mono { list-style: none; padding: 0; }
 
 /* ---------- Mobile responsive ---------- */
 @media (max-width: 768px) {
-  .sidebar { width: 100%; position: fixed; bottom: 0; top: auto; height: 60px; flex-direction: row; overflow-x: auto; padding: 8px; gap: 4px; z-index: 100; }
+  .sidebar {
+    width: 100%; position: fixed; bottom: 0; top: auto; height: 60px;
+    flex-direction: row; overflow-x: auto; padding: 8px; gap: 4px; z-index: 100;
+  }
+  .main { padding: 12px; width: 100%; }
+  .grid { grid-template-columns: 1fr !important; }
+  .card { padding: var(--s3); }
+  h1 { font-size: 22px; }
+  .navbar .wordmark { font-size: 14px; }
+  .btn, input, select, textarea, .tab { min-height: 44px; }
   .main { margin-left: 0; margin-bottom: 60px; padding: 12px; }
   .navbar { padding: 8px 12px; }
   .grid { grid-template-columns: 1fr; }
@@ -508,6 +526,23 @@ ul.mono { list-style: none; padding: 0; }
   .fab { bottom: 80px; }
   .shortcuts-overlay table { font-size: 14px; }
 }
+
+/* ---------- (67) panel route transitions ---------- */
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes panelOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+#main.panel-exit {
+  animation: panelOut 140ms ease both;
+}
+#main.panel-enter {
+  animation: panelIn 260ms ease both;
+}
+
 @media (max-width: 480px) {
   .main { padding: 8px; }
   .card { padding: 8px; }
@@ -566,3 +601,23 @@ ul.mono { list-style: none; padding: 0; }
 .nav-category.collapsed .nav-category-items {
   max-height: 0 !important;
 }
+
+/* ---------- status bar / footer ---------- */
+.status-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 16px;
+  font-size: 11px;
+  color: var(--text-dim);
+  z-index: 100;
+}
+.status-bar .pill { font-size: 10px; }
+.main { padding-bottom: 36px; }

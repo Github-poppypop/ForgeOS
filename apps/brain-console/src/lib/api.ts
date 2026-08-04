@@ -26,7 +26,16 @@ export const api = {
     req("/api/capture", { method: "POST", body: JSON.stringify({ slug, type, body }) }),
   embed: () => req("/api/embed", { method: "POST" }),
   timeline: () => req("/api/timeline"),
-  ledger: () => req("/api/ledger"),
+  ledger: (params) => {
+    const qs = new URLSearchParams();
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined && v !== null && v !== "") qs.set(k, v);
+      }
+    }
+    const q = qs.toString();
+    return req("/api/ledger" + (q ? "?" + q : ""));
+  },
   org: () => req("/api/org"),
   // Phase 6 — auth / state / backup / metrics
   login: (username, password) =>

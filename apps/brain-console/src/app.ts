@@ -12,8 +12,8 @@ function tooltip(label, tip){
   return `<span data-tooltip="${label}">${label}</span>`;
 }
 
-function emptyState(title, hint=''){
-  return `<div class="card" style="text-align:center;padding:32px;"><div style="font-size:48px;margin-bottom:8px;">📭</div><h3>${title}</h3><p class="muted">${hint}</p></div>`;
+function emptyState(title, hint='', cta=''){
+  return `<div class="card empty-state" style="text-align:center;padding:32px;"><div style="font-size:48px;margin-bottom:8px;">${title ? '📭' : '✅'}</div><h3>${DOMPurify.sanitize(title)}</h3>${hint ? `<p class="muted">${DOMPurify.sanitize(hint)}</p>` : ''}${cta ? `<div style="margin-top:12px">${cta}</div>` : ''}</div>`;
 }
 
 function confirmAction(title, message) {
@@ -28,13 +28,65 @@ function confirmAction(title, message) {
 }
 
 // ---------- (1) global error handlers ----------
-window.addEventListener("error", (e) => showFatal(e.message || String(e.error)));
-window.addEventListener("unhandledrejection", (e) => showFatal(String(e.reason && e.reason.message ? e.reason.message : e.reason)));
-function showFatal(msg) {
-  const m = $("#main");
-  if (m) m.innerHTML = `<div class="card"><h2>Runtime error</h2><pre class="json">${DOMPurify.sanitize(msg)}</pre>
-    <p class="muted">The API is at <span class="mono">/api/*</span>. Try reloading.</p></div>`;
+async function logClientError(err, extra = {}) {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    route: location.hash || "/",
+    userAgent: navigator.userAgent,
+    message: err && err.message ? err.message : String(err),
+    stack: err && err.stack ? err.stack : undefined,
+    ...extra,
+  };
+  try {
+    await fetch("/api/audit", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+  } catch { /* swallow audit failures */ }
 }
+window.addEventListener("error", (e) => {
+  const err = e.error instanceof Error ? e.error : new Error(e.message);
+  logClientError(err, { type: "runtime-error" });
+  showFatal(err);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  const err = e.reason instanceof Error ? e.reason : new Error(String(e.reason));
+  logClientError(err, { type: "unhandled-rejection" });
+  showFatal(err);
+});
+function showFatal(err) {
+  function showFatal(msg) {
+    errorBoundary(msg, null);
+  }
+
+  function errorBoundary(msg, retryFn) {
+    const m = $("#main");
+    if (!m) return;
+    m.innerHTML = `<div class="error-boundary">
+      <div class="error-boundary-icon">⚠️</div>
+      <h2>Panel error</h2>
+      <p class="muted">This panel hit an unexpected error. You can retry or go back.</p>
+      <pre class="json error-boundary-msg">${DOMPurify.sanitize(msg)}</pre>
+      <div class="row" style="justify-content:center;gap:8px;margin-top:16px">
+        ${retryFn ? '<button class="btn primary" id="eb-retry">Retry</button>' : ''}
+        <button class="btn secondary" id="eb-home">Go Home</button>
+      </div>
+    </div>`;
+    const retryBtn = $("#eb-retry");
+    if (retryBtn && retryFn) {
+      retryBtn.addEventListener("click", async () => {
+        m.innerHTML = skelGrid(3, 200);
+        try { await retryFn(); }
+        catch (e) { errorBoundary(errMsg(e), retryFn); }
+      });
+    }
+    const homeBtn = $("#eb-home");
+    if (homeBtn) {
+      homeBtn.addEventListener("click", () => { location.hash = "#/dashboard"; });
+    }
+  }
 
 // ---------- toast (16) + (34) stacking w/ progress ----------
 function toast(msg, kind = "") {
@@ -88,7 +140,7 @@ function paginationControls(p) {
 }
 
 // ---------- (15) empty state ----------
-const empty = (msg, cta) => `<div class="empty">${DOMPurify.sanitize(msg)}${cta ? "<div style='margin-top:12px'>" + cta + "</div>" : ""}</div>`;
+const empty = (msg, cta) => emptyState(msg, '', cta);
 
 // ---------- (6) API wrapper with retry on 503/lock ----------
 async function safe(fn, tries = 2) {
@@ -151,6 +203,7 @@ async function renderRoles() {
   crumb([["ForgeOS", "#/dashboard"], ["Roles"]]);
   $("#main").innerHTML = skelGrid(2);
   const { roles } = await safe(api.roles).catch(() => ({ roles: [] }));
+  if (!roles.length) { $("#main").innerHTML = `<h1>C-Suite Roles</h1>` + emptyState("No roles seeded", "Seed C-suite roles to get started", '<a class="btn secondary" href="#/dashboard">Go to Dashboard</a>'); return; }
   $("#main").innerHTML = `<h1>C-Suite Roles</h1>
     <div class="grid cols-2">
       ${roles.map(r => `
@@ -173,13 +226,14 @@ async function renderPage(slug) {
   crumb([["ForgeOS", "#/dashboard"], ["Roles", tooltip("Roles", "Manage brain roles and permissions"), "#/roles"], [slug]]);
   $("#main").innerHTML = skelGrid(3, 200);
   const p = await safe(() => api.page(slug)).catch(() => null);
-  if (!p || !p.body) { $("#main").innerHTML = empty("Page not found in brain.", `<a class="btn secondary" href="#/capture">Capture it</a>`); return; }
+  if (!p || !p.body) { $("#main").innerHTML = empty("Page not found in brain.", `<div style="display:flex;gap:8px;justify-content:center"><a class="btn secondary" href="#/capture">Capture it</a><button class="btn secondary" id="create-page">Create new page</button></div>`); bindCreatePage(); return; }
   // (38) diff note + (37) inline edit + (13) copy link
   $("#main").innerHTML = `<div class="row" style="justify-content:space-between">
       <h1 class="mono">${DOMPurify.sanitize(slug)}</h1>
       <div class="row">
         <button class="btn secondary" id="copy">Copy link</button>
         <button class="btn secondary" id="edit">Edit</button>
+        <button class="btn secondary" id="del" data-tooltip="Delete this page">🗑</button>
         <button class="btn secondary" data-share="twitter" data-slug="${slug}">𝕏</button>
         <button class="btn secondary" data-share="bookmark" data-slug="${slug}">🔖</button>
         <button class="btn secondary" data-share="linkedin" data-slug="${slug}">in</button>
@@ -188,6 +242,42 @@ async function renderPage(slug) {
     <pre class="code json" id="body">${DOMPurify.sanitize(p.body)}</pre>`;
   $("#copy").addEventListener("click", () => copyLink(slug));
   $("#edit").addEventListener("click", () => startEdit(slug, p.body));
+  $("#del").addEventListener("click", () => confirmModal(`Delete page "${DOMPurify.sanitize(slug)}"?`, async () => {
+    const r = await safe(() => api.deletePage(slug));
+    toast(r.err ? "delete failed" : "deleted " + slug, r.err ? "err" : "ok");
+    if (!r.err) location.hash = "#/search";
+  }));
+}
+function bindCreatePage() {
+  const btn = document.getElementById("create-page");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    document.getElementById("main").innerHTML = `<h1 class="mono">New Page</h1>
+      <div class="card" style="max-width:560px">
+        <div class="row"><label>slug</label><input id="new-slug" class="mono" placeholder="type/name" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <div class="row" style="margin-top:8px"><label>type</label><input id="new-type" value="note" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+        <textarea id="new-body" rows="8" style="width:100%;margin-top:8px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono)"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn primary" id="create-page-save">Create</button>
+          <button class="btn secondary" id="create-page-cancel">Cancel</button>
+          <span id="new-slug-msg" class="muted"></span>
+        </div>
+      </div>`;
+    const validate = () => {
+      const v = document.getElementById("new-slug").value.trim();
+      const ok = /^[\w\-/]+$/.test(v) && v.includes("/");
+      const msg = document.getElementById("new-slug-msg");
+      if (msg) { msg.textContent = ok ? "" : "slug must be like type/name"; msg.style.color = ok ? "" : "var(--danger)"; }
+      return ok;
+    };
+    document.getElementById("create-page-save").addEventListener("click", () => withLoading(document.getElementById("create-page-save"), async () => {
+      if (!validate()) return;
+      const r = await safe(() => api.capture(document.getElementById("new-slug").value.trim(), document.getElementById("new-type").value.trim(), document.getElementById("new-body").value));
+      toast(r.err ? "create failed" : "created " + document.getElementById("new-slug").value, r.err ? "err" : "ok");
+      if (!r.err) location.hash = "#/page/" + encodeURIComponent(document.getElementById("new-slug").value.trim());
+    }));
+    document.getElementById("create-page-cancel").addEventListener("click", () => location.reload());
+  });
 }
 
 function startEdit(slug, body) {
@@ -221,6 +311,7 @@ async function renderOrg() {
     return;
   }
   const { roles } = await safe(api.roles).catch(() => ({ roles: [] }));
+  if (!org && !roles.length) { $("#main").innerHTML = `<h1>Organization</h1>` + emptyState("No organization data", "Seed roles to build the org chart", '<a class="btn secondary" href="#/roles">Go to Roles</a>'); return; }
   const bySlug = Object.fromEntries(roles.map(r => [r.slug, r]));
   const link = (slug) => `<a class="link" href="#/page/${encodeURIComponent(slug)}">${DOMPurify.sanitize((bySlug[slug] && bySlug[slug].role) || slug)}</a>`;
   const kids = (slug) => roles.filter(r => r.reports_to === slug).map(r => link(r.slug));
@@ -256,7 +347,7 @@ async function renderSearch() {
               <span class="pill">${DOMPurify.sanitize(score)}</span></div>
             <p class="muted">${DOMPurify.sanitize(body.slice(0, 200))}</p></div>`;
         }).join("")
-      : empty("No results.");
+      : emptyState("No results found", "Try a different query or capture a new page", '<a class="btn secondary" href="#/capture">Capture a page</a>');
   });
   $("#go").addEventListener("click", run);
   $("#q").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
@@ -307,6 +398,7 @@ async function renderTimeline() {
   $("#main").innerHTML = skelGrid(4, 160);
   const r = await safe(() => api.timeline()).catch(() => ({ timeline: [] }));
   const items = Array.isArray(r.timeline) ? r.timeline : [];
+  if (!items.length) { $("#main").innerHTML = `<h1>Timeline Engine</h1>` + emptyState("No milestones yet", "Capture timeline entries to track progress", '<a class="btn secondary" href="#/capture">Go to Capture</a>'); return; }
   $("#main").innerHTML = `<h1>Timeline Engine</h1>
     <div class="card"><h2>Milestones</h2>
     <div class="timeline">${items.map(i => `<div class="tl-item ${i.status==='done'?'done':i.status==='in-progress'?'active':''}">
@@ -319,18 +411,70 @@ async function renderTimeline() {
 async function renderLedger() {
   crumb([["ForgeOS", "#/command"], ["Decision Ledger"]]);
   $("#main").innerHTML = skelGrid(4, 160);
-  const r = await safe(() => api.ledger()).catch(() => ({ ledger: [] }));
-  const entries = Array.isArray(r.ledger) ? r.ledger : [];
+  const { roles } = await safe(() => api.roles()).catch(() => ({ roles: [] }));
+  const roleOptions = (roles || []).map(r =>
+    `<option value="${DOMPurify.sanitize(r.slug)}">${DOMPurify.sanitize(r.role || r.slug)}</option>`
+  ).join("");
+  const statusOptions = ["approved", "pending", "proposed", "rejected"].map(s =>
+    `<option value="${DOMPurify.sanitize(s)}">${DOMPurify.sanitize(s)}</option>`
+  ).join("");
   $("#main").innerHTML = `<h1>Decision Ledger</h1>
-    <div class="card"><h2>Recent decisions</h2>
-    <table class="tbl"><thead><tr><th>Date</th><th>Title</th><th>Type</th><th>Mission</th><th>Outcome</th></tr></thead>
-    <tbody>${entries.map(e => `<tr>
-      <td class="mono">${DOMPurify.sanitize(e.date)}</td>
-      <td>${DOMPurify.sanitize(e.title)}</td>
-      <td><span class="pill">${DOMPurify.sanitize(e.type)}</span></td>
-      <td class="mono">${DOMPurify.sanitize(e.mission)}</td>
-      <td>${DOMPurify.sanitize(e.outcome)}</td>
-    </tr>`).join("")}</tbody></table></div>`;
+    <div class="card">
+      <div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
+        <input type="date" id="l-from" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="From date">
+        <input type="date" id="l-to" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="To date">
+        <select id="l-role" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="">all roles</option>
+          ${roleOptions}
+        </select>
+        <select id="l-status" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="">all statuses</option>
+          ${statusOptions}
+        </select>
+        <button class="btn secondary" id="l-reset">Reset</button>
+      </div>
+      <h2>Recent decisions</h2>
+      <table class="tbl" id="ledger-table"><thead><tr><th>Date</th><th>Title</th><th>Type</th><th>Mission</th><th>Outcome</th></tr></thead>
+      <tbody id="ledger-tbody"></tbody></table>
+    </div>`;
+  const loadLedger = async () => {
+    const from = $("#l-from")?.value || "";
+    const to = $("#l-to")?.value || "";
+    const role = $("#l-role")?.value || "";
+    const status = $("#l-status")?.value || "";
+    const params = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    if (role) params.role = role;
+    if (status) params.status = status;
+    const r = await safe(() => api.ledger(Object.keys(params).length ? params : undefined)).catch(() => ({ ledger: [] }));
+    const entries = Array.isArray(r.ledger) ? r.ledger : [];
+    const tbody = $("#ledger-tbody");
+    if (tbody) {
+      tbody.innerHTML = entries.map(e => `<tr>
+        <td class="mono">${DOMPurify.sanitize(e.date)}</td>
+        <td>${DOMPurify.sanitize(e.title)}</td>
+        <td><span class="pill">${DOMPurify.sanitize(e.type)}</span></td>
+        <td class="mono">${DOMPurify.sanitize(e.mission)}</td>
+        <td>${DOMPurify.sanitize(e.outcome)}</td>
+      </tr>`).join("") || `<tr><td colspan="5" class="muted">no entries</td></tr>`;
+    }
+  };
+  await loadLedger();
+  ["#l-from", "#l-to", "#l-role", "#l-status"].forEach(sel => {
+    const el = $(sel);
+    if (el) el.addEventListener("change", loadLedger);
+  });
+  const resetBtn = $("#l-reset");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      $("#l-from").value = "";
+      $("#l-to").value = "";
+      $("#l-role").value = "";
+      $("#l-status").value = "";
+      loadLedger();
+    });
+  }
 }
 
 // ---------- missions live state ----------
@@ -348,6 +492,7 @@ async function renderMissions() {
   
   $("#main").innerHTML = skelGrid(3, 200);
   const { missions } = await safe(api.missions).catch(() => ({ missions: [] }));
+  if (!missions.length) { $("#main").innerHTML = `<h1>Mission Center</h1>` + emptyState("No missions yet", "Dispatch an agent on a mission to get started", '<a class="btn secondary" href="#/capture">Create a mission</a>'); return; }
   
   const statusPill = (s) => {
     const cls = { done:"ok", running:"ok", executing:"ok", pending:"warn", failed:"bad", review:"warn", proposed:"warn", approved:"ok", error:"bad" }[s] || "";
@@ -635,7 +780,7 @@ async function renderVault() {
   const vp = paginate((v.files || []), page, 10);
   $("#main").innerHTML = `<h1>Obsidian Vault Sync</h1>
     <div class="card"><p class="muted">Mirror at <span class="mono">C:\\ForgeOS\\vault</span> — git: ${DOMPurify.sanitize(v.git)}</p>
-    <ul class="mono" style="line-height:1.9">${vp.items.map(f => `<li class="mono"><a class="link" href="#/vaultfile/${encodeURIComponent(f)}">${DOMPurify.sanitize(f)}</a></li>`).join("") || "<li class='muted'>no files</li>"}</ul>
+    ${vp.items.length ? `<ul class="mono" style="line-height:1.9">${vp.items.map(f => `<li class="mono"><a class="link" href="#/vaultfile/${encodeURIComponent(f)}">${DOMPurify.sanitize(f)}</a></li>`).join("")}</ul>` : emptyState("Vault is empty", "Mirror at C:\ForgeOS\vault", '<a class="btn secondary" href="#/capture">Capture a page</a>')}
     ${paginationControls(vp)}</div>`;
 }
 
@@ -643,20 +788,183 @@ async function renderVaultFile(file) {
   file = decodeURIComponent(file);
   crumb([["ForgeOS", "#/dashboard"], ["Vault", tooltip("Vault", "Secret and credential vault"), "#/vault"], [file]]);
   $("#main").innerHTML = skelGrid(4, 160);
-  // read via backend passthrough (reuse page fetch is brain-only; read file directly is not exposed,
-  // so show a note + link to open in editor)
+
+  let body = "";
+  try {
+    const r = await safe(() => api.vaultFile(file));
+    body = r.body || r.content || "";
+  } catch (e) {
+    toast("Failed to load vault file: " + errMsg(e), "err");
+  }
+
+  let original = body;
+  const isJson = file.endsWith(".json");
+
+  const validate = (text) => {
+    const el = $("#validate-msg");
+    if (!el) return true;
+    if (!text.trim()) {
+      el.textContent = "file must not be empty";
+      el.style.color = "var(--danger)";
+      return false;
+    }
+    if (isJson) {
+      try {
+        JSON.parse(text);
+        el.textContent = "";
+        el.style.color = "";
+        return true;
+      } catch (e) {
+        el.textContent = "invalid JSON: " + errMsg(e);
+        el.style.color = "var(--danger)";
+        return false;
+      }
+    }
+    el.textContent = "";
+    el.style.color = "";
+    return true;
+  };
+
+  const markDirty = () => {
+    const ind = $("#dirty-indicator");
+    if (ind) ind.style.display = textarea.value !== original ? "" : "none";
+  };
+
+  const updateSaveBtn = () => {
+    if (saveBtn) saveBtn.disabled = textarea.value === original;
+  };
+
   $("#main").innerHTML = `<h1 class="mono">${DOMPurify.sanitize(file)}</h1>
-    <div class="card"><p class="muted">Vault file mirror. Open in Obsidian at <span class="mono">C:\\ForgeOS\\vault\\${DOMPurify.sanitize(file)}</span>.</p>
-    <p>This file is the human-readable mirror of the brain page <span class="mono">${DOMPurify.sanitize(file.replace(/\\.md$/, ""))}</span>.</p>
-    <a class="btn secondary" href="#/page/${encodeURIComponent(file.replace(/\\.md$/, ""))}">View brain page →</a></div>`;
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <div class="row">
+        <span id="dirty-indicator" class="pill warn" style="display:none"><span class="dot"></span>modified</span>
+        <span id="validate-msg" class="muted"></span>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="save" disabled>Save</button>
+        <button class="btn secondary" id="cancel">Cancel</button>
+      </div>
+    </div>
+    <textarea id="ebody" rows="16" style="width:100%;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono)">${DOMPurify.sanitize(body)}</textarea>
+    <div class="card" style="margin-top:8px">
+      <p class="muted">Vault file mirror at <span class="mono">C:\\ForgeOS\\vault\\${DOMPurify.sanitize(file)}</span>.</p>
+      <p>Human-readable mirror of brain page <span class="mono">${DOMPurify.sanitize(file.replace(/\.md$/, ""))}</span>.</p>
+      <a class="btn secondary" href="#/page/${encodeURIComponent(file.replace(/\.md$/, ""))}">View brain page →</a>
+    </div>`;
+
+  const textarea = $("#ebody");
+  const saveBtn = $("#save");
+
+  textarea.addEventListener("input", () => { markDirty(); updateSaveBtn(); });
+  textarea.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault();
+      if (!saveBtn.disabled) saveBtn.click();
+    }
+  });
+
+  $("#cancel").addEventListener("click", () => {
+    textarea.value = original;
+    markDirty();
+    updateSaveBtn();
+    toast("edits discarded", "info");
+  });
+
+  $("#save").addEventListener("click", () => withLoading($("#save"), async () => {
+    const text = textarea.value;
+    if (!validate(text)) return;
+    const r = await safe(() => api.saveVaultFile(file, text));
+    if (r && !r.err) {
+      original = text;
+      markDirty();
+      updateSaveBtn();
+      toast("saved " + file, "ok");
+    } else {
+      toast("save failed: " + (r && r.err ? errMsg(r.err) : "?"), "err");
+    }
+  }));
+
+  updateSaveBtn();
 }
 
-// ---------- (26) embed admin w/ counts + auto after capture ----------
+// ---------- (26) embed admin w/ similarity search + thresholds + ranking ----------
+function scorePill(score, threshold) {
+  const s = Number(score);
+  const t = Number(threshold) || 0;
+  if (s >= t + 0.15) return `<span class="pill ok">${s.toFixed(3)}</span>`;
+  if (s >= t) return `<span class="pill warn">${s.toFixed(3)}</span>`;
+  return `<span class="pill bad">${s.toFixed(3)}</span>`;
+}
+function scoreBar(score, max = 1) {
+  const pct = Math.max(0, Math.min(100, (Number(score) / max) * 100));
+  return `<div style="width:100%;height:6px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:6px">
+    <div style="width:${pct.toFixed(1)}%;height:100%;background:var(--accent);border-radius:999px;transition:width 240ms ease"></div>
+  </div>`;
+}
 async function renderEmbed() {
   crumb([["ForgeOS", "#/dashboard"], ["Embeddings"]]);
   $("#main").innerHTML = `<h1>Embedding Admin</h1>
-    <div class="card"><p class="muted">Local Ollama <span class="mono">mxbai-embed-large</span> (1024d). Re-embed after captures.</p>
-    <button class="btn primary" id="re" data-tooltip="Re-embed all pages">Re-embed all</button><pre id="o" class="code json" style="margin-top:12px"></pre></div>`;
+    <div class="card" style="margin-bottom:16px">
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <p class="muted">Local Ollama <span class="mono">mxbai-embed-large</span> (1024d). Re-embed after captures.</p>
+        <button class="btn primary" id="re" data-tooltip="Re-embed all pages">Re-embed all</button>
+      </div>
+      <pre id="o" class="code json" style="margin-top:12px"></pre>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <h2>Semantic Similarity Search</h2>
+      <p class="muted">Query the brain by embedding similarity. Results are ranked by cosine similarity.</p>
+      <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">
+        <input id="eq" class="mono" placeholder="Enter a semantic query…" style="flex:1;min-width:220px;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
+        <button class="btn primary" id="esearch">Search</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim)">Min score
+          <input id="ethresh" type="number" value="0.25" step="0.05" min="0" max="1" style="width:72px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
+        </label>
+      </div>
+    </div>
+    <div id="eres"></div>`;
+
+  const runSim = () => withLoading($("#esearch"), async () => {
+    const q = $("#eq").value.trim();
+    if (!q) return;
+    const r = await safe(() => api.search(q));
+    const thresh = Number($("#ethresh").value) || 0;
+    const lines = (r.raw || "").split("\n").filter(Boolean);
+    const parsed = lines.map(l => {
+      const m = l.match(/^\[([\d.]+)\]\s+(\S+)\s*--\s*(.*)$/s);
+      const score = m ? parseFloat(m[1]) : 0;
+      const slug = m ? m[2] : l;
+      const body = m ? m[3] : "";
+      return { score, slug, body };
+    }).filter(x => x.score >= thresh).sort((a, b) => b.score - a.score);
+
+    const el = $("#eres");
+    if (!parsed.length) {
+      el.innerHTML = empty(`No results above ${thresh.toFixed(2)}.`);
+      return;
+    }
+    const max = Math.max(...parsed.map(x => x.score), 0.001);
+    el.innerHTML = `<div class="stack">${parsed.map((x, i) => {
+      const rank = i + 1;
+      const bar = scoreBar(x.score, max);
+      const pill = scorePill(x.score, thresh);
+      return `<div class="card" style="margin-bottom:8px;border-left:3px solid ${x.score >= thresh + 0.15 ? 'var(--success)' : x.score >= thresh ? 'var(--warn)' : 'var(--danger)'}">
+        <div class="row" style="justify-content:space-between;gap:8px">
+          <div class="row" style="gap:8px">
+            <span class="badge" style="background:var(--surface-2);color:var(--text-dim);border:1px solid var(--border);min-width:28px;justify-content:center">${rank}</span>
+            <a class="link mono" href="#/page/${encodeURIComponent(x.slug)}" style="font-weight:600">${DOMPurify.sanitize(x.slug)}</a>
+          </div>
+          ${pill}
+        </div>
+        <p class="muted" style="margin-top:6px">${DOMPurify.sanitize(x.body.slice(0, 220))}</p>
+        ${bar}
+      </div>`;
+    }).join("")}</div>`;
+  });
+
+  $("#esearch").addEventListener("click", runSim);
+  $("#eq").addEventListener("keydown", e => { if (e.key === "Enter") runSim(); });
+
   $("#re").addEventListener("click", () => withLoading($("#re"), async () => {
     const r = await safe(() => api.embed());
     $("#o").textContent = (r.out || "") + "\n" + (r.err || "");
@@ -668,6 +976,7 @@ async function renderEmbed() {
 async function renderFederation() {
   crumb([["ForgeOS", "#/dashboard"], ["Federation"]]);
   const f = await safe(api.federation).catch(() => ({}));
+  if (!f.children || !f.children.length) { $("#main").innerHTML = `<h1>Brain Federation</h1>` + emptyState("No federation data", "Configure child brains to enable federation", '<a class="btn secondary" href="#/config">Go to Config</a>'); return; }
   $("#main").innerHTML = `<h1>Brain Federation</h1>
     <pre class="json">${DOMPurify.sanitize(JSON.stringify(f, null, 2))}</pre>
     <div class="card" style="margin-top:12px"><h2>Topology</h2>
@@ -806,7 +1115,7 @@ async function renderGovernance() {
   crumb([["ForgeOS", "#/command"], ["Governance"]]);
   $("#main").innerHTML = skelGrid(3, 200);
   const gov = await safe(() => api.gov()).catch(() => null);
-  if (!gov) { $("#main").innerHTML = empty("Could not read /governance (console offline)."); return; }
+  if (!gov) { $("#main").innerHTML = emptyState("Governance offline", "The console may be offline or /governance is unavailable", '<a class="btn secondary" href="#/dashboard">Go to Dashboard</a>'); return; }
   const section = (title, key, base) => {
     const files = (gov.tree && gov.tree[key]) || [];
     return `<div class="card"><h2>${title}</h2>
@@ -935,7 +1244,7 @@ async function renderMonitoring() {
       const poolEl = document.querySelector("#poolleague-monitor");
       if (agentEl) {
         const list = (agents.agents || []).map(a => `<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="mono">${a.role}</span><span class="pill ${a.status==='idle'?'ok':'warn'}">${a.status}</span></div>`).join("");
-        agentEl.innerHTML = list || "<p class='muted'>no agent data</p>";
+        agentEl.innerHTML = list || "<p class='muted'>no agent data — <a class='link' href='#/missions'>dispatch a mission</a></p>";
       }
       if (poolEl) poolEl.textContent = JSON.stringify(poolleague, null, 2);
     } catch (e) {
@@ -1091,7 +1400,7 @@ async function renderProjects() {
             <button class="btn secondary" data-delete="${DOMPurify.sanitize(i.id)}">×</button>
           </div>
         </div>
-      `).join("") || `<p class="muted">no items</p>`;
+      ).join("") || `<p class="muted" style="text-align:center;padding:12px">no items — <a class="link" href="#/capture">+ capture</a></p>`;
     });
   };
 
@@ -1390,12 +1699,26 @@ function initVirtualScroll(containerId, rowHeight = 40, buffer = 10) {
 }
 
 // ---------- Lazy panel loading ----------
+const panelInit = new Set();
 const panelCache = {};
+
+function lazyPanel(fn, name) {
+  return async function (...args) {
+    if (!panelInit.has(name)) {
+      panelInit.add(name);
+      // One-time init hook.
+      // In a build-step setup, swap for: const mod = await import(`./panels/${name}.js`);
+      console.log(`[lazy] panel initialized: ${name}`);
+    }
+    return fn(...args);
+  };
+}
+
 async function loadPanel(name) {
   if (panelCache[name]) return panelCache[name]();
-  // In production, these would be separate chunks; for now, wrap existing render fns
-  const fn = window[name];
-  if (!fn) return '<div class="card">Panel not found</div>';
+  const renderKey = "render" + name.charAt(0).toUpperCase() + name.slice(1);
+  const fn = window[renderKey] || window[name];
+  if (!fn) return '<div class="card">Panel not found: ' + DOMPurify.sanitize(name) + '</div>';
   const html = await fn();
   return html;
 }
@@ -1517,17 +1840,21 @@ const NAV = [
   ]},
 ];
 
-const routes = {
+const _rawRoutes = {
   command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, timeline: renderTimeline, ledger: renderLedger,
   search: renderSearch, capture: renderCapture, decisions: renderDecisions, missions: renderMissions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
   embed: renderEmbed, federation: renderFederation, audit: renderAudit, schema: renderSchema, config: renderConfig,
   projects: renderProjects, wizard: renderWizard, monitoring: renderMonitoring, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins, webhooks: renderWebhooks,
 };
+const routes = {};
+for (const [name, fn] of Object.entries(_rawRoutes)) {
+  routes[name] = lazyPanel(fn, name);
+}
 
 // ---------- (50) per-panel error boundary ----------
 async function guard(fn, slug) {
   try { await fn(slug); }
-  catch (e) { $("#main").innerHTML = `<div class="card"><h2>Panel error</h2><pre class="json">${DOMPurify.sanitize(errMsg(e))}</pre></div>`; }
+  catch (e) { errorBoundary(errMsg(e), () => fn(slug)); }
 }
 
 // =====================================================================
@@ -1703,19 +2030,116 @@ const TITLES = { command:"Command Center", governance:"Governance", dashboard:"C
 // ---------- (11) restore last panel ----------
 function lastPanel() { return localStorage.getItem("forgeos-last") || "command"; }
 
-async function route() {
-  let hash = location.hash.slice(2) || lastPanel();
-  const parts = hash.split("/");
-  const panel = parts[0];
-  if (!KNOWN.has(panel)) { $("#main").innerHTML = empty("Unknown route: " + DOMPurify.sanitize(panel), `<a class="btn secondary" href="#/dashboard">Go home</a>`); document.title = "ForgeOS — 404"; return; }
-  localStorage.setItem("forgeos-last", panel);
-  document.title = "ForgeOS — " + (TITLES[panel] || "Console");
+// ---------- (11b) active nav highlighting with scroll spy ----------
+const SCROLL_PREFIX = "forgeos-scroll-";
+const SCROLL_DEBOUNCE = 100;
+let scrollSaveTimer = null;
+let activePanel = lastPanel();
+
+function getCurrentPanel() {
+  return (location.hash.slice(2).split("/")[0] || lastPanel());
+}
+
+function savePanelScroll(panel) {
+  const main = $("#main");
+  if (!main) return;
+  try { localStorage.setItem(SCROLL_PREFIX + panel, String(main.scrollTop)); } catch {}
+}
+
+function restorePanelScroll(panel) {
+  const main = $("#main");
+  if (!main) return;
+  const saved = localStorage.getItem(SCROLL_PREFIX + panel);
+  if (saved !== null) {
+    requestAnimationFrame(() => {
+      if ($("#main")) $("#main").scrollTop = Number(saved);
+    });
+  }
+}
+
+function setActiveNav(panel) {
   document.querySelectorAll(".sidebar a").forEach(a => a.classList.remove("active"));
   const navEl = document.querySelector(`.sidebar a[href="#/${panel}"]`);
   if (navEl) navEl.classList.add("active");
-  if (panel === "page") return guard(() => renderPage(parts[1]), parts[1]);
-  if (panel === "vaultfile") return guard(() => renderVaultFile(parts[1]), parts[1]);
-  await guard(routes[panel] || routes.dashboard);
+}
+
+function updateActiveNavOnScroll() {
+  const main = $("#main");
+  if (!main) return;
+  
+  // Scroll spy: highlight sidebar link based on visible sections in main panel
+  const sections = main.querySelectorAll("h1[id], h2[id], h3[id], section[id]");
+  let activeId = null;
+  
+  for (const el of sections) {
+    const rect = el.getBoundingClientRect();
+    if (rect.top <= 120 && rect.bottom >= 0) {
+      activeId = el.id;
+      break;
+    }
+  }
+  
+  if (activeId) {
+    const navEl = document.querySelector(`.sidebar a[href="#/${activeId}"]`);
+    if (navEl) {
+      setActiveNav(activeId);
+      return;
+    }
+  }
+  
+  setActiveNav(getCurrentPanel());
+}
+
+function initScrollSpy() {
+  const main = $("#main");
+  if (!main) return;
+  
+  main.addEventListener("scroll", () => {
+    const panel = getCurrentPanel();
+    clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = setTimeout(() => savePanelScroll(panel), SCROLL_DEBOUNCE);
+    updateActiveNavOnScroll();
+  }, { passive: true });
+}
+
+async function route() {
+  const newPanel = location.hash.slice(2).split("/")[0] || lastPanel();
+  const parts = location.hash.slice(2).split("/");
+  const panel = parts[0];
+  
+  // Save scroll of the panel we're leaving
+  if (activePanel !== newPanel) savePanelScroll(activePanel);
+  
+  if (!KNOWN.has(panel)) {
+    $("#main").innerHTML = empty("Unknown route: " + DOMPurify.sanitize(panel), `<a class="btn secondary" href="#/dashboard">Go home</a>`);
+    document.title = "ForgeOS — 404";
+    return;
+  }
+  
+  localStorage.setItem("forgeos-last", panel);
+  document.title = "ForgeOS — " + (TITLES[panel] || "Console");
+  setActiveNav(panel);
+
+  // Transition: fade/slide out current panel
+  const main = $("#main");
+  const hadContent = main.children.length > 0;
+  if (hadContent) {
+    main.classList.add("panel-exit");
+    await sleep(140);
+    main.classList.remove("panel-exit");
+  }
+
+  // Render new panel
+  if (panel === "page") await guard(() => renderPage(parts[1]), parts[1]);
+  else if (panel === "vaultfile") await guard(() => renderVaultFile(parts[1]), parts[1]);
+  else await guard(routes[panel] || routes.dashboard);
+
+  // Transition: fade/slide in new panel
+  main.classList.add("panel-enter");
+  requestAnimationFrame(() => requestAnimationFrame(() => main.classList.remove("panel-enter")));
+  
+  restorePanelScroll(panel);
+  activePanel = panel;
 }
 
 // ---------- (27) command palette: fuzzy + arrows + history ----------
@@ -1918,6 +2342,31 @@ async function registerSW() {
 }
 registerSW();
 
+// ---------- (56) status bar ----------
+const STATUS_START = Date.now();
+function tickStatusBar(s) {
+  const clock = document.getElementById("sb-clock");
+  const brain = document.getElementById("sb-brain");
+  const ollama = document.getElementById("sb-ollama");
+  const uptime = document.getElementById("sb-uptime");
+  if (!clock || !brain || !ollama || !uptime) return;
+  try {
+    const now = new Date();
+    clock.textContent = "EST " + now.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  } catch {}
+  const ok = !!(s && s.gbrain_health && s.gbrain_health.status === "ok");
+  brain.textContent = "brain: " + (ok ? "ok" : "down");
+  brain.className = "pill " + (ok ? "ok" : "err");
+  const ollamaOk = !!(s && s.ollama && s.ollama.status === "ok");
+  ollama.textContent = "ollama: " + (ollamaOk ? "ok" : "—");
+  ollama.className = "pill " + (ollamaOk ? "ok" : "warn");
+  const secs = Math.max(0, Math.floor((Date.now() - STATUS_START) / 1000));
+  const h = String(Math.floor(secs / 3600)).padStart(2, "0");
+  const m = String(Math.floor((secs % 3600) / 60)).padStart(2, "0");
+  const s2 = String(secs % 60).padStart(2, "0");
+  uptime.textContent = "uptime " + h + ":" + m + ":" + s2;
+}
+
 // ===================== SHELL =====================
 // (12) sidebar collapse (persisted) + (20) mobile hamburger
 function shell() {
@@ -1951,6 +2400,12 @@ function shell() {
     <div class="toasts" id="toasts" role="status" aria-live="assertive" aria-atomic="true"></div>
     <div class="cmdk" id="cmdk" role="dialog" aria-modal="true" aria-label="Command palette"><input placeholder="Jump to… (↑↓ enter)" aria-label="Search commands"/><ul></ul></div>
     <div class="tour-overlay" id="tour-overlay" aria-hidden="true"></div>
+    <div class="status-bar" id="status-bar" role="contentinfo" aria-label="Status bar">
+      <span id="sb-clock" class="mono"></span>
+      <span class="pill" id="sb-brain">brain: —</span>
+      <span class="pill" id="sb-ollama">ollama: —</span>
+      <span class="pill" id="sb-uptime"></span>
+    </div>
     <div class="tour-backdrop" id="tour-backdrop"></div>
     <div class="tour-card" id="tour-card" role="dialog" aria-modal="true" aria-label="Onboarding tour">
       <div class="tour-dots" id="tour-dots"></div>
@@ -1967,7 +2422,7 @@ function shell() {
   $("#cmdkbtn").addEventListener("click", openCmdk);
   $("#menubtn").addEventListener("click", toggleMobileMenu);
   $("#sidebar-overlay").addEventListener("click", closeMobileMenu);
-  window.addEventListener("hashchange", () => { closeMobileMenu(); route(); });
+  window.addEventListener("hashchange", () => { savePanelScroll(activePanel); closeMobileMenu(); route(); });
   window.addEventListener("resize", () => { if (window.innerWidth > 900) closeMobileMenu(); });
   // collapsible nav categories
   $("#sidebar").addEventListener("click", (e) => {
@@ -1987,30 +2442,64 @@ function shell() {
 
   // (2) boot self-check
   if (!$("#app").children.length) $("#main").innerHTML = empty("Failed to load shell.");
+  initScrollSpy();
   route();
+  tickStatusBar(await safe(() => api.status()).catch(() => ({})));
+  setInterval(async () => { tickStatusBar(await safe(() => api.status()).catch(() => ({}))); }, 1000);
 }
 shell();
 
 // ---------- Keyboard shortcuts cheatsheet ----------
+const SHORTCUTS = [
+  { cat: "Navigation", items: [
+    ["?", "Show shortcuts"],
+    ["1-9", "Jump to nav item"],
+    ["G then 1-9", "Quick goto panel"],
+    ["Cmd/Ctrl + K", "Command palette"],
+  ]},
+  { cat: "Editing", items: [
+    ["Esc", "Close modal / palette"],
+    ["Cmd/Ctrl + /", "Focus search"],
+    ["Ctrl+S / Cmd+S", "Save current editor"],
+  ]},
+  { cat: "View", items: [
+    ["Click category", "Collapse / expand nav group"],
+    ["?", "Toggle shortcuts"],
+  ]},
+];
 function renderShortcuts() {
   const el = document.createElement('div');
   el.id = 'shortcuts-overlay';
   el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:200;';
+  const groups = SHORTCUTS.map(g => `<div class="card" style="margin-bottom:8px;">
+    <h3 style="margin:0 0 6px;font-size:13px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em">${DOMPurify.sanitize(g.cat)}</h3>
+    <table class="table" style="width:100%">
+      ${g.items.map(([k,v]) => `<tr><td class="mono" style="width:140px">${DOMPurify.sanitize(k)}</td><td>${DOMPurify.sanitize(v)}</td></tr>`).join("")}
+    </table>
+  </div>`).join("");
   el.innerHTML = `
-    <div class="card" style="max-width:520px;width:90%;max-height:80vh;overflow:auto;">
-      <h2>Keyboard Shortcuts</h2>
-      <table class="table" style="margin-top:8px;">
-        <tr><th>Shortcut</th><th>Action</th></tr>
-        <tr><td class="mono">?</td><td>Show this cheatsheet</td></tr>
-        <tr><td class="mono">Cmd/Ctrl + K</td><td>Command palette</td></tr>
-        <tr><td class="mono">Cmd/Ctrl + /</td><td>Focus search</td></tr>
-        <tr><td class="mono">Esc</td><td>Close modal / palette</td></tr>
-        <tr><td class="mono">1-9</td><td>Jump to nav item</td></tr>
-      </table>
-      <div style="margin-top:12px;text-align:right;"><button class="btn secondary" id="close-shortcuts">Close</button></div>
+    <div class="card" style="max-width:560px;width:92%;max-height:82vh;overflow:auto;">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <h2 style="margin:0">Keyboard Shortcuts</h2>
+        <input id="shortcuts-filter" placeholder="Filter…" style="padding:6px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:160px;" />
+      </div>
+      <div id="shortcuts-body">${groups}</div>
+      <div style="margin-top:10px;text-align:right;"><button class="btn secondary" id="close-shortcuts">Close</button></div>
     </div>`;
   document.body.appendChild(el);
-  el.addEventListener('click', (e) => { if (e.target === el || e.target.id === 'close-shortcuts') el.remove(); });
+  const close = () => el.remove();
+  el.addEventListener('click', (e) => { if (e.target === el || e.target.id === 'close-shortcuts') close(); });
+  const filter = document.getElementById('shortcuts-filter');
+  if (filter) {
+    filter.addEventListener('input', (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      document.querySelectorAll('#shortcuts-body .card').forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(q) ? '' : 'none';
+      });
+    });
+    setTimeout(() => filter.focus(), 0);
+  }
 }
 document.addEventListener('keydown', (e) => {
   if (e.key === '?' && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); renderShortcuts(); }
