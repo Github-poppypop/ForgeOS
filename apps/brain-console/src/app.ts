@@ -179,6 +179,7 @@ async function renderDashboard() {
       <div class="card"><h2>Isolation</h2><p class="muted mono">${s && s.isolation ? DOMPurify.sanitize(s.isolation) : "—"}</p></div>
       <div class="card"><h2>Roles seeded</h2><p style="font-size:32px;font-weight:800">${seeded}/7</p></div>
       <div class="card"><h2>Console port</h2><p class="mono">${s && s.console_port ? s.console_port : "—"}</p><p class="muted">owns PGLite at C:\\ForgeOS</p></div>
+      <div class="card" id="health-card"><h2>Health</h2><p class="muted">loading…</p></div>
     </div>
     <div class="card" style="margin-top:16px"><h2>Quick actions</h2>
       <div class="row">
@@ -196,6 +197,23 @@ async function renderDashboard() {
     es.onmessage = (ev) => { const d = JSON.parse(ev.data); const el = $("#live"); if (el) el.textContent = "live: ok @ " + new Date(d.ts).toLocaleTimeString(); };
     es.onerror = () => { const el = $("#live"); if (el) el.textContent = "live: (polling unavailable)"; };
   } catch {}
+  const refreshHealth = async () => {
+    const card = $("#health-card");
+    if (!card) return;
+    try {
+      const data = await safe(() => api.get("/api/health/detailed")).catch(() => null);
+      if (!data) { card.innerHTML = "<h2>Health</h2><p class='muted'>unavailable</p>"; return; }
+      const recent = data.errors?.recent || [];
+      card.innerHTML = `<h2>Health</h2>
+        <p class="mono">uptime ${Math.round((data.uptime || 0) / 1000)}s</p>
+        <p class="muted">last min: ${data.requests?.lastMinute ?? "-"} req / ${data.errors?.lastMinute ?? "-"} err</p>
+        ${recent.length ? `<pre class="code json">${DOMPurify.sanitize(JSON.stringify(recent, null, 2))}</pre>` : "<p class='muted'>no recent errors</p>"}`;
+    } catch {
+      card.innerHTML = "<h2>Health</h2><p class='muted'>error loading health</p>";
+    }
+  };
+  refreshHealth();
+  healthTimer = setInterval(refreshHealth, 10000);
 }
 
 // ---------- (21) role explorer w/ clickable reports_to ----------
