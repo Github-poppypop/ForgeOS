@@ -8,6 +8,7 @@ const OFFLINE_QUEUE_KEY = 'brainConsoleOfflineQueue';
 const MAX_QUEUE_SIZE = 50;
 
 function getOfflineQueue() {
+  if (typeof localStorage === 'undefined') return [];
   try {
     return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
   } catch {
@@ -16,6 +17,7 @@ function getOfflineQueue() {
 }
 
 function setOfflineQueue(queue) {
+  if (typeof localStorage === 'undefined') return;
   localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
 }
 
@@ -69,7 +71,7 @@ async function req(path, opts = {}) {
   const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
   // Queue mutations when offline
-  if (isMutation && typeof navigator !== 'undefined' && !navigator.onLine) {
+  if (isMutation && typeof navigator !== 'undefined' && navigator.onLine === false) {
     await enqueueMutation(method, path, opts.body);
     return { _queued: true };
   }
@@ -104,7 +106,8 @@ async function req(path, opts = {}) {
       if (err.name === 'AbortError') {
         err = new Error(`Request timeout after ${DEFAULT_TIMEOUT_MS}ms`);
       }
-      if (attempt < MAX_RETRIES) {
+      const shouldRetry = attempt < MAX_RETRIES && (err.status >= 500 || err.name === 'AbortError' || err.message?.includes('fetch failed'));
+      if (shouldRetry) {
         lastErr = err;
         await delay(Math.min(BASE_DELAY_MS * 2 ** attempt, MAX_DELAY_MS));
         continue;
