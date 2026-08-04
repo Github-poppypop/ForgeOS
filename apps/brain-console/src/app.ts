@@ -2443,8 +2443,8 @@ function shell() {
   if (!$("#app").children.length) $("#main").innerHTML = empty("Failed to load shell.");
   initScrollSpy();
   route();
-  tickStatusBar(await safe(() => api.status()).catch(() => ({})));
-  setInterval(async () => { tickStatusBar(await safe(() => api.status()).catch(() => ({}))); }, 1000);
+  safe(() => api.status()).then(s => tickStatusBar(s || {})).catch(() => tickStatusBar({}));
+  setInterval(async () => { safe(() => api.status()).then(s => tickStatusBar(s || {})).catch(() => tickStatusBar({})); }, 1000);
 }
 shell();
 
