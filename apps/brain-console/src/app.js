@@ -2552,7 +2552,3 @@ function bulkActions(containerId, rowSelector) {
   });
 }
 
-// ---------- Confirmation modal helper ----------
-
-// ---------- Column visibility toggles ----------
-
