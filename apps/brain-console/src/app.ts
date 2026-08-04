@@ -2443,8 +2443,8 @@ function shell() {
   if (!$("#app").children.length) $("#main").innerHTML = empty("Failed to load shell.");
   initScrollSpy();
   route();
-  safe(() => api.status()).then(s => tickStatusBar(s || {})).catch(() => tickStatusBar({}));
-  setInterval(async () => { safe(() => api.status()).then(s => tickStatusBar(s || {})).catch(() => tickStatusBar({})); }, 1000);
+  tickStatusBar(await safe(() => api.status()).catch(() => ({})));
+  setInterval(async () => { tickStatusBar(await safe(() => api.status()).catch(() => ({}))); }, 1000);
 }
 shell();
 
@@ -2551,4 +2551,8 @@ function bulkActions(containerId, rowSelector) {
     row.insertBefore(cb, row.firstChild);
   });
 }
+
+// ---------- Confirmation modal helper ----------
+
+// ---------- Column visibility toggles ----------
 
