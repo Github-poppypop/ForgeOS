@@ -74,10 +74,29 @@ function rateOk(ip: string): number {
   hits[ip].push(now);
   return remaining - 1;
 }
+const requestIdHeader = "x-request-id";
+const requestLog: Array<{ id: string; method: string; path: string; status: number; ms: number; ip: string; ts: string }> = [];
+const maxRequestLog = 200;
+function recordRequestLog(entry: { id: string; method: string; path: string; status: number; ms: number; ip: string; ts: string }) {
+  requestLog.push(entry);
+  if (requestLog.length > maxRequestLog) requestLog.splice(0, requestLog.length - maxRequestLog);
+}
+function setRequestIdHeaders(res: Response, id: string) {
+  res.headers.set(requestIdHeader, id);
+}
+
 function log(req: Request, ms: number, status: number) {
   trackReq(new URL(req.url).pathname, status);
   const ip = req.headers.get("x-forwarded-for") || "local";
   console.log(`[${new Date().toISOString()}] ${req.method} ${new URL(req.url).pathname} -> ${status} (${ms}ms) ${ip}`);
+  const id = req.headers.get(requestIdHeader) || crypto.randomUUID();
+  const entry = { id, method: req.method, path: new URL(req.url).pathname, status, ms, ip, ts: new Date().toISOString() };
+  recordRequestLog(entry);
+  if (status >= 400) structuredLog("error", id, entry.path, status, JSON.stringify(entry));
+}
+
+function structuredLog(level: string, id: string, path: string, status: number, payload: string) {
+  console.log(JSON.stringify({ level, id, path, status, payload, ts: new Date().toISOString() }));
 }
 
 function rateHeaders(ip: string) {
@@ -236,6 +255,13 @@ const server = serve({
         return json({ slug, body: r.out });
       }
 
+      if (p.startsWith("/api/page/") && req.method === "DELETE") {
+        const slug = decodeURIComponent(p.slice("/api/page/".length));
+        const r = await runGbrain(["delete", slug], { timeoutMs: 30000 });
+        if (r.code !== 0 || r.out.includes("not found")) return json({ error: r.err || "not found" }, 404);
+        return json({ ok: true, slug });
+      }
+
       if (p === "/api/search") {
         const q = url.searchParams.get("q") ?? "";
         const r = await runGbrain(["search", q]);
@@ -284,6 +310,10 @@ const server = serve({
 
       if (p === "/api/webhooks") {
         return json({ webhooks: [], deadLetter: [], ts: Date.now() });
+      }
+
+      if (p === "/api/request-log" && req.method === "GET") {
+        return json({ log: requestLog.slice(-100), total: requestLog.length });
       }
 
       // (44) backup brain — gzip of a JSON bundle (Bun.zip unavailable on this runtime)
@@ -406,11 +436,20 @@ const missionStore: Mission[] = [
       }
 
       if (p === "/api/ledger" && req.method === "GET") {
-        const entries = [
-          { id: "l1", title: "RFC-0000 approval", type: "approval", date: "2026-07-22", mission: "RFC-0000", outcome: "approved" },
-          { id: "l2", title: "E1 proposed", type: "proposal", date: "2026-07-31", mission: "POOL-E1", outcome: "pending" },
-          { id: "l3", title: "Submodule conversion approved", type: "approval", date: "2026-07-31", mission: "POOL-SUB", outcome: "approved" },
+        const url = new URL(req.url, "http://localhost");
+        const from = url.searchParams.get("from");
+        const to = url.searchParams.get("to");
+        const role = url.searchParams.get("role");
+        const status = url.searchParams.get("status");
+        let entries = [
+          { id: "l1", title: "RFC-0000 approval", type: "approval", date: "2026-07-22", mission: "RFC-0000", outcome: "approved", role: "cto/cto" },
+          { id: "l2", title: "E1 proposed", type: "proposal", date: "2026-07-31", mission: "POOL-E1", outcome: "pending", role: "coo/coo" },
+          { id: "l3", title: "Submodule conversion approved", type: "approval", date: "2026-07-31", mission: "POOL-SUB", outcome: "approved", role: "cto/cto" },
         ];
+        if (from) entries = entries.filter(e => e.date >= from);
+        if (to) entries = entries.filter(e => e.date <= to);
+        if (role) entries = entries.filter(e => e.role === role);
+        if (status) entries = entries.filter(e => e.outcome === status);
         return json({ ledger: entries });
       }
 

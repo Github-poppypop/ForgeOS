@@ -50,4 +50,16 @@ describe("server.ts contract", () => {
     expect(server.includes("WritableStreamDefaultWriter")).toBe(true);
     expect(server.includes("text/event-stream")).toBe(true);
   });
+
+  test("has request logging with request IDs", () => {
+    expect(server.includes("x-request-id")).toBe(true);
+    expect(server.includes("requestLog")).toBe(true);
+    expect(server.includes("recordRequestLog")).toBe(true);
+    expect(server.includes("/api/request-log")).toBe(true);
+  });
+
+  test("has structured error logging", () => {
+    expect(server.includes("structuredLog")).toBe(true);
+    expect(server.includes('structuredLog("error"')).toBe(true);
+  });
 });
