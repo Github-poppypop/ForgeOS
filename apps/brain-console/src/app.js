@@ -1387,19 +1387,20 @@ async function renderProjects() {
       const col = document.querySelector(`#col-${status}`);
       if (!col) return;
       const list = items.filter(i => i.status === status);
-      const emptyBoard = '<p class="muted" style="text-align:center;padding:12px">no items - <a class="link" href="#/capture">+ capture</a></p>';
-      col.innerHTML = list.map(i => {
-        const leftBtn = status !== 'todo' ? '<button class="btn secondary" data-move="' + DOMPurify.sanitize(i.id) + '" data-to="todo">←</button>' : '';
-        const rightBtn = status !== 'done' ? '<button class="btn secondary" data-move="' + DOMPurify.sanitize(i.id) + '" data-to="review">→</button>' : '';
-        return '<div class="card" data-id="' + DOMPurify.sanitize(i.id) + '">' +
-          '<div class="row" style="justify-content:space-between">' +
-            '<strong>' + DOMPurify.sanitize(i.title) + '</strong>' +
-            '<span class="pill ' + (i.priority === 'high' ? 'warn' : '') + '">' + DOMPurify.sanitize(i.priority) + '</span>' +
-          '</div>' +
-          '<p class="muted mono">' + DOMPurify.sanitize(i.assignee || 'unassigned') + '</p>' +
-          '<div class="row" style="margin-top:8px;gap:6px">' + leftBtn + rightBtn + '<button class="btn secondary" data-delete="' + DOMPurify.sanitize(i.id) + '">×</button></div>' +
-        '</div>';
-      }).join('') || emptyBoard;
+      col.innerHTML = list.map(i => `
+        <div class="card" data-id="${DOMPurify.sanitize(i.id)}">
+          <div class="row" style="justify-content:space-between">
+            <strong>${DOMPurify.sanitize(i.title)}</strong>
+            <span class="pill ${i.priority==="high"?"warn":""}">${DOMPurify.sanitize(i.priority)}</span>
+          </div>
+          <p class="muted mono">${DOMPurify.sanitize(i.assignee || "unassigned")}</p>
+          <div class="row" style="margin-top:8px;gap:6px">
+            ${status !== "todo" ? `<button class="btn secondary" data-move="${DOMPurify.sanitize(i.id)}" data-to="todo">←</button>` : ""}
+            ${status !== "done" ? `<button class="btn secondary" data-move="${DOMPurify.sanitize(i.id)}" data-to="${status==="todo"?"in-progress":status==="in-progress"?"review":"done"}">→</button>` : ""}
+            <button class="btn secondary" data-delete="${DOMPurify.sanitize(i.id)}">×</button>
+          </div>
+        </div>`
+      ).join("") || `<p class="muted" style="text-align:center;padding:12px">no items - <a class="link" href="#/capture">+ capture</a></p>`;
     });
   };
 
@@ -2444,7 +2445,7 @@ function shell() {
   initScrollSpy();
   route();
   safe(() => api.status()).then(s => tickStatusBar(s || {})).catch(() => tickStatusBar({}));
-  setInterval(async () => { safe(() => api.status()).then(s => tickStatusBar(s || {})).catch(() => tickStatusBar({})); }, 1000);
+  setInterval(async () => { tickStatusBar(await safe(() => api.status()).catch(() => ({}))); }, 1000);
 }
 shell();
 
@@ -2555,4 +2556,3 @@ function bulkActions(containerId, rowSelector) {
 // ---------- Confirmation modal helper ----------
 
 // ---------- Column visibility toggles ----------
-
