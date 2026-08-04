@@ -541,3 +541,28 @@ ul.mono { list-style: none; padding: 0; }
   padding-left: 18px;
   font-size: 13px;
 }
+
+/* ---------- collapsible nav categories ---------- */
+.nav-category-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+.nav-category-header::before {
+  content: "▶";
+  font-size: 10px;
+  transition: transform 0.15s ease;
+  color: var(--text-dim);
+}
+.nav-category.collapsed .nav-category-header::before {
+  transform: rotate(-90deg);
+}
+.nav-category-items {
+  overflow: hidden;
+  transition: max-height 0.2s ease;
+}
+.nav-category.collapsed .nav-category-items {
+  max-height: 0 !important;
+}

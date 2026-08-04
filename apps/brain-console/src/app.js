@@ -1924,7 +1924,14 @@ function shell() {
   const theme = localStorage.getItem("forgeos-theme") || "dark";
   document.documentElement.setAttribute("data-theme", theme);
   const collapsed = localStorage.getItem("forgeos-collapsed") === "1";
-  const sidebar = NAV.map(g => `<div class="nav-category">${DOMPurify.sanitize(g.category)}${g.items.map(([label, tip, p]) => `<a href="#/${p}" aria-label="${label}">${tip || label}</a>`).join("")}</div>`).join("");
+  const sidebar = NAV.map(g => {
+    const cat = DOMPurify.sanitize(g.category);
+    const items = g.items.map(([label, tip, p]) => `<a href="#/${p}" aria-label="${label}">${tip || label}</a>`).join("");
+    return `<div class="nav-category">
+      <div class="nav-category-header" data-cat="${cat}">${cat}</div>
+      <div class="nav-category-items">${items}</div>
+    </div>`;
+  }).join("");
   $("#app").innerHTML = `
     <a href="#main" class="sr-only" id="skip-link">Skip to content</a>
     <div class="navbar" role="banner">
@@ -1962,6 +1969,22 @@ function shell() {
   $("#sidebar-overlay").addEventListener("click", closeMobileMenu);
   window.addEventListener("hashchange", () => { closeMobileMenu(); route(); });
   window.addEventListener("resize", () => { if (window.innerWidth > 900) closeMobileMenu(); });
+  // collapsible nav categories
+  $("#sidebar").addEventListener("click", (e) => {
+    const header = e.target.closest(".nav-category-header");
+    if (!header) return;
+    const cat = header.dataset.cat;
+    const el = header.parentElement;
+    el.classList.toggle("collapsed");
+    try { localStorage.setItem("forgeos-nav-" + cat.toLowerCase().replace(/[^a-z0-9]+/g, "-"), el.classList.contains("collapsed") ? "1" : "0"); } catch {}
+  });
+  // restore collapsed state
+  document.querySelectorAll(".nav-category").forEach(el => {
+    const title = el.querySelector(".nav-category-header");
+    if (!title) return;
+    try { if (localStorage.getItem("forgeos-nav-" + title.dataset.cat.toLowerCase().replace(/[^a-z0-9]+/g, "-")) === "1") el.classList.add("collapsed"); } catch {}
+  });
+
   // (2) boot self-check
   if (!$("#app").children.length) $("#main").innerHTML = empty("Failed to load shell.");
   route();
