@@ -621,3 +621,12 @@ ul.mono { list-style: none; padding: 0; }
 }
 .status-bar .pill { font-size: 10px; }
 .main { padding-bottom: 36px; }
+
+/* ---------- (50) print/export styles ---------- */
+@media print {
+  .navbar, .sidebar, .fab, .toasts, .cmdk, .btn.icon, .btn.fab { display: none !important; }
+  body, #app { background: #fff; color: #000; }
+  .card { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; }
+  pre.code, pre.json { white-space: pre-wrap; border: 1px solid #ccc; }
+  a[href]::after { content: " (" attr(href) ")"; font-size: 11px; color: #555; }
+}

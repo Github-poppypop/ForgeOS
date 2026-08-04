@@ -27,6 +27,47 @@ function confirmAction(title, message) {
   });
 }
 
+const SHORTCUTS = [
+  ["?", "Shortcuts", "Toggle this help"],
+  ["d", "Dashboard", "Go to dashboard"],
+  ["r", "Roles", "Go to roles"],
+  ["s", "Search", "Go to search"],
+  ["c", "Capture", "Go to capture"],
+  ["Esc", "Close", "Close modal / clear selection"],
+];
+
+function showShortcuts() {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:200;';
+  el.innerHTML = `<div class="card" style="max-width:520px;width:92vw">
+    <h3>Keyboard shortcuts</h3>
+    <table class="tbl" style="margin-top:12px">
+      <thead><tr><th>Key</th><th>Action</th></tr></thead>
+      <tbody>${SHORTCUTS.map(([k,a,d]) => `<tr><td class="mono" style="width:120px"><span class="kbd">${k}</span></td><td><div>${a}</div><div class="muted" style="font-size:12px">${d}</div></td></tr>`).join('')}</tbody>
+    </table>
+    <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn secondary" id="close-shortcuts">Close</button></div>
+  </div>`;
+  document.body.appendChild(el);
+  el.querySelector('#close-shortcuts').addEventListener('click', () => el.remove());
+}
+
+function bindShortcuts() {
+  document.addEventListener('keydown', (ev) => {
+    const tag = (ev.target.tagName || '').toLowerCase();
+    const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+    if (isInput) return;
+    const key = ev.key === ' ' ? 'Space' : ev.key;
+    if (key === '?') { ev.preventDefault(); showShortcuts(); return; }
+    if (key === 'Escape') { document.querySelectorAll('[style*="position:fixed"][style*="z-index:200"]').forEach(el => el.remove()); return; }
+    if (key === 'd') { ev.preventDefault(); location.hash = '#/dashboard'; }
+    if (key === 'r') { ev.preventDefault(); location.hash = '#/roles'; }
+    if (key === 's') { ev.preventDefault(); location.hash = '#/search'; }
+    if (key === 'c') { ev.preventDefault(); location.hash = '#/capture'; }
+  });
+}
+
+bindShortcuts();
+
 const THEME_PREFIX = "forgeos-theme-";
 function applyTheme(theme) {
   const root = document.documentElement;
