@@ -1578,6 +1578,7 @@ async function renderPlugins() {
   document.querySelector("main").innerHTML = `<h1>Plugins</h1>
     <div class="card">
       <h2>Loaded modules</h2>
+      <button class="btn primary" id="plugin-reload-btn" data-tooltip="Reload plugins from disk">Reload Plugins</button>
       <pre id="plugin-out" class="code json" style="margin-top:12px"></pre>
     </div>`;
   const refresh = async () => {
@@ -1590,6 +1591,10 @@ async function renderPlugins() {
       if (out) out.textContent = "plugin error: " + errMsg(e);
     }
   };
+  $("#plugin-reload-btn")?.addEventListener("click", async () => {
+    await reloadPlugins();
+    await refresh();
+  });
   refresh();
 }
 
@@ -1624,8 +1629,7 @@ async function reloadPlugins() {
 // ---------- Webhook management panel ----------
 
 async function renderWebhooks() {
-  const list = await api.listWebhooks().catch(() => ({ webhooks: [] }));
-  const dead = await api.get('/api/webhooks/dead-letter').catch(() => ({ dead: [] }));
+  const list = await api.listWebhooks().catch(() => ({ webhooks: [], deadLetter: [] }));
   document.querySelector("main").innerHTML = `<h1>Webhooks</h1>
     <div class="card"><h3>Create Webhook</h3>
       <input id="wh-url" class="input" placeholder="https://example.com/hook"/>
@@ -1636,7 +1640,7 @@ async function renderWebhooks() {
     <h2>Active Webhooks</h2>
     <div id="wh-list">${(list.webhooks||[]).map(w => `<div class="card"><b>${w.url}</b><br/><span class="muted">${w.events.join(", ")} ${w.active ? "✅" : "⏸️"}</span></div>`).join("")}</div>
     <h2>Dead Letter Queue</h2>
-    <div id="dlq-list">${(dead.dead||[]).map(d => `<div class="card"><b>${d.url}</b><br/><span class="muted">${d.event} — ${d.error}</span></div>`).join("")}</div>`;
+    <div id="dlq-list">${((list.deadLetter||[])).map(d => `<div class="card"><b>${d.url || d.id || 'unknown'}</b><br/><span class="muted">${d.event || d.payload?.event || ''} — ${d.error || d.reason || 'failed'}</span></div>`).join("")}</div>`;
   $("#wh-create")?.addEventListener("click", async () => {
     const url = $("#wh-url")?.value;
     const events = ($("#wh-events")?.value || "").split(",").map(s => s.trim()).filter(Boolean);

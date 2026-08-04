@@ -174,6 +174,8 @@ export const api = {
   listWebhooks: () => req("/api/webhooks"),
   createWebhook: (data) =>
     req("/api/webhooks", { method: "POST", body: JSON.stringify(data) }),
+  get: (path) => req(path),
+  post: (path, body, opts = {}) => req(path, { method: "POST", body: JSON.stringify(body), ...opts }),
   plugins: () => req("/api/plugins"),
   poollenueStatus: () => req("/api/poolleague/status"),
   poollenueTournaments: () => req("/api/poolleague/tournaments"),
