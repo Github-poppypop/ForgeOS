@@ -62,4 +62,16 @@ describe("server.ts contract", () => {
     expect(server.includes("structuredLog")).toBe(true);
     expect(server.includes('structuredLog("error"')).toBe(true);
   });
+
+  test("has request log route and request ID tracking", () => {
+    expect(server.includes("/api/request-log")).toBe(true);
+    expect(server.includes("x-request-id")).toBe(true);
+    expect(server.includes("recordRequestLog")).toBe(true);
+  });
+
+  test("has detailed health route", () => {
+    expect(server.includes("/api/health/detailed")).toBe(true);
+    expect(server.includes("lastMinute")).toBe(true);
+    expect(server.includes("rateLimit")).toBe(true);
+  });
 });

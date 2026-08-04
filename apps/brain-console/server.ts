@@ -316,6 +316,30 @@ const server = serve({
         return json({ log: requestLog.slice(-100), total: requestLog.length });
       }
 
+      if (p === "/api/health/detailed" && req.method === "GET") {
+        const now = Date.now();
+        const lastMinute = requestLog.filter(e => now - new Date(e.ts).getTime() < 60000);
+        const errors = requestLog.filter(e => e.status >= 400).slice(-10);
+        return json({
+          ok: true,
+          ts: now,
+          uptime: process.uptime ? process.uptime() : 0,
+          requests: {
+            lastMinute: lastMinute.length,
+            total: requestLog.length,
+          },
+          errors: {
+            lastMinute: lastMinute.filter(e => e.status >= 400).length,
+            recent: errors,
+          },
+          rateLimit: {
+            limit: RATE,
+            activeIps: Object.keys(hits).length,
+          },
+          auth: !!CONSOLE_TOKEN,
+        });
+      }
+
       // (44) backup brain — gzip of a JSON bundle (Bun.zip unavailable on this runtime)
       if (p === "/api/backup" && req.method === "POST") {
         const fs = await import("node:fs");
