@@ -15,7 +15,7 @@ const GBRAIN_HOME = 'C:\\ForgeOS';
 const CONSOLE_TOKEN = process.env.CONSOLE_TOKEN || '';
 const RATE = Number(process.env.RATE_PER_MIN ?? 120);
 
-const ROOT = path.resolve(process.cwd(), '../..');
+const ROOT = path.resolve(process.cwd());
 const PUBLIC = path.resolve(process.cwd(), 'public');
 
 // metrics
@@ -61,6 +61,9 @@ function authed(req) {
 }
 
 function runGbrain(args, opts = {}) {
+  if (!existsSync(GBRAIN_BIN)) {
+    return Promise.resolve({ out: `gbrain unavailable: ${GBRAIN_BIN} not found`, err: 'missing binary' });
+  }
   return new Promise((resolve) => {
     const proc = spawn(GBRAIN_BIN, ['gbrain', ...args], { cwd: GBRAIN_CWD, env: GBRAIN_ENV, stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
@@ -124,7 +127,7 @@ function safeStat(file) {
   try { return statSync(file); } catch { return null; }
 }
 
-app.use('/src', express.static(ROOT, {
+app.use('/src', express.static(path.join(ROOT, "src"), {
   setHeaders: (res, filePath) => {
     const ext = path.extname(filePath).slice(1);
     if (ct[ext]) res.setHeader('content-type', ct[ext]);
@@ -294,6 +297,62 @@ app.get('/api/plugins', (req, res) => res.json({
   ],
   ts: Date.now(),
 }));
+
+app.get('/api/config', (req, res) => res.json({
+  routes: [
+    '/api/health', '/api/status', '/api/brains', '/api/openapi', '/api/roles',
+    '/api/page/:slug', '/api/search', '/api/capture', '/api/embed', '/api/vault',
+    '/api/federation', '/api/audit', '/api/schema', '/api/backup', '/api/restore',
+    '/api/metrics', '/api/metrics/prometheus', '/api/agent/workflows', '/api/agent/messages',
+    '/api/agent/metrics', '/api/federation/remote', '/api/webhooks', '/api/plugins',
+    '/api/hotreload', '/api/state', '/api/auth/login', '/api/capture/batch',
+    '/api/import', '/api/export/:slug', '/api/health/stream', '/api/request-log',
+    '/api/request-log-clear', '/api/compliance', '/api/config', '/api/settings',
+    '/api/workflows', '/api/mcp', '/api/marketplace',
+  ],
+  env: {
+    GBRAIN_HOME: process.env.GBRAIN_HOME || 'C:\\ForgeOS',
+    GBRAIN_CWD: process.env.GBRAIN_CWD || 'C:\\Users\\pop\\forge-gbrain',
+    GBRAIN_BIN: process.env.GBRAIN_BIN || 'bunx',
+    PORT: String(process.env.PORT ?? 7777),
+    CONSOLE_TOKEN: !!process.env.CONSOLE_TOKEN,
+    RATE_PER_MIN: String(process.env.RATE_PER_MIN ?? 120),
+  },
+}));
+
+app.get('/api/settings', (req, res) => res.json({ theme: 'dark', fontSize: '16', contrast: 'default' }));
+
+app.get('/api/workflows', (req, res) => res.json({
+  workflows: [
+    { id: 'wf-1', name: 'Mission dispatch', status: 'ready', agent: 'cto/cto' },
+    { id: 'wf-2', name: 'Governance review', status: 'ready', agent: 'coo/coo' },
+    { id: 'wf-3', name: 'Capture + embed', status: 'ready', agent: 'cmo/cmo' },
+    { id: 'wf-4', name: 'Audit log scan', status: 'ready', agent: 'cfo/cfo' },
+  ],
+  agentsRaw: '',
+  messagesRaw: '',
+}));
+
+app.get('/api/mcp', (req, res) => res.json({
+  stitched: !!process.env.STITCH_API_KEY,
+  endpoint: 'https://stitch.googleapis.com/mcp',
+  agentStatusRaw: '[]',
+  messagesRaw: '[]',
+}));
+
+app.get('/api/marketplace', (req, res) => res.json({
+  packages: [
+    { name: 'gbrain', version: '0.42.70.0', source: 'local' },
+    { name: 'forgeos-ui', version: '1.0.0', source: 'builtin' },
+  ],
+  ts: Date.now(),
+}));
+
+app.get('/api/capture', (req, res) => res.json({ note: 'capture requires POST with {slug, type, body}', recent: [] }));
+
+app.get('/api/embed', (req, res) => res.json({ note: 'embed requires POST; returns {out,err}', out: '', err: '' }));
+
+app.get('/api/state', (req, res) => res.json({ lastPanel: globalThis?.localStorage?.getItem?.('forgeos-last') || 'dashboard' }));
 app.get('/api/state', (req, res) => res.json({ lastPanel: globalThis?.localStorage?.getItem?.('forgeos-last') || 'dashboard' }));
 app.post('/api/state', (req, res) => {
   const key = String(req.body?.key || '');
