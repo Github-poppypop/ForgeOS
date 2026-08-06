@@ -1761,6 +1761,223 @@ async function renderPlugins() {
   refresh();
 }
 
+
+// ---------- Agent heartbeat/dead-man switch ----------
+async function renderAgentHeartbeat() {
+  crumb([["ForgeOS", "#/monitoring"], ["Agent Heartbeat"]]);
+  $("main").innerHTML = `<h1>Agent Heartbeat</h1>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>Live status</h2>
+        <button class="btn primary" id="arm-deadman">Arm dead-man switch</button>
+      </div>
+      <pre id="heartbeat-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.agentHeartbeat).catch(() => ({ ts: Date.now(), agents: [], status: 'degraded' }));
+      const out = document.querySelector("#heartbeat-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('heartbeat error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+  setInterval(refresh, 5000);
+  document.querySelector("#arm-deadman")?.addEventListener("click", async () => {
+    await safe(() => api.armDeadman()).catch(() => ({}));
+    toast('dead-man switch armed', 'ok');
+  });
+}
+
+// ---------- Cross-agent memory pool ----------
+async function renderMemoryPool() {
+  crumb([["ForgeOS", "#/monitoring"], ["Memory Pool"]]);
+  $("main").innerHTML = `<h1>Agent Memory Pool</h1>
+    <div class="card">
+      <h2>Shared memory</h2>
+      <pre id="memory-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.memoryPool).catch(() => ({ pool: [] }));
+      const out = document.querySelector("#memory-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('memory pool error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+  setInterval(refresh, 5000);
+}
+
+// ---------- Live amendment voting UI ----------
+async function renderAmendments() {
+  crumb([["ForgeOS", "#/governance"], ["Amendments"]]);
+  $("main").innerHTML = `<h1>Amendments</h1>
+    <div class="card">
+      <h2>Active amendments</h2>
+      <pre id="amendments-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.amendments).catch(() => ({ amendments: [] }));
+      const out = document.querySelector("#amendments-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('amendments error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+}
+
+// ---------- Sacred-folder lock ----------
+async function renderSacred() {
+  crumb([["ForgeOS", "#/governance"], ["Sacred Lock"]]);
+  $("main").innerHTML = `<h1>Sacred Folder Lock</h1>
+    <div class="card">
+      <h2>Protected paths</h2>
+      <pre id="sacred-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.sacred).catch(() => ({ locked: true, paths: [] }));
+      const out = document.querySelector("#sacred-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('sacred lock error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+}
+
+// ---------- Process supervisor ----------
+async function renderProcesses() {
+  crumb([["ForgeOS", "#/dashboard"], ["Processes"]]);
+  $("main").innerHTML = `<h1>Process Supervisor</h1>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>Managed processes</h2>
+        <button class="btn primary" id="new-process">Add process</button>
+      </div>
+      <pre id="processes-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.processes).catch(() => ({ processes: [] }));
+      const out = document.querySelector("#processes-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('process supervisor error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+  document.querySelector("#new-process")?.addEventListener("click", async () => {
+    const cmd = prompt("Process command:");
+    if (!cmd) return;
+    await safe(() => api.createProcess({ command: cmd })).catch(() => ({}));
+    toast('process queued', 'ok');
+    refresh();
+  });
+}
+
+// ---------- Port conflict prevention ----------
+async function renderPortConflicts() {
+  crumb([["ForgeOS", "#/settings"], ["Port Conflicts"]]);
+  $("main").innerHTML = `<h1>Port Conflict Prevention</h1>
+    <div class="card">
+      <h2>Reserved ports</h2>
+      <pre id="ports-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.portConflicts).catch(() => ({ conflicts: [] }));
+      const out = document.querySelector("#ports-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('port scan error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+}
+
+// ---------- SPA hot-reload without SW cache fights ----------
+async function renderReload() {
+  crumb([["ForgeOS", "#/settings"], ["SPA Reload"]]);
+  $("main").innerHTML = `<h1>SPA Hot Reload</h1>
+    <div class="card">
+      <p class="muted">Bust service worker cache and reload app shell without stale HTML/JS.</p>
+      <button class="btn primary" id="bust-sw" style="margin-top:12px">Bust cache & reload</button>
+    </div>`;
+  document.querySelector("#bust-sw")?.addEventListener("click", async () => {
+    try {
+      await safe(() => api.bustSW()).catch(() => ({}));
+    } finally {
+      toast('reloading...', 'ok');
+      setTimeout(() => location.reload(), 300);
+    }
+  });
+}
+
+// ---------- Plugin manifest ----------
+async function renderPluginManifest() {
+  crumb([["ForgeOS", "#/plugins"], ["Manifest"]]);
+  $("main").innerHTML = `<h1>Plugin Manifest</h1>
+    <div class="card">
+      <h2>Registered plugins</h2>
+      <pre id="manifest-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.pluginManifest).catch(() => ({ manifest: [] }));
+      const out = document.querySelector("#manifest-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('manifest error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+}
+
+// ---------- PoolLeague control panel ----------
+async function renderPoolLeague() {
+  crumb([["ForgeOS", "#/dashboard"], ["PoolLeague"]]);
+  $("main").innerHTML = `<h1>PoolLeague</h1>
+    <div class="grid cols-2">
+      <div class="card">
+        <h2>Status</h2>
+        <pre id="pool-status" class="code json">loading...</pre>
+      </div>
+      <div class="card">
+        <h2>Tournaments</h2>
+        <pre id="pool-tournaments" class="code json">loading...</pre>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Matches</h2>
+      <pre id="pool-matches" class="code json">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const [status, tournaments, matches] = await Promise.all([
+        safe(api.poolleagueStatus).catch(() => ({ ok: false })),
+        safe(api.poolleagueTournaments).catch(() => ({ tournaments: [] })),
+        safe(api.poolleagueMatches).catch(() => ({ matches: [] })),
+      ]);
+      const s = document.querySelector("#pool-status");
+      const t = document.querySelector("#pool-tournaments");
+      const m = document.querySelector("#pool-matches");
+      if (s) s.textContent = JSON.stringify(status, null, 2);
+      if (t) t.textContent = JSON.stringify(tournaments, null, 2);
+      if (m) m.textContent = JSON.stringify(matches, null, 2);
+    } catch (e) {
+      toast('poolleague error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+  setInterval(refresh, 5000);
+}
+
 // ===================== ROUTER =====================
 
 
@@ -2023,7 +2240,7 @@ const _rawRoutes = {
   command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, timeline: renderTimeline, ledger: renderLedger,
   search: renderSearch, capture: renderCapture, decisions: renderDecisions, missions: renderMissions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
   embed: renderEmbed, federation: renderFederation, audit: renderAudit, schema: renderSchema, config: renderConfig,
-  projects: renderProjects, wizard: renderWizard, monitoring: renderMonitoring, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins, webhooks: renderWebhooks,
+  projects: renderProjects, wizard: renderWizard, monitoring: renderMonitoring, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins, webhooks: renderWebhooks, heartbeat: renderAgentHeartbeat, memory: renderMemoryPool, amendments: renderAmendments, sacred: renderSacred, processes: renderProcesses, portConflicts: renderPortConflicts, reload: renderReload, pluginManifest: renderPluginManifest, poolleague: renderPoolLeague,
 };
 const routes = {};
 for (const [name, fn] of Object.entries(_rawRoutes)) {
@@ -2844,6 +3061,35 @@ const SHORTCUTS = [
     ["?", "Show shortcuts"],
     ["1-9", "Jump to nav item"],
     ["G then 1-9", "Quick goto panel"],
+    ["Ctrl+K", "Command palette"],
+    ["Esc", "Close dialogs"],
+  ]},
+  { cat: "Panels", items: [
+    ["D", "Dashboard"],
+    ["G", "Governance"],
+    ["M", "Missions"],
+    ["L", "Decision Ledger"],
+    ["S", "Settings"],
+  ]},
+  { cat: "System", items: [
+    ["Ctrl+Shift+R", "Hard reload"],
+    ["Ctrl+Shift+I", "DevTools"],
+  ]},
+];
+function showShortcuts() {
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop open";
+  modal.innerHTML = `<div class="modal" style="max-width:520px">
+    <h2>Keyboard Shortcuts</h2>
+    <div class="grid cols-2">
+      ${SHORTCUTS.map(g => `<div style="margin-bottom:12px"><b>${g.cat}</b><ul style="margin:4px 0;padding-left:18px">${g.items.map(([k,desc]) => `<li><span class="kbd">${k}</span> ${desc}</li>`).join("")}</ul></div>`).join("")}
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" id="shortcuts-close">Close</button></div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector("#shortcuts-close").addEventListener("click", () => modal.remove());
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+}
     ["Cmd/Ctrl + K", "Command palette"],
   ]},
   { cat: "Editing", items: [

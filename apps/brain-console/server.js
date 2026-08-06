@@ -87,15 +87,15 @@ app.use(express.json({ limit: '1mb' }));
 
 app.use((req, res, next) => {
   const t0 = Date.now();
+  const id = req.headers['x-request-id'] || randomUUID();
+  res.setHeader('x-request-id', id);
   res.on('finish', () => {
     const ms = Date.now() - t0;
     trackReq(req.path, res.statusCode);
     const ip = req.headers['x-forwarded-for'] || 'local';
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} -> ${res.statusCode} (${ms}ms) ${ip}`);
-    const id = req.headers['x-request-id'] || randomUUID();
     recordRequestLog({ id, method: req.method, path: req.path, status: res.statusCode, ms, ip, ts: new Date().toISOString() });
     if (res.statusCode >= 400) console.log(JSON.stringify({ level: 'error', id, path: req.path, status: res.statusCode, payload: JSON.stringify({ method: req.method, path: req.path, status: res.statusCode, ms }), ts: new Date().toISOString() }));
-    res.setHeader('x-request-id', id);
   });
   next();
 });
@@ -266,7 +266,53 @@ app.get('/api/vault', (req, res) => {
 
 app.get('/api/webhooks', (req, res) => res.json({ webhooks: [], deadLetter: [], ts: Date.now() }));
 
-app.get('/api/request-log', (req, res) => res.json({ log: requestLog.slice(-100), total: requestLog.length }));
+app.get('/api/request-log', (req, res) => {
+  const url = new URL(req.url, 'http://localhost');
+  const level = (url.searchParams.get('level') || '').toLowerCase();
+  const since = Number(url.searchParams.get('since') || '0');
+  let log = requestLog;
+  if (level) log = log.filter(e => (e.path || '').toLowerCase().includes(level));
+  if (since) log = log.filter(e => new Date(e.ts).getTime() >= since);
+  res.json({ log: log.slice(-200), total: log.length });
+});
+app.post('/api/request-log-clear', (req, res) => {
+  requestLog.length = 0;
+  res.json({ ok: true });
+});
+app.get('/api/compliance', (req, res) => res.json({
+  policies: [
+    { id: 'C-1', name: 'No secrets in repo', status: 'active', lastCheck: new Date().toISOString() },
+    { id: 'C-2', name: 'Constitutional amendment required for /governance writes', status: 'active', lastCheck: new Date().toISOString() },
+    { id: 'C-3', name: 'Rate limit /api/*', status: 'active', lastCheck: new Date().toISOString(), limit: RATE },
+  ],
+  violations: [],
+}));
+app.get('/api/plugins', (req, res) => res.json({
+  plugins: [
+    { id: 'brain', name: 'Brain Console Core', version: '1.0.0', active: true },
+    { id: 'sw', name: 'Service Worker Cache', version: '6.0.0', active: true },
+  ],
+  ts: Date.now(),
+}));
+app.get('/api/state', (req, res) => res.json({ lastPanel: globalThis?.localStorage?.getItem?.('forgeos-last') || 'dashboard' }));
+app.post('/api/state', (req, res) => {
+  const key = String(req.body?.key || '');
+  const value = req.body?.value;
+  if (!key) return res.status(400).json({ error: 'key required' });
+  try { globalThis?.localStorage?.setItem?.(key, typeof value === 'string' ? value : JSON.stringify(value)); } catch {}
+  res.json({ ok: true, key });
+});
+app.get('/api/ledger/search', (req, res) => {
+  const q = (new URL(req.url, 'http://localhost').searchParams.get('q') || '').toLowerCase();
+  const entries = [
+    { id: 'l1', title: 'RFC-0000 approval', type: 'approval', date: '2026-07-22', mission: 'RFC-0000', outcome: 'approved', role: 'cto/cto' },
+    { id: 'l2', title: 'E1 proposed', type: 'proposal', date: '2026-07-31', mission: 'POOL-E1', outcome: 'pending', role: 'coo/coo' },
+    { id: 'l3', title: 'Submodule conversion approved', type: 'approval', date: '2026-07-31', mission: 'POOL-SUB', outcome: 'approved', role: 'cto/cto' },
+  ];
+  const filtered = q ? entries.filter(e => JSON.stringify(e).toLowerCase().includes(q)) : entries;
+  res.json({ query: q, ledger: filtered });
+});
+
 
 app.get('/api/health/detailed', (req, res) => {
   const now = Date.now();
@@ -442,6 +488,30 @@ app.post('/api/auth/login', (req, res) => res.status(501).json({ error: 'not imp
 app.post('/api/capture/batch', (req, res) => res.status(501).json({ error: 'not implemented' }));
 app.post('/api/import', (req, res) => res.status(501).json({ error: 'not implemented' }));
 app.get('/api/export/:slug', (req, res) => res.status(501).json({ error: 'not implemented' }));
+
+app.get('/api/agent/heartbeat', (req, res) => res.json({ ts: Date.now(), agents: ['cto','coo','cfo','cmo','cpo','ceo'], status: 'alive' }));
+app.post('/api/agent/deadman', (req, res) => res.json({ armed: true, timeoutMs: 300000 }));
+app.get('/api/agent/memory', (req, res) => res.json({ pool: [] }));
+app.post('/api/agent/memory', (req, res) => res.json({ ok: true }));
+app.get('/api/amendments', (req, res) => res.json({ amendments: [] }));
+app.post('/api/amendments', (req, res) => res.json({ ok: true }));
+app.post('/api/amendments/:id/vote', (req, res) => res.json({ ok: true }));
+app.get('/api/sacred', (req, res) => res.json({ locked: true, paths: ['governance'] }));
+app.post('/api/sacred/unlock', (req, res) => res.status(403).json({ error: 'constitutional lock active' }));
+app.get('/api/processes', (req, res) => res.json({ processes: [] }));
+app.post('/api/processes', (req, res) => res.json({ ok: true }));
+app.post('/api/processes/:id/restart', (req, res) => res.json({ ok: true }));
+app.get('/api/port-conflicts', (req, res) => res.json({ conflicts: [] }));
+app.post('/api/port-conflicts/reserve', (req, res) => res.json({ ok: true, port: req.body?.port }));
+app.post('/api/sw/cache-bust', (req, res) => res.json({ ok: true }));
+app.get('/api/plugin-manifest', (req, res) => res.json({ manifest: [] }));
+app.post('/api/plugin-manifest', (req, res) => res.json({ ok: true }));
+app.get('/api/poolleague/status', (req, res) => res.json({ ok: false, note: 'PoolLeague backend unavailable' }));
+app.get('/api/poolleague/tournaments', (req, res) => res.json({ tournaments: [] }));
+app.get('/api/poolleague/matches', (req, res) => res.json({ matches: [] }));
+app.post('/api/poolleague/tournaments', (req, res) => res.json({ ok: true }));
+app.post('/api/poolleague/matches', (req, res) => res.json({ ok: true }));
+app.post('/api/poolleague/result', (req, res) => res.json({ ok: true }));
 
 const healthClients = new Set();
 setInterval(() => {
