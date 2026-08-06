@@ -1,11 +1,11 @@
 // public/sw.js — ForgeOS Brain Console service worker
 // Caches the app shell and intercepts API responses for offline mode.
-const CACHE = "forgeos-shell-v1";
-const API_CACHE = "forgeos-api-v1";
+const CACHE = "forgeos-shell-v6";
+const API_CACHE = "forgeos-api-v6";
 const SHELL = [
   "/",
   "/index.html",
-  "/src/app.js",
+  "/src/app.v5.js",
   "/src/styles/design.css",
   "/favicon.ico",
   "/governance-git.json",
@@ -47,6 +47,19 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
+  // Navigation / HTML: network-first so index.html stays fresh
+  if (e.request.mode === "navigate" || new URL(e.request.url).pathname === "/" || new URL(e.request.url).pathname.endsWith("/index.html")) {
+    e.respondWith(
+      fetch(e.request).then((res) => {
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(e.request).then((cached) => cached || new Response("offline", { status: 503 })))
+    );
+    return;
+  }
   // Static assets: cache-first
   e.respondWith(
     caches.match(e.request).then((hit) => {
@@ -57,6 +70,8 @@ self.addEventListener("fetch", (e) => {
           caches.open(CACHE).then((c) => c.put(e.request, clone));
         }
         return res;
+      }).catch(() => {
+        return caches.match(e.request).then((cached) => cached || new Response("offline", { status: 503 }));
       });
     })
   );

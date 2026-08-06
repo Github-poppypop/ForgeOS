@@ -2347,6 +2347,186 @@ function showShortcuts() {
   back.querySelector("#c").addEventListener("click", () => back.remove());
 }
 
+// =====================================================================
+// BOOT DIAGNOSTICS & BLACK SCREEN FIX (1)
+// =====================================================================
+(function bootDiagnostics() {
+  try {
+    const t0 = performance.now();
+    const appRoot = document.getElementById('app');
+    const bootLog = [];
+    bootLog.push('[BOOT] start app=' + !!appRoot + ' title=' + document.title);
+    console.log('[BOOT] start app=' + !!appRoot + ' title=' + document.title);
+    const origShell = window.shell;
+    if (typeof origShell !== 'function') {
+      throw new Error('shell() is not defined before route()');
+    }
+    origShell();
+    const after = document.getElementById('app');
+    const dt = Math.round(performance.now() - t0);
+    bootLog.push('[BOOT] shell completed in ' + dt + 'ms children=' + (after ? after.children.length : 'null'));
+    console.log('[BOOT] shell completed in ' + dt + 'ms children=' + (after ? after.children.length : 'null'));
+    if (after && after.children.length === 0) {
+      after.style.background = '#10131b';
+      after.innerHTML = '<div style="padding:16px;color:#adc6ff;font-family:monospace">[BOOT] shell ran but #app is still empty. Check console.</div>';
+      bootLog.push('[BOOT] fallback injected');
+      console.warn('[BOOT] fallback injected');
+    }
+    safe(() => fetch('/api/health', { headers: { 'x-boot-log': encodeURIComponent(bootLog.join('\n')) } })).catch(() => {});
+  } catch (e) {
+    console.error('[BOOT] fatal:', e);
+    const appRoot = document.getElementById('app');
+    if (appRoot) {
+      appRoot.style.background = '#10131b';
+      appRoot.innerHTML = '<div style="padding:16px;color:#ffb4ab;font-family:monospace">Boot error: ' + DOMPurify.sanitize(e && e.message ? e.message : String(e)) + '</div>';
+    }
+  }
+})();
+
+// =====================================================================
+// SYSTEM PREFERENCE SYNC (4)
+// =====================================================================
+(function syncSystemTheme() {
+  const saved = localStorage.getItem('forgeos-theme');
+  if (saved && saved !== 'system') return;
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const apply = () => {
+    const t = mq.matches ? 'dark' : 'light';
+    applyTheme(t);
+    const sel = document.querySelector('#s-theme');
+    if (sel && document.activeElement !== sel) sel.value = 'system';
+  };
+  apply();
+  mq.addEventListener('change', apply);
+})();
+
+// =====================================================================
+// CROSS-AGENT MEMORY POOL (9)
+// =====================================================================
+const agentMemoryPool = {
+  key: 'forgeos-agent-memory',
+  add(agent, key, value) {
+    const pool = JSON.parse(localStorage.getItem(this.key) || '{}');
+    const entry = { agent, key, value, ts: Date.now() };
+    const arr = pool[agent] || [];
+    arr.push(entry);
+    pool[agent] = arr.slice(-20);
+    localStorage.setItem(this.key, JSON.stringify(pool));
+  },
+  recent(agent, limit = 10) {
+    const pool = JSON.parse(localStorage.getItem(this.key) || '{}');
+    return (pool[agent] || []).slice(-limit);
+  },
+  all(limit = 50) {
+    const pool = JSON.parse(localStorage.getItem(this.key) || '{}');
+    const out = [];
+    for (const [agent, entries] of Object.entries(pool)) {
+      entries.slice(-5).forEach(e => out.push({ agent, ...e }));
+    }
+    return out.sort((a, b) => b.ts - a.ts).slice(0, limit);
+  }
+};
+
+// =====================================================================
+// AGENT AUDIT TRAIL (10)
+// =====================================================================
+const agentAudit = {
+  key: 'forgeos-agent-audit',
+  log(entry) {
+    const trail = JSON.parse(localStorage.getItem(this.key) || '[]');
+    trail.unshift({ ...entry, id: crypto.randomUUID(), ts: Date.now() });
+    localStorage.setItem(this.key, JSON.stringify(trail.slice(0, 500)));
+  },
+  recent(limit = 20) {
+    return JSON.parse(localStorage.getItem(this.key) || '[]').slice(0, limit);
+  }
+};
+
+// =====================================================================
+// HUMAN-IN-THE-LOOP APPROVAL GATES (12)
+// =====================================================================
+const approvalQueue = {
+  key: 'forgeos-approval-queue',
+  enqueue(action) {
+    const q = JSON.parse(localStorage.getItem(this.key) || '[]');
+    q.unshift({ ...action, id: crypto.randomUUID(), status: 'pending', ts: Date.now() });
+    localStorage.setItem(this.key, JSON.stringify(q.slice(0, 100)));
+    return q[0];
+  },
+  resolve(id, approved) {
+    const q = JSON.parse(localStorage.getItem(this.key) || '[]');
+    const item = q.find(x => x.id === id);
+    if (item) item.status = approved ? 'approved' : 'rejected';
+    localStorage.setItem(this.key, JSON.stringify(q));
+    return item;
+  },
+  pending() {
+    return JSON.parse(localStorage.getItem(this.key) || '[]').filter(x => x.status === 'pending');
+  }
+};
+
+// =====================================================================
+// DECISION LEDGER SEARCH (15)
+// =====================================================================
+function searchLedger(query) {
+  const q = (query || '').toLowerCase();
+  const items = JSON.parse(localStorage.getItem('forgeos-ledger') || '[]');
+  if (!q) return items;
+  return items.filter(item => {
+    const text = [item.title, item.decision, item.owner, item.topic, item.status, item.rfc].filter(Boolean).join(' ').toLowerCase();
+    return text.includes(q);
+  });
+}
+
+// =====================================================================
+// SACRED FOLDER LOCK (16)
+// =====================================================================
+const sacredPaths = ['/governance', '/governance/constitution', '/governance/laws', '/governance/standards', '/governance/rfcs'];
+function isSacredPath(pathname) {
+  return sacredPaths.some(p => pathname === p || pathname.startsWith(p + '/'));
+}
+function guardSacredWrite(operation) {
+  if (isSacredPath(location.pathname)) {
+    toast('Governance is immutable except by constitutional amendment', 'err');
+    return false;
+  }
+  return operation();
+}
+
+// =====================================================================
+// PORT CONFLICT PREVENTION (21)
+// =====================================================================
+function detectPort(port) {
+  return fetch('http://127.0.0.1:' + port, { mode: 'no-cors', cache: 'no-store' }).then(() => true).catch(() => false);
+}
+
+// =====================================================================
+// SOURCE-MAP-FRIENDLY BOOT LOGS (24)
+// =====================================================================
+function bootStack(message) {
+  const err = new Error(message);
+  if (err.stack) console.log('[BOOT][' + message + '] ' + err.stack.split('\n').slice(1, 3).join('\n'));
+  else console.log('[BOOT][' + message + ']');
+}
+
+// =====================================================================
+// REPO-AWARE AGENTS.MD ENFORCEMENT (25)
+// =====================================================================
+function enforceAgentsRules(change) {
+  const forbidden = ['bun build', 'bun build ./'];
+  const path = change.file || '';
+  if (path.endsWith('AGENTS.md')) return true;
+  if (forbidden.some(f => change.diff && change.diff.includes(f))) {
+    toast('AGENTS.md forbids bun build in this env', 'err');
+    return false;
+  }
+  if (path.includes('src/app.js') && change.diff && change.diff.includes('bun build')) {
+    toast('AGENTS.md forbids build-step dependencies', 'err');
+    return false;
+  }
+  return true;
+}
+
 // ---------- (66) onboarding tour ----------
 const TOUR_KEY = "forgeos-tour-done";
 const TOUR_STEPS = [
