@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "bun run server.ts",
-    "dev": "bun run server.ts"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "description": "ForgeOS Brain Console — web UI over the isolated gbrain (C:\\ForgeOS). The SPA (src/app.js) is served directly by server.ts with NO build step (bun build EPERMs on C:\\ in this environment). Edit src/app.js (or src/app.ts, kept in sync) directly; index.html loads /src/app.js as an ES module.",
   "devDependencies": {
