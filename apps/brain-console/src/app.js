@@ -74,10 +74,22 @@ function applyTheme(theme) {
   root.classList.remove("theme-system", "theme-dark", "theme-light", "theme-hc", "theme-midnight", "theme-solarized-light", "theme-retro", "theme-matrix", "theme-ocean", "theme-berry", "theme-graphite");
   if (!theme || theme === "system") {
     root.dataset.theme = "auto";
+    applySystemTheme();
     return;
   }
   root.dataset.theme = theme;
 }
+function applySystemTheme() {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const root = document.documentElement;
+  root.classList.remove('theme-light', 'theme-dark');
+  root.classList.add(mq.matches ? 'theme-dark' : 'theme-light');
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (document.documentElement.dataset.theme === 'auto' || !document.documentElement.dataset.theme) {
+    applySystemTheme();
+  }
+});
 
 function applyContrast(contrast) {
   const root = document.documentElement;
@@ -1879,6 +1891,18 @@ async function loadPanel(name) {
 }
 
 // ---------- Offline capture queue (IndexedDB) ----------
+function initOfflineIndicator() {
+  const indicator = document.createElement('div');
+  indicator.className = 'offline-indicator hidden';
+  indicator.innerHTML = '<span class="dot offline"></span> offline — edits queued';
+  document.body.appendChild(indicator);
+  const update = () => indicator.classList.toggle('hidden', navigator.onLine);
+  window.addEventListener('online', update);
+  window.addEventListener('offline', update);
+  update();
+}
+initOfflineIndicator();
+
 let offlineDB = null;
 function openOfflineDB() {
   return new Promise((resolve, reject) => {
@@ -2318,10 +2342,28 @@ function paintSel(items) { items.forEach((li, i) => li.classList.toggle("sel", i
 function renderCmdk(q) {
   const ul = $("#cmdk ul");
   const hist = JSON.parse(localStorage.getItem("forgeos-hist") || "[]");
-  const opts = CMDS.filter(c => c.label.toLowerCase().includes(q.toLowerCase()));
+  const ql = q.toLowerCase();
+  const opts = CMDS.filter(c => c.label.toLowerCase().includes(ql));
+  const groups = {};
+  const recent = [];
+  for (const cmd of CMDS) {
+    const label = cmd.label;
+    const group = label.split(" ")[0] || "Other";
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(cmd);
+  }
   const histItems = q ? [] : hist.map(h => ({ label: "↺ " + (NAV.flatMap(g => g.items).find(n => (n[2] ?? n[1]) === h)?.[0] || h), go: () => location.hash = "#/" + h }));
+  let html = '';
   const all = q ? opts : opts.concat(histItems);
-  ul.innerHTML = all.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join("") || "<li class='muted'>no match</li>";
+  if (q) {
+    html = all.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join('');
+  } else {
+    html += '<li class="cmdk-group"><b>Recent</b></li>' + histItems.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join('');
+    for (const [group, cmds] of Object.entries(groups)) {
+      html += `<li class="cmdk-group"><b>${DOMPurify.sanitize(group)}</b></li>` + cmds.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join('');
+    }
+  }
+  ul.innerHTML = html || "<li class='muted'>no match</li>";
   $$("#cmdk li").forEach((li, i) => li.addEventListener("click", () => { all[i].go(); $("#cmdk").classList.remove("open"); }));
   paintSel($$("#cmdk li"));
 }
@@ -2704,6 +2746,18 @@ function tickStatusBar(s) {
 
 // ===================== SHELL =====================
 // (12) sidebar collapse (persisted) + (20) mobile hamburger
+// Error boundary: catch uncaught errors and show fallback UI
+window.addEventListener('error', (e) => {
+  console.error('[BOUNDARY]', e.message, e.filename, e.lineno);
+  const main = document.querySelector('main');
+  if (main) main.innerHTML = '<div class="card"><h1>Runtime error</h1><pre>' + DOMPurify.sanitize(e.message) + '</pre></div>';
+});
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('[BOUNDARY] unhandled', e.reason);
+  const main = document.querySelector('main');
+  if (main) main.innerHTML = '<div class="card"><h1>Async error</h1><pre>' + DOMPurify.sanitize(String(e.reason)) + '</pre></div>';
+});
+
 function shell() {
   const theme = localStorage.getItem("forgeos-theme") || "dark";
   document.documentElement.setAttribute("data-theme", theme);
@@ -2782,7 +2836,7 @@ function shell() {
   safe(() => api.status()).then(s => tickStatusBar(s || {})).catch(() => tickStatusBar({}));
   setInterval(async () => { tickStatusBar(await safe(() => api.status()).catch(() => ({}))); }, 1000);
 }
-shell();
+try { shell(); } catch (e) { console.error('[BOOT] shell failed', e); const main = document.querySelector('main'); if (main) main.innerHTML = '<div class="card"><h1>Boot error</h1><pre>' + DOMPurify.sanitize(String(e)) + '</pre></div>'; }
 
 // ---------- Keyboard shortcuts cheatsheet ----------
 const SHORTCUTS = [
