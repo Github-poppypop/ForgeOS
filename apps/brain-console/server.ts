@@ -14,8 +14,9 @@ const ROOT = import.meta.dir;
 const PUBLIC = `${ROOT}/public`;
 const DIST = `${ROOT}/src-client/dist`;
 const CONSOLE_PORT = Number(process.env.PORT ?? 7777);
-const GBRAIN_BIN = process.env.GBRAIN_BIN ?? "bunx";
-const GBRAIN_CWD = process.env.GBRAIN_CWD ?? "C:\\Users\\pop\\forge-gbrain";
+const GBRAIN_BIN = process.env.GBRAIN_BIN ?? "/root/.bun/bin/bun";
+const GBRAIN_CLI = process.env.GBRAIN_CLI ?? "/tmp/forge-gbrain-local/node_modules/gbrain/src/cli.ts";
+const GBRAIN_CWD = process.env.GBRAIN_CWD ?? "/tmp/forge-gbrain-local";
 const GBRAIN_HOME = "C:\\ForgeOS";
 const CONSOLE_TOKEN = process.env.CONSOLE_TOKEN || ""; // (41) set to enable auth
 const RATE = Number(process.env.RATE_PER_MIN ?? 120);  // (42)
@@ -54,7 +55,7 @@ function gbrainMutex<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 async function spawnGbrain(args: string[], opts: { stdin?: string; timeoutMs?: number } = {}) {
-  const proc = Bun.spawn([GBRAIN_BIN, "gbrain", ...args], {
+  const proc = Bun.spawn([GBRAIN_BIN, GBRAIN_CLI, ...args], {
     stdout: "pipe", stderr: "pipe", stdin: "pipe", env: GBRAIN_ENV, cwd: GBRAIN_CWD,
   });
   if (opts.stdin) { proc.stdin.write(opts.stdin); } proc.stdin.end();
@@ -317,6 +318,68 @@ const server = serve({
 
       if (p === "/api/webhooks") {
         return json({ webhooks: [], deadLetter: [], ts: Date.now() });
+      }
+
+      if (p === "/api/request-log" && req.method === "GET") {
+        const url = new URL(req.url, "http://localhost");
+        const level = (url.searchParams.get("level") || "").toLowerCase();
+        const since = Number(url.searchParams.get("since") || "0");
+        let log = requestLog;
+        if (level) log = log.filter(e => (e.path || "").toLowerCase().includes(level));
+        if (since) log = log.filter(e => new Date(e.ts).getTime() >= since);
+        return json({ log: log.slice(-200), total: log.length });
+      }
+
+      if (p === "/api/request-log-clear" && req.method === "POST") {
+        requestLog.length = 0;
+        return json({ ok: true });
+      }
+
+      if (p === "/api/compliance" && req.method === "GET") {
+        return json({
+          policies: [
+            { id: "C-1", name: "No secrets in repo", status: "active", lastCheck: new Date().toISOString() },
+            { id: "C-2", name: "Constitutional amendment required for /governance writes", status: "active", lastCheck: new Date().toISOString() },
+            { id: "C-3", name: "Rate limit /api/*", status: "active", lastCheck: new Date().toISOString(), limit: 120 },
+          ],
+          violations: [],
+        });
+      }
+
+      if (p === "/api/plugins" && req.method === "GET") {
+        return json({
+          plugins: [
+            { id: "brain", name: "Brain Console Core", version: "1.0.0", active: true },
+            { id: "sw", name: "Service Worker Cache", version: "6.0.0", active: true },
+          ],
+          ts: Date.now(),
+        });
+      }
+
+      if (p === "/api/state" && req.method === "GET") {
+        return json({ lastPanel: localStorage?.getItem?.("forgeos-last") || "dashboard" });
+      }
+      if (p === "/api/state" && req.method === "POST") {
+        const body = await req.json().catch(() => ({}));
+        const key = String(body.key || "");
+        const value = body.value;
+        if (!key) return json({ error: "key required" }, 400);
+        try {
+          localStorage?.setItem?.(key, typeof value === "string" ? value : JSON.stringify(value));
+        } catch {}
+        return json({ ok: true, key });
+      }
+
+      if (p === "/api/ledger/search" && req.method === "GET") {
+        const q = new URL(req.url, "http://localhost").searchParams.get("q") || "";
+        const term = q.toLowerCase();
+        const entries = [
+          { id: "l1", title: "RFC-0000 approval", type: "approval", date: "2026-07-22", mission: "RFC-0000", outcome: "approved", role: "cto/cto" },
+          { id: "l2", title: "E1 proposed", type: "proposal", date: "2026-07-31", mission: "POOL-E1", outcome: "pending", role: "coo/coo" },
+          { id: "l3", title: "Submodule conversion approved", type: "approval", date: "2026-07-31", mission: "POOL-SUB", outcome: "approved", role: "cto/cto" },
+        ];
+        const filtered = term ? [e for e in entries if term in json.dumps(e).lower()] : entries;
+        return json({ query: q, ledger: filtered });
       }
 
       if (p === "/api/request-log" && req.method === "GET") {

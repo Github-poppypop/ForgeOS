@@ -148,6 +148,20 @@ export const api = {
     const q = qs.toString();
     return req("/api/ledger" + (q ? "?" + q : ""));
   },
+  ledgerSearch: (q) => req("/api/ledger/search?q=" + encodeURIComponent(q)),
+  requestLog: (params) => {
+    const qs = new URLSearchParams();
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined && v !== null && v !== "") qs.set(k, v);
+      }
+    }
+    const q = qs.toString();
+    return req("/api/request-log" + (q ? "?" + q : ""));
+  },
+  requestLogClear: () => req("/api/request-log-clear", { method: "POST" }),
+  compliance: () => req("/api/compliance"),
+  plugins: () => req("/api/plugins"),
   org: () => req("/api/org"),
   // Phase 6 — auth / state / backup / metrics
   login: (username, password) =>
@@ -181,5 +195,6 @@ export const api = {
   poollenueTournaments: () => req("/api/poolleague/tournaments"),
   poollenueMatches: () => req("/api/poolleague/matches"),
   monitoringAgents: () => req("/api/agents"),
+  requestLog: () => req("/api/request-log"),
   replayOfflineQueue,
 };

@@ -1362,7 +1362,7 @@ async function renderMonitoring() {
   };
   refresh();
   document.querySelector("#rl-clear")?.addEventListener("click", async () => {
-    await api.post('/api/request-log-clear').catch(() => ({}));
+    await api.requestLogClear();
     refresh();
     toast('request log cleared');
   });
