@@ -486,17 +486,18 @@ async function renderTimeline() {
 
 async function renderLedger() {
   crumb([["ForgeOS", "#/command"], ["Decision Ledger"]]);
-  $("#main").innerHTML = skelGrid(4, 160);
-  const { roles } = await safe(() => api.roles()).catch(() => ({ roles: [] }));
+  $("main").innerHTML = skelGrid(4, 160);
+  const { roles } = await safe(api.roles).catch(() => ({ roles: [] }));
   const roleOptions = (roles || []).map(r =>
     `<option value="${DOMPurify.sanitize(r.slug)}">${DOMPurify.sanitize(r.role || r.slug)}</option>`
   ).join("");
   const statusOptions = ["approved", "pending", "proposed", "rejected"].map(s =>
     `<option value="${DOMPurify.sanitize(s)}">${DOMPurify.sanitize(s)}</option>`
   ).join("");
-  $("#main").innerHTML = `<h1>Decision Ledger</h1>
+  $("main").innerHTML = `<h1>Decision Ledger</h1>
     <div class="card">
       <div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
+        <input id="l-search" placeholder="Search ledger…" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
         <input type="date" id="l-from" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="From date">
         <input type="date" id="l-to" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="To date">
         <select id="l-role" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
@@ -518,13 +519,18 @@ async function renderLedger() {
     const to = $("#l-to")?.value || "";
     const role = $("#l-role")?.value || "";
     const status = $("#l-status")?.value || "";
+    const q = $("#l-search")?.value?.trim() || "";
     const params = {};
     if (from) params.from = from;
     if (to) params.to = to;
     if (role) params.role = role;
     if (status) params.status = status;
-    const r = await safe(() => api.ledger(Object.keys(params).length ? params : undefined)).catch(() => ({ ledger: [] }));
-    const entries = Array.isArray(r.ledger) ? r.ledger : [];
+    const base = await safe(() => api.ledger(Object.keys(params).length ? params : undefined)).catch(() => ({ ledger: [] }));
+    let entries = Array.isArray(base.ledger) ? base.ledger : [];
+    if (q) {
+      const search = await safe(() => api.ledgerSearch(q)).catch(() => ({ ledger: [] }));
+      entries = Array.isArray(search.ledger) ? search.ledger : entries;
+    }
     const tbody = $("#ledger-tbody");
     if (tbody) {
       tbody.innerHTML = entries.map(e => `<tr>
@@ -541,6 +547,10 @@ async function renderLedger() {
     const el = $(sel);
     if (el) el.addEventListener("change", loadLedger);
   });
+  $("#l-search")?.addEventListener("input", () => {
+    clearTimeout(window._ledgerSearchTimer);
+    window._ledgerSearchTimer = setTimeout(loadLedger, 250);
+  });
   const resetBtn = $("#l-reset");
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
@@ -548,6 +558,7 @@ async function renderLedger() {
       $("#l-to").value = "";
       $("#l-role").value = "";
       $("#l-status").value = "";
+      $("#l-search").value = "";
       loadLedger();
     });
   }
@@ -1309,25 +1320,52 @@ async function renderMonitoring() {
         <h2>PoolLeague</h2>
         <pre id="poolleague-monitor" class="code json">loading...</pre>
       </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Request Log</h2>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <input id="rl-filter" placeholder="Filter path…" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
+        <button class="btn secondary" id="rl-clear">Clear</button>
+      </div>
+      <pre id="request-log" class="code json" style="margin-top:12px">loading...</pre>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Compliance</h2>
+      <pre id="compliance-out" class="code json">loading...</pre>
     </div>`;
   const refresh = async () => {
     try {
-      const [agents, poolleague] = await Promise.all([
+      const [agents, poolleague, reqLog, compliance] = await Promise.all([
         safe(api.monitoringAgents).catch(() => ({ agents: [] })),
         safe(api.poolleagueStatus).catch(() => ({ ok: false })),
+        safe(api.requestLog).catch(() => ({ log: [] })),
+        safe(api.compliance).catch(() => ({ policies: [] })),
       ]);
       const agentEl = document.querySelector("#agent-status");
       const poolEl = document.querySelector("#poolleague-monitor");
+      const logEl = document.querySelector("#request-log");
+      const compEl = document.querySelector("#compliance-out");
       if (agentEl) {
         const list = (agents.agents || []).map(a => `<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="mono">${a.role}</span><span class="pill ${a.status==='idle'?'ok':'warn'}">${a.status}</span></div>`).join("");
         agentEl.innerHTML = list || "<p class='muted'>no agent data — <a class='link' href='#/missions'>dispatch a mission</a></p>";
       }
       if (poolEl) poolEl.textContent = JSON.stringify(poolleague, null, 2);
+      if (logEl) {
+        const filter = (document.querySelector("#rl-filter")?.value || "").trim().toLowerCase();
+        const items = (reqLog.log || []).filter(e => !filter || (e.path || "").toLowerCase().includes(filter));
+        logEl.textContent = JSON.stringify({ total: reqLog.total, filter, items: items.slice(-50) }, null, 2);
+      }
+      if (compEl) compEl.textContent = JSON.stringify(compliance, null, 2);
     } catch (e) {
       toast("monitor error: " + errMsg(e), "err");
     }
   };
   refresh();
+  document.querySelector("#rl-clear")?.addEventListener("click", async () => {
+    await api.post('/api/request-log-clear').catch(() => ({}));
+    refresh();
+    toast('request log cleared');
+  });
   setInterval(refresh, 5000);
 }
 
