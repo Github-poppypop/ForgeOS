@@ -12,6 +12,7 @@ import { serve } from "bun";
 
 const ROOT = import.meta.dir;
 const PUBLIC = `${ROOT}/public`;
+const DIST = `${ROOT}/src-client/dist`;
 const CONSOLE_PORT = Number(process.env.PORT ?? 7777);
 const GBRAIN_BIN = process.env.GBRAIN_BIN ?? "bunx";
 const GBRAIN_CWD = process.env.GBRAIN_CWD ?? "C:\\Users\\pop\\forge-gbrain";
@@ -119,17 +120,21 @@ function authed(req: Request): boolean {
 
 // ---- static ----
 async function serveStatic(pathname: string) {
-  if (pathname === "/") return new Response(Bun.file(`${PUBLIC}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } });
+  if (pathname === "/") return new Response(Bun.file(`${DIST}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } });
+  const distFile = Bun.file(`${DIST}${pathname}`);
+  if (await distFile.exists()) {
+    const ext = pathname.split(".").pop() ?? "";
+    const ct: Record<string, string> = { ts: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", json: "application/json; charset=utf-8", svg: "image/svg+xml" };
+    return new Response(distFile, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "strict-transport-security": "max-age=31536000; includeSubDomains", "referrer-policy": "no-referrer", "permissions-policy": "geolocation=(), microphone=(), camera=()" } });
+  }
   let file = pathname.startsWith("/src/") ? `${ROOT}${pathname}` : `${PUBLIC}${pathname}`;
   const f = Bun.file(file);
   if (await f.exists()) {
     const ext = pathname.split(".").pop() ?? "";
     const ct: Record<string, string> = { ts: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", json: "application/json; charset=utf-8", svg: "image/svg+xml" };
-    // no-cache so module/script changes are picked up immediately (the SPA is
-    // hand-edited; without this the browser serves a stale cached app.js).
     return new Response(f, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "strict-transport-security": "max-age=31536000; includeSubDomains", "referrer-policy": "no-referrer", "permissions-policy": "geolocation=(), microphone=(), camera=()" } });
   }
-  return new Response(Bun.file(`${PUBLIC}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } }); // SPA fallback
+  return new Response(Bun.file(`${DIST}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } });
 }
 
 async function ollamaOk() {
