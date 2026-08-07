@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { agentMemoryCache, MemoryCache } from '../agents/memory-cache';
+import { agentMemoryCache, MemoryCache } from '../memory-cache';
 
 describe('agents/memory-cache', () => {
   it('sets and gets cache entries', () => {

@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'bun:test';
-import { deadLetterQueue, DeadLetterQueue } from '../agents/dead-letter-queue';
+import { deadLetterQueue } from '../dead-letter-queue';
 
 describe('agents/dead-letter-queue', () => {
-  it('enqueues and drains dead letters', () => {
-    const entry = { id: '1', task: 'test', error: 'fail', ts: new Date().toISOString() };
-    deadLetterQueue.enqueue(entry as any);
-    const all = deadLetterQueue.drain();
-    expect(all.length).toBe(1);
+  it('enqueues and lists dead letters', () => {
+    const entry = deadLetterQueue.enqueue({ agentId: 'a1', role: 'cto', action: 'run', error: 'boom' });
+    expect(entry.id).toBeDefined();
+    const all = deadLetterQueue.list();
+    expect(all.some(e => e.id === entry.id)).toBe(true);
   });
 });
