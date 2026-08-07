@@ -4058,17 +4058,110 @@ async function renderPortConflicts() {
 // ---------- SPA hot-reload without SW cache fights ----------
 async function renderReload() {
   crumb([["ForgeOS", "#/settings"], ["SPA Reload"]]);
-  $("main").innerHTML = `<h1>SPA Hot Reload</h1>
-    <div class="card">
-      <p class="muted">Bust service worker cache and reload app shell without stale HTML/JS.</p>
-      <button class="btn primary" id="bust-sw" style="margin-top:12px">Bust cache & reload</button>
+  $("main").innerHTML = `<h1 data-tooltip="SPA shell refresh and maintenance actions">SPA Hot Reload</h1>
+    <div class="grid cols-2">
+      <div class="card">
+        <h2 data-tooltip="Clear service worker cache and reload the app shell">Bust SW cache & reload</h2>
+        <p class="muted">Remove stale SW caches and refresh the app shell.</p>
+        <button class="btn primary" id="bust-sw" data-tooltip="Bust service worker cache and reload">Bust cache & reload</button>
+        <pre id="bust-out" class="code json" style="margin-top:12px">ready</pre>
+      </div>
+      <div class="card">
+        <h2 data-tooltip="Re-embed all knowledge into the vector store">Re-embed knowledge</h2>
+        <p class="muted">Regenerate embeddings for all captured pages.</p>
+        <button class="btn primary" id="re-embed" data-tooltip="Trigger a full re-embed of the knowledge base">Re-embed all</button>
+        <pre id="embed-out" class="code json" style="margin-top:12px">ready</pre>
+      </div>
+      <div class="card">
+        <h2 data-tooltip="Flush mutations queued while offline">Clear offline queue</h2>
+        <p class="muted">Remove any mutations saved during offline mode.</p>
+        <button class="btn secondary" id="clear-queue" data-tooltip="Purge offline mutation queue">Clear queue</button>
+        <pre id="queue-out" class="code json" style="margin-top:12px">ready</pre>
+      </div>
+      <div class="card">
+        <h2 data-tooltip="Wipe server-side request logs">Clear request log</h2>
+        <p class="muted">Delete the accumulated request log from the server.</p>
+        <button class="btn secondary" id="clear-log" data-tooltip="Delete all server request log entries">Clear request log</button>
+        <pre id="log-out" class="code json" style="margin-top:12px">ready</pre>
+      </div>
+      <div class="card" style="grid-column: span 2">
+        <h2 data-tooltip="Reset last active panel and UI preferences">Reset UI state</h2>
+        <p class="muted">Reset last active panel, theme, and compact preferences to defaults.</p>
+        <button class="btn secondary" id="reset-ui" data-tooltip="Reset UI state to default values">Reset UI state</button>
+        <pre id="ui-out" class="code json" style="margin-top:12px">ready</pre>
+      </div>
     </div>`;
-  document.querySelector("#bust-sw")?.addEventListener("click", async () => {
+  const bustOut = $("#bust-out");
+  const embedOut = $("#embed-out");
+  const queueOut = $("#queue-out");
+  const logOut = $("#log-out");
+  const uiOut = $("#ui-out");
+
+  $("#bust-sw")?.addEventListener("click", async () => {
     try {
-      await safe(() => api.bustSW()).catch(() => ({}));
+      bustOut.textContent = "running...";
+      await safe(api.bustSW).catch(() => ({}));
+      bustOut.textContent = JSON.stringify({ ok: true, action: "bust-sw" }, null, 2);
+      toast("cache busted", "ok");
+    } catch (e) {
+      bustOut.textContent = "error: " + errMsg(e);
+      toast("bust error: " + errMsg(e), "err");
     } finally {
-      toast('reloading...', 'ok');
       setTimeout(() => location.reload(), 300);
+    }
+  });
+  $("#re-embed")?.addEventListener("click", async () => {
+    try {
+      embedOut.textContent = "running...";
+      const r = await safe(api.embed).catch(() => ({}));
+      embedOut.textContent = JSON.stringify(r, null, 2);
+      toast("re-embed complete", "ok");
+    } catch (e) {
+      embedOut.textContent = "error: " + errMsg(e);
+      toast("embed error: " + errMsg(e), "err");
+    }
+  });
+  $("#clear-queue")?.addEventListener("click", async () => {
+    try {
+      queueOut.textContent = "clearing...";
+      localStorage.removeItem("brainConsoleOfflineQueue");
+      await new Promise((r) => setTimeout(r, 200));
+      queueOut.textContent = JSON.stringify({ cleared: true, queue: [] }, null, 2);
+      toast("offline queue cleared", "ok");
+    } catch (e) {
+      queueOut.textContent = "error: " + errMsg(e);
+      toast("queue clear error: " + errMsg(e), "err");
+    }
+  });
+  $("#clear-log")?.addEventListener("click", async () => {
+    try {
+      logOut.textContent = "running...";
+      const r = await safe(api.requestLogClear).catch(() => ({}));
+      logOut.textContent = JSON.stringify(r, null, 2);
+      toast("request log cleared", "ok");
+    } catch (e) {
+      logOut.textContent = "error: " + errMsg(e);
+      toast("log clear error: " + errMsg(e), "err");
+    }
+  });
+  $("#reset-ui")?.addEventListener("click", async () => {
+    try {
+      uiOut.textContent = "resetting...";
+      localStorage.removeItem("forgeos-last");
+      localStorage.removeItem("forgeos-theme");
+      localStorage.removeItem("forgeos-font-size");
+      localStorage.removeItem("forgeos-contrast");
+      localStorage.removeItem("forgeos-auto-save");
+      localStorage.removeItem("forgeos-compact");
+      localStorage.removeItem("forgeos-animations");
+      localStorage.removeItem("forgeos-shortcuts");
+      localStorage.removeItem("forgeos-statusbar");
+      await new Promise((r) => setTimeout(r, 200));
+      uiOut.textContent = JSON.stringify({ reset: true }, null, 2);
+      toast("UI state reset", "ok");
+    } catch (e) {
+      uiOut.textContent = "error: " + errMsg(e);
+      toast("reset error: " + errMsg(e), "err");
     }
   });
 }
