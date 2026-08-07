@@ -329,22 +329,93 @@ async function renderRoles() {
   crumb([["ForgeOS", "#/dashboard"], ["Roles"]]);
   $("#main").innerHTML = skelGrid(2);
   const { roles } = await safe(api.roles).catch(() => ({ roles: [] }));
-  if (!roles.length) { $("#main").innerHTML = `<h1>C-Suite Roles</h1>` + emptyState("No roles seeded", "Seed C-suite roles to get started", '<a class="btn secondary" href="#/dashboard">Go to Dashboard</a>'); return; }
+  if (!roles.length) {
+    $("#main").innerHTML = `<h1>C-Suite Roles</h1>` + emptyState("No roles seeded", "Seed C-suite roles to get started", '<a class="btn secondary" href="#/dashboard">Go to Dashboard</a>');
+    return;
+  }
+  let currentRoles = roles;
   $("#main").innerHTML = `<h1>C-Suite Roles</h1>
-    <div class="grid cols-2">
-      ${roles.map(r => `
+    <div class="card">
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <input type="search" id="role-search" placeholder="Search roles..." data-tooltip="Filter roles by name or slug" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:180px" />
+          <select id="role-status-filter" data-tooltip="Filter by seeding status" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+            <option value="">All statuses</option>
+            <option value="seeded">Seeded</option>
+            <option value="missing">Missing</option>
+          </select>
+        </div>
+        <div class="row" style="gap:8px">
+          <span id="role-count" class="pill" data-tooltip="Total C-suite roles">0 roles</span>
+          <button class="btn secondary" id="role-refresh" data-tooltip="Reload roles data">Refresh</button>
+        </div>
+      </div>
+      <div id="role-grid" class="grid cols-2" style="margin-top:12px"></div>
+    </div>`;
+  const renderGrid = () => {
+    const q = ($("#role-search")?.value || "").toLowerCase();
+    const status = $("#role-status-filter")?.value || "";
+    const filtered = currentRoles.filter((r) => {
+      const matchesSearch = !q || (r.role || "").toLowerCase().includes(q) || (r.slug || "").toLowerCase().includes(q);
+      const matchesStatus = !status || (r.exists ? "seeded" : "missing") === status;
+      return matchesSearch && matchesStatus;
+    });
+    const countEl = $("#role-count");
+    if (countEl) countEl.textContent = filtered.length + " role" + (filtered.length !== 1 ? "s" : "");
+    const grid = $("#role-grid");
+    if (!grid) return;
+    if (!filtered.length) {
+      grid.innerHTML = emptyState("No roles match", "Try a different filter or capture a new page", '<a class="btn secondary" href="#/capture">Go to Capture</a>');
+      return;
+    }
+    grid.innerHTML = filtered.map(r => {
+      const statusTip = r.exists ? "Role is seeded in the brain" : "Role page is missing from the brain";
+      const reportsTip = r.reports_to ? "Manager this role reports to: " + r.reports_to : "This role has no manager";
+      return `
         <div class="card">
           <div class="row" style="justify-content:space-between">
-            <h2>${DOMPurify.sanitize(r.role || r.slug)}</h2>
-            <span class="pill ${r.exists ? "ok" : "bad"}"><span class="dot"></span>${r.exists ? "seeded" : "missing"}</span>
+            <h2 data-tooltip="${DOMPurify.sanitize(r.role || r.slug)}">${DOMPurify.sanitize(r.role || r.slug)}</h2>
+            <span class="pill ${r.exists ? "ok" : "bad"}" data-tooltip="${statusTip}"><span class="dot"></span>${r.exists ? "seeded" : "missing"}</span>
           </div>
-          <p class="muted mono">${DOMPurify.sanitize(r.slug)}</p>
-          <p class="muted">reports_to: <a class="link" href="#/page/${encodeURIComponent(r.reports_to || "")}">${DOMPurify.sanitize(r.reports_to || "—")}</a></p>
-          <button class="btn secondary" data-role="${encodeURIComponent(r.slug)}">View page</button>
-        </div>`).join("")}
-    </div>`;
-  $$("#main [data-role]").forEach(b =>
-    b.addEventListener("click", () => location.hash = "#/page/" + b.dataset.role));
+          <p class="muted mono" data-tooltip="Role slug identifier">${DOMPurify.sanitize(r.slug)}</p>
+          <p class="muted" data-tooltip="${reportsTip}">reports_to: <a class="link" href="#/page/${encodeURIComponent(r.reports_to || "")}">${DOMPurify.sanitize(r.reports_to || "—")}</a></p>
+          <div class="row" style="gap:6px;margin-top:8px">
+            <button class="btn primary sm" data-role="${encodeURIComponent(r.slug)}" data-tooltip="Open role page in brain">View page</button>
+            <button class="btn secondary sm" data-copy-slug="${encodeURIComponent(r.slug)}" data-tooltip="Copy role slug to clipboard">Copy slug</button>
+            <button class="btn secondary sm" data-copy-name="${encodeURIComponent(r.role || r.slug)}" data-tooltip="Copy role title to clipboard">Copy name</button>
+          </div>
+        </div>`;
+    }).join("");
+  };
+  renderGrid();
+  $("#role-refresh")?.addEventListener("click", () => {
+    withLoading($("#role-refresh"), async () => {
+      const r = await safe(api.roles).catch(() => ({ roles: [] }));
+      currentRoles = r.roles || [];
+      renderGrid();
+    });
+  });
+  $("#role-search")?.addEventListener("input", renderGrid);
+  $("#role-status-filter")?.addEventListener("change", renderGrid);
+  $("#role-grid")?.addEventListener("click", (e) => {
+    const viewBtn = e.target.closest("[data-role]");
+    if (viewBtn) {
+      location.hash = "#/page/" + viewBtn.dataset.role;
+      return;
+    }
+    const copySlugBtn = e.target.closest("[data-copy-slug]");
+    if (copySlugBtn) {
+      navigator.clipboard?.writeText(decodeURIComponent(copySlugBtn.dataset.copySlug))
+        .then(() => toast("copied slug", "ok"), () => toast("copy failed", "err"));
+      return;
+    }
+    const copyNameBtn = e.target.closest("[data-copy-name]");
+    if (copyNameBtn) {
+      navigator.clipboard?.writeText(decodeURIComponent(copyNameBtn.dataset.copyName))
+        .then(() => toast("copied name", "ok"), () => toast("copy failed", "err"));
+      return;
+    }
+  });
 }
 
 async function renderPage(slug) {
