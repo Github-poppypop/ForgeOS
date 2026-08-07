@@ -1026,34 +1026,33 @@ async function renderTimeline() {
 
 async function renderLedger() {
   crumb([["ForgeOS", "#/command"], ["Decision Ledger"]]);
-  $("main").innerHTML = skelGrid(4, 160);
-  const { roles } = await safe(api.roles).catch(() => ({ roles: [] }));
-  const roleOptions = (roles || []).map(r =>
-    `<option value="${DOMPurify.sanitize(r.slug)}">${DOMPurify.sanitize(r.role || r.slug)}</option>`
-  ).join("");
-  const statusOptions = ["approved", "pending", "proposed", "rejected"].map(s =>
-    `<option value="${DOMPurify.sanitize(s)}">${DOMPurify.sanitize(s)}</option>`
-  ).join("");
-  $("main").innerHTML = `<h1>Decision Ledger</h1>
+  $("main").innerHTML = `<h1>Decision Ledger <span class="muted" data-tooltip="Filtered decisions from brain">Live</span></h1>
     <div class="card">
       <div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
-        <input id="l-search" placeholder="Search ledger…" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
-        <input type="date" id="l-from" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="From date">
-        <input type="date" id="l-to" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="To date">
-        <select id="l-role" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+        <input id="l-search" placeholder="Search ledger…" data-tooltip="Search decisions by title or mission" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
+        <input type="date" id="l-from" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="From date" data-tooltip="Filter from date">
+        <input type="date" id="l-to" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="To date" data-tooltip="Filter to date">
+        <select id="l-role" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" data-tooltip="Filter by role">
           <option value="">all roles</option>
           ${roleOptions}
         </select>
-        <select id="l-status" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+        <select id="l-status" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" data-tooltip="Filter by status">
           <option value="">all statuses</option>
           ${statusOptions}
         </select>
-        <button class="btn secondary" id="l-reset">Reset</button>
+        <button class="btn secondary" id="l-reset" data-tooltip="Reset all filters">Reset</button>
+        <button class="btn secondary" id="l-export" data-tooltip="Download filtered decisions as JSON">Export</button>
       </div>
-      <h2>Recent decisions</h2>
-      <table class="tbl" id="ledger-table"><thead><tr><th>Date</th><th>Title</th><th>Type</th><th>Mission</th><th>Outcome</th></tr></thead>
-      <tbody id="ledger-tbody"></tbody></table>
+      <div class="row" style="gap:8px;margin-bottom:10px">
+        <span id="l-count" class="muted" data-tooltip="Visible decision count">0 entries</span>
+        <span id="l-updated" class="muted" data-tooltip="Last refresh time">Updated —</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl" id="ledger-table"><thead><tr><th>Date</th><th>Title</th><th>Type</th><th>Mission</th><th>Outcome</th></tr></thead>
+        <tbody id="ledger-tbody"></tbody></table>
+      </div>
     </div>`;
+  const fmtTime = (d) => d.toLocaleTimeString();
   const loadLedger = async () => {
     const from = $("#l-from")?.value || "";
     const to = $("#l-to")?.value || "";
@@ -1076,14 +1075,18 @@ async function renderLedger() {
       tbody.innerHTML = entries.map(e => `<tr>
         <td class="mono">${DOMPurify.sanitize(e.date)}</td>
         <td>${DOMPurify.sanitize(e.title)}</td>
-        <td><span class="pill">${DOMPurify.sanitize(e.type)}</span></td>
+        <td><span class="pill ${statusPillClass(e.outcome || e.type)}" data-tooltip="${DOMPurify.attributeValue(e.type || 'decision')}">${DOMPurify.sanitize(e.type)}</span></td>
         <td class="mono">${DOMPurify.sanitize(e.mission)}</td>
         <td>${DOMPurify.sanitize(e.outcome)}</td>
       </tr>`).join("") || `<tr><td colspan="5" class="muted">no entries</td></tr>`;
     }
+    const countEl = $("#l-count");
+    if (countEl) countEl.textContent = entries.length + " entr" + (entries.length === 1 ? "y" : "ies");
+    const updatedEl = $("#l-updated");
+    if (updatedEl) updatedEl.textContent = "Updated " + fmtTime(new Date());
   };
   await loadLedger();
-  ["#l-from", "#l-to", "#l-role", "#l-status"].forEach(sel => {
+  ["#l-from", "#l-to", "#l-role", "#l-status", "#l-search"].forEach(sel => {
     const el = $(sel);
     if (el) el.addEventListener("change", loadLedger);
   });
@@ -1102,6 +1105,24 @@ async function renderLedger() {
       loadLedger();
     });
   }
+  $("#l-export")?.addEventListener("click", () => {
+    const txt = document.querySelector("#ledger-table")?.innerText || "";
+    const blob = new Blob([txt], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "ledger-" + new Date().toISOString().slice(0,10) + ".json";
+    a.click();
+    toast("exported ledger", "ok");
+  });
+}
+
+// ---------- status pill helper ----------
+function statusPillClass(status) {
+  const s = (status || "").toLowerCase();
+  if (s === "approved" || s === "ok") return "ok";
+  if (s === "rejected" || s === "down") return "err";
+  if (s === "pending") return "warn";
+  return "";
 }
 
 // ---------- missions live state ----------
@@ -2283,18 +2304,84 @@ async function renderFederation() {
 // ---------- (29) audit as sortable table ----------
 async function renderAudit() {
   crumb([["ForgeOS", "#/dashboard"], ["Audit"]]);
-  $("#main").innerHTML = skelGrid(4, 160);
-  const a = await safe(api.audit).catch(() => ({ raw: "" }));
-  const rows = (a.raw || "").split("\n").filter(Boolean).map(l => {
-    const [slug, type, date, ...rest] = l.split("\t");
-    return { slug, type, date, title: rest.join(" ") };
+  $("main").innerHTML = `<h1>Audit Trail <span class="muted" data-tooltip="Immutable action history">Log</span></h1>
+    <div class="card">
+      <div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
+        <input id="a-search" placeholder="Search audit…" data-tooltip="Search by slug, type, or title" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
+        <select id="a-type" data-tooltip="Filter by entry type">
+          <option value="">all types</option>
+          <option value="capture">capture</option>
+          <option value="decision">decision</option>
+          <option value="incident">incident</option>
+          <option value="vote">vote</option>
+        </select>
+        <button class="btn secondary" id="a-reset" data-tooltip="Reset audit filters">Reset</button>
+        <button class="btn secondary" id="a-export" data-tooltip="Download audit rows as JSON">Export</button>
+      </div>
+      <div class="row" style="gap:8px;margin-bottom:10px">
+        <span id="a-count" class="muted" data-tooltip="Visible audit rows">0 entries</span>
+        <span id="a-updated" class="muted" data-tooltip="Last refresh time">Updated —</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl" id="audit-table"><thead><tr><th>Date</th><th>Type</th><th>Slug</th><th>Title</th></tr></thead>
+        <tbody id="audit-tbody"></tbody></table>
+      </div>
+      ${paginationControls(paginate([], Number(new URLSearchParams(location.hash.split("?")[1] || "").get("page") || "1")))}
+    </div>`;
+  const fmtTime = (d) => d.toLocaleTimeString();
+  const loadAudit = async () => {
+    const a = await safe(api.audit).catch(() => ({ raw: "" }));
+    const q = $("#a-search")?.value?.trim().toLowerCase() || "";
+    const type = $("#a-type")?.value || "";
+    let rows = (a.raw || "").split("\n").filter(Boolean).map(l => {
+      const [slug, t, date, ...rest] = l.split("\t");
+      return { slug, type: t, date, title: rest.join(" ") };
+    });
+    if (q) rows = rows.filter(r => (r.slug || "").toLowerCase().includes(q) || (r.title || "").toLowerCase().includes(q) || (r.type || "").toLowerCase().includes(q));
+    if (type) rows = rows.filter(r => r.type === type);
+    const tbody = $("#audit-tbody");
+    if (tbody) {
+      tbody.innerHTML = rows.map(r => `<tr>
+        <td class="mono">${DOMPurify.sanitize(r.date || "")}</td>
+        <td><span class="pill ${auditTypeClass(r.type)}" data-tooltip="${DOMPurify.attributeValue(r.type || 'entry')}">${DOMPurify.sanitize(r.type || "")}</span></td>
+        <td class="mono"><a class="link" href="#/page/${encodeURIComponent(r.slug || "")}" data-tooltip="Open page">${DOMPurify.sanitize(r.slug || "")}</a></td>
+        <td>${DOMPurify.sanitize(r.title || "")}</td>
+      </tr>`).join("") || `<tr><td colspan="4" class="muted">no entries</td></tr>`;
+    }
+    const countEl = $("#a-count");
+    if (countEl) countEl.textContent = rows.length + " entr" + (rows.length === 1 ? "y" : "ies");
+    const updatedEl = $("#a-updated");
+    if (updatedEl) updatedEl.textContent = "Updated " + fmtTime(new Date());
+  };
+  await loadAudit();
+  $("#a-search")?.addEventListener("input", () => {
+    clearTimeout(window._auditSearchTimer);
+    window._auditSearchTimer = setTimeout(loadAudit, 250);
   });
-  $("#main").innerHTML = `<h1>Audit Trail</h1>
-    <div class="card"><table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>Slug</th><th>Title</th></tr></thead>
-    <tbody>${rows.map(r => `<tr><td class="mono">${DOMPurify.sanitize(r.date || "")}</td><td>${DOMPurify.sanitize(r.type || "")}</td>
-      <td class="mono"><a class="link" href="#/page/${encodeURIComponent(r.slug || "")}">${DOMPurify.sanitize(r.slug || "")}</a></td>
-      <td>${DOMPurify.sanitize(r.title || "")}</td></tr>`).join("") || "<tr><td colspan=4 class='muted'>no entries</td></tr>"}</tbody></table>
-    ${paginationControls(paginate(rows, Number(new URLSearchParams(location.hash.split("?")[1] || "").get("page") || "1")))}</div>`;
+  $("#a-type")?.addEventListener("change", loadAudit);
+  $("#a-reset")?.addEventListener("click", () => {
+    $("#a-search").value = "";
+    $("#a-type").value = "";
+    loadAudit();
+  });
+  $("#a-export")?.addEventListener("click", () => {
+    const txt = document.querySelector("#audit-table")?.innerText || "";
+    const blob = new Blob([txt], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "audit-" + new Date().toISOString().slice(0,10) + ".json";
+    a.click();
+    toast("exported audit", "ok");
+  });
+}
+
+// ---------- audit style helper ----------
+function auditTypeClass(type) {
+  const s = (type || "").toLowerCase();
+  if (s === "capture") return "ok";
+  if (s === "incident") return "err";
+  if (s === "decision") return "warn";
+  return "";
 }
 
 // ---------- (30) schema as table ----------
