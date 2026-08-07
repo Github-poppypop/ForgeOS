@@ -1359,31 +1359,74 @@ async function renderPoolleague() {
 // ---------- Monitoring: live agent + PoolLeague status ----------
 async function renderMonitoring() {
   crumb([["ForgeOS", "#/dashboard"], ["Monitoring"]]);
+  let paused = false;
+  let intervalMs = 5000;
+  let intervalId = null;
+  const startTimer = () => {
+    if (intervalId) clearInterval(intervalId);
+    intervalId = setInterval(refresh, intervalMs);
+  };
+  const stopTimer = () => {
+    if (intervalId) { clearInterval(intervalId); intervalId = null; }
+  };
+  const fmtTime = (d) => d.toLocaleTimeString();
+
   $("main").innerHTML = `
     <h1>Monitoring</h1>
-    <div class="grid cols-2">
-      <div class="card">
-        <h2>C-Suite Agents</h2>
-        <div id="agent-status">loading...</div>
-      </div>
-      <div class="card">
-        <h2>PoolLeague</h2>
-        <pre id="poolleague-monitor" class="code json">loading...</pre>
-      </div>
-    </div>
-    <div class="card" style="margin-top:16px">
-      <h2>Request Log</h2>
+    <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
       <div class="row" style="gap:8px;flex-wrap:wrap">
-        <input id="rl-filter" placeholder="Filter path…" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
-        <button class="btn secondary" id="rl-clear">Clear</button>
+        <button class="btn secondary" id="mon-pause" data-tooltip="Pause live monitoring">⏸ Pause</button>
+        <select id="mon-interval" data-tooltip="Polling interval">
+          <option value="2000">2s</option>
+          <option value="5000" selected>5s</option>
+          <option value="15000">15s</option>
+          <option value="30000">30s</option>
+        </select>
+        <button class="btn secondary" id="mon-export-log" data-tooltip="Export request log as JSON">Export Log</button>
+        <button class="btn secondary" id="mon-export-comp" data-tooltip="Export compliance data as JSON">Export Compliance</button>
       </div>
-      <pre id="request-log" class="code json" style="margin-top:12px">loading...</pre>
+      <span id="mon-last" class="muted" data-tooltip="Last data refresh time">Updated —</span>
     </div>
-    <div class="card" style="margin-top:16px">
-      <h2>Compliance</h2>
-      <pre id="compliance-out" class="code json">loading...</pre>
+    <div class="grid cols-2">
+      <div class="card" data-mon-section="agents">
+        <div class="row" style="justify-content:space-between;cursor:pointer" data-toggle="agents">
+          <h2>C-Suite Agents</h2>
+          <span class="muted" data-toggle-icon="agents">▼</span>
+        </div>
+        <div id="agent-status" data-mon-body="agents">loading...</div>
+      </div>
+      <div class="card" data-mon-section="pool">
+        <div class="row" style="justify-content:space-between;cursor:pointer" data-toggle="pool">
+          <h2>PoolLeague</h2>
+          <span class="muted" data-toggle-icon="pool">▼</span>
+        </div>
+        <pre id="poolleague-monitor" class="code json" data-mon-body="pool">loading...</pre>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px" data-mon-section="log">
+      <div class="row" style="justify-content:space-between;cursor:pointer" data-toggle="log">
+        <h2>Request Log</h2>
+        <div class="row" style="gap:8px">
+          <span class="muted" data-toggle-icon="log">▼</span>
+        </div>
+      </div>
+      <div data-mon-body="log">
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <input id="rl-filter" placeholder="Filter path…" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
+          <button class="btn secondary" id="rl-clear">Clear</button>
+        </div>
+        <pre id="request-log" class="code json" style="margin-top:12px">loading...</pre>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px" data-mon-section="comp">
+      <div class="row" style="justify-content:space-between;cursor:pointer" data-toggle="comp">
+        <h2>Compliance</h2>
+        <span class="muted" data-toggle-icon="comp">▼</span>
+      </div>
+      <pre id="compliance-out" class="code json" data-mon-body="comp">loading...</pre>
     </div>`;
   const refresh = async () => {
+    if (paused) return;
     try {
       const [agents, poolleague, reqLog, compliance] = await Promise.all([
         safe(api.monitoringAgents).catch(() => ({ agents: [] })),
@@ -1396,7 +1439,7 @@ async function renderMonitoring() {
       const logEl = document.querySelector("#request-log");
       const compEl = document.querySelector("#compliance-out");
       if (agentEl) {
-        const list = (agents.agents || []).map(a => `<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="mono">${a.role}</span><span class="pill ${a.status==='idle'?'ok':'warn'}">${a.status}</span></div>`).join("");
+        const list = (agents.agents || []).map(a => `<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="mono">${DOMPurify.sanitize(a.role)}</span><span class="pill ${a.status==='idle'?'ok':'warn'}">${DOMPurify.sanitize(a.status)}</span></div>`).join("");
         agentEl.innerHTML = list || "<p class='muted'>no agent data — <a class='link' href='#/missions'>dispatch a mission</a></p>";
       }
       if (poolEl) poolEl.textContent = JSON.stringify(poolleague, null, 2);
@@ -1406,17 +1449,71 @@ async function renderMonitoring() {
         logEl.textContent = JSON.stringify({ total: reqLog.total, filter, items: items.slice(-50) }, null, 2);
       }
       if (compEl) compEl.textContent = JSON.stringify(compliance, null, 2);
+      const lastEl = document.querySelector("#mon-last");
+      if (lastEl) lastEl.textContent = "Updated " + fmtTime(new Date());
     } catch (e) {
       toast("monitor error: " + errMsg(e), "err");
     }
   };
-  refresh();
+
+  const exportJSON = (filename, data) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast("Exported " + filename, "ok");
+  };
+
+  document.querySelector("#mon-pause")?.addEventListener("click", () => {
+    paused = !paused;
+    const btn = document.querySelector("#mon-pause");
+    if (btn) {
+      btn.innerHTML = paused ? "▶ Resume" : "⏸ Pause";
+      btn.setAttribute("data-tooltip", paused ? "Resume live monitoring" : "Pause live monitoring");
+    }
+    if (!paused) startTimer();
+    toast(paused ? "Monitoring paused" : "Monitoring resumed");
+  });
+
+  document.querySelector("#mon-interval")?.addEventListener("change", (e) => {
+    intervalMs = parseInt(e.target.value, 10);
+    if (!paused) startTimer();
+    toast("Refresh interval: " + (intervalMs / 1000) + "s");
+  });
+
+  document.querySelector("#mon-export-log")?.addEventListener("click", async () => {
+    const data = await safe(api.requestLog).catch(() => ({ log: [] }));
+    exportJSON("request-log.json", data);
+  });
+
+  document.querySelector("#mon-export-comp")?.addEventListener("click", async () => {
+    const data = await safe(api.compliance).catch(() => ({ policies: [] }));
+    exportJSON("compliance.json", data);
+  });
+
+  $$("[data-toggle]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.getAttribute("data-toggle");
+      const body = document.querySelector("[data-mon-body='" + key + "']");
+      const icon = document.querySelector("[data-toggle-icon='" + key + "']");
+      if (!body) return;
+      const hidden = body.style.display === "none";
+      body.style.display = hidden ? "" : "none";
+      if (icon) icon.textContent = hidden ? "▼" : "▶";
+    });
+  });
+
   document.querySelector("#rl-clear")?.addEventListener("click", async () => {
     await api.requestLogClear();
     refresh();
     toast('request log cleared');
   });
-  setInterval(refresh, 5000);
+
+  refresh();
+  startTimer();
 }
 
 // ---------- Phase 11: setup wizard ----------
@@ -1671,6 +1768,26 @@ async function renderSettings() {
           <option value="soft">Soft contrast</option>
         </select>
       </div>
+      <div class="row" style="margin-top:8px">
+        <label data-tooltip="Automatically save preference changes without clicking Save">Auto-save</label>
+        <input type="checkbox" id="s-auto-save" style="width:auto"/>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label data-tooltip="Reduce spacing and padding for denser information display">Compact density</label>
+        <input type="checkbox" id="s-compact" style="width:auto"/>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label data-tooltip="Enable or disable UI panel animations and transitions">Animations</label>
+        <input type="checkbox" id="s-animations" style="width:auto"/>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label data-tooltip="Show keyboard shortcut hints throughout the interface">Keyboard shortcuts</label>
+        <input type="checkbox" id="s-shortcuts" style="width:auto"/>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label data-tooltip="Show or hide the status bar at the bottom of the screen">Status bar</label>
+        <input type="checkbox" id="s-statusbar" style="width:auto"/>
+      </div>
       <div class="row" style="margin-top:8px"><button class="btn primary" id="s-save">Save preferences</button></div>
     </div>`;
   try {
@@ -1707,7 +1824,7 @@ async function renderSettings() {
   contrastSel?.addEventListener("change", () => {
     document.documentElement.dataset.contrast = contrastSel.value;
   });
-  document.querySelector("#s-save").addEventListener("click", () => {
+  const saveAll = () => {
     const theme = document.querySelector("#s-theme").value;
     const fontSize = document.querySelector("#s-font").value;
     const contrast = document.querySelector("#s-contrast").value;
@@ -1718,6 +1835,113 @@ async function renderSettings() {
     applyContrast(contrast);
     document.documentElement.style.setProperty("--base-font-size", fontSize + "px");
     toast("preferences saved", "ok");
+  };
+  document.querySelector("#s-save").addEventListener("click", saveAll);
+
+  const autoSave = document.querySelector("#s-auto-save");
+  const compact = document.querySelector("#s-compact");
+  const animations = document.querySelector("#s-animations");
+  const shortcuts = document.querySelector("#s-shortcuts");
+  const statusbar = document.querySelector("#s-statusbar");
+
+  const savedAutoSave = localStorage.getItem("forgeos-auto-save") === "1";
+  const savedCompact = localStorage.getItem("forgeos-compact") === "1";
+  const savedAnimations = localStorage.getItem("forgeos-animations") !== "0";
+  const savedShortcuts = localStorage.getItem("forgeos-shortcuts") === "1";
+  const savedStatusbar = localStorage.getItem("forgeos-statusbar") !== "0";
+
+  if (autoSave) autoSave.checked = savedAutoSave;
+  if (compact) compact.checked = savedCompact;
+  if (animations) animations.checked = savedAnimations;
+  if (shortcuts) shortcuts.checked = savedShortcuts;
+  if (statusbar) statusbar.checked = savedStatusbar;
+
+  const applyCompact = (on) => {
+    document.body.classList.toggle("compact", on);
+    const root = document.documentElement;
+    if (on) {
+      root.style.setProperty("--s4", "10px");
+      root.style.setProperty("--s3", "8px");
+      root.style.setProperty("--s2", "6px");
+      root.style.setProperty("--s1", "3px");
+    } else {
+      root.style.removeProperty("--s4");
+      root.style.removeProperty("--s3");
+      root.style.removeProperty("--s2");
+      root.style.removeProperty("--s1");
+    }
+  };
+
+  const applyAnimations = (on) => {
+    document.documentElement.style.setProperty("--trans", on ? ".12s ease" : "0s");
+    document.documentElement.style.setProperty("--trans-slow", on ? ".24s ease" : "0s");
+  };
+
+  const applyShortcuts = (on) => {
+    document.querySelectorAll(".kbd").forEach(el => el.style.display = on ? "" : "none");
+  };
+
+  const applyStatusbar = (on) => {
+    const bar = document.querySelector("#status-bar");
+    if (bar) bar.style.display = on ? "" : "none";
+  };
+
+  applyCompact(savedCompact);
+  applyAnimations(savedAnimations);
+  applyShortcuts(savedShortcuts);
+  applyStatusbar(savedStatusbar);
+
+  const refreshPrefs = () => {
+    localStorage.setItem("forgeos-auto-save", autoSave?.checked ? "1" : "0");
+    localStorage.setItem("forgeos-compact", compact?.checked ? "1" : "0");
+    localStorage.setItem("forgeos-animations", animations?.checked ? "1" : "0");
+    localStorage.setItem("forgeos-shortcuts", shortcuts?.checked ? "1" : "0");
+    localStorage.setItem("forgeos-statusbar", statusbar?.checked ? "1" : "0");
+    applyCompact(compact?.checked);
+    applyAnimations(animations?.checked);
+    applyShortcuts(shortcuts?.checked);
+    applyStatusbar(statusbar?.checked);
+  };
+
+  autoSave?.addEventListener("change", () => {
+    refreshPrefs();
+    if (autoSave.checked) saveAll();
+  });
+
+  compact?.addEventListener("change", () => {
+    refreshPrefs();
+    if (autoSave?.checked) saveAll();
+  });
+
+  animations?.addEventListener("change", () => {
+    refreshPrefs();
+    if (autoSave?.checked) saveAll();
+  });
+
+  shortcuts?.addEventListener("change", () => {
+    refreshPrefs();
+    if (autoSave?.checked) saveAll();
+  });
+
+  statusbar?.addEventListener("change", () => {
+    refreshPrefs();
+    if (autoSave?.checked) saveAll();
+  });
+
+  fontInput?.addEventListener("input", () => {
+    const v = fontInput.value;
+    document.documentElement.style.setProperty("--base-font-size", v + "px");
+    if (fontLabel) fontLabel.textContent = v + "px";
+    if (autoSave?.checked) saveAll();
+  });
+
+  contrastSel?.addEventListener("change", () => {
+    document.documentElement.dataset.contrast = contrastSel.value;
+    if (autoSave?.checked) saveAll();
+  });
+
+  themeSel?.addEventListener("change", () => {
+    if (autoSave?.checked) saveAll();
   });
 }
 
