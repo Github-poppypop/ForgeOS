@@ -6,7 +6,7 @@ describe("server.ts contract", () => {
   const server = readFileSync("server.ts", "utf8");
 
   test("serves SPA without a build step", () => {
-    expect(server.includes('Bun.file(`${PUBLIC}/index.html`)')).toBe(true);
+    expect(server.includes('Bun.file(`${DIST}/index.html`)')).toBe(true);
     expect(server.includes("serveStatic(pathname: string)")).toBe(true);
     expect(server.includes("bun build")).toBe(false);
   });
@@ -73,5 +73,9 @@ describe("server.ts contract", () => {
     expect(server.includes("/api/health/detailed")).toBe(true);
     expect(server.includes("lastMinute")).toBe(true);
     expect(server.includes("rateLimit")).toBe(true);
+  });
+
+  test("has marketplace route", () => {
+    expect(server.includes("/api/marketplace")).toBe(true);
   });
 });

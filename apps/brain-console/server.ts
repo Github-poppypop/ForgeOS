@@ -158,6 +158,7 @@ function authed(req: Request): boolean {
 
 // ---- static ----
 async function serveStatic(pathname: string) {
+  // SPA fallback: return index.html for client-side routes
   const withTrace = (res: Response) => {
     try {
       const activeSpan = trace.getActiveSpan();
@@ -165,6 +166,37 @@ async function serveStatic(pathname: string) {
     } catch {}
     return res;
   };
+  const spaIndex = `${DIST}/index.html`;
+  if (!pathname.includes(".")) {
+    const fallback = `${PUBLIC}/index.html`;
+    const srcIndex = `${ROOT}/src/index.html`;
+    const existing = await (async () => {
+      try {
+        const f = Bun.file(spaIndex);
+        if (await f.exists()) return f;
+      } catch {}
+      try {
+        const f = Bun.file(fallback);
+        if (await f.exists()) return f;
+      } catch {}
+      try {
+        const f = Bun.file(srcIndex);
+        if (await f.exists()) return f;
+      } catch {}
+      return null;
+    })();
+    if (existing) {
+      const headers: Record<string, string> = {
+        "content-type": "text/html; charset=utf-8",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY",
+        strict_transport_security: "max-age=31536000; includeSubDomains",
+        referrer_policy: "no-referrer",
+        permissions_policy: "geolocation=(), microphone=(), camera=()",
+      };
+      return withTrace(new Response(existing, { headers }));
+    }
+  }
   if (pathname === "/") return withTrace(new Response(Bun.file(`${DIST}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } }));
   const distFile = Bun.file(`${DIST}${pathname}`);
   if (await distFile.exists()) {
@@ -377,6 +409,26 @@ const server = serve({
         return json({ webhooks: [], deadLetter: [], ts: Date.now() });
       }
 
+      if (p === "/api/marketplace" && req.method === "GET") {
+        try {
+          const m = await import("file:///C:/Projects/ForgeOS/marketplace/src/index.ts");
+          const url = new URL(req.url, "http://localhost");
+          const q = url.searchParams.get("q") || "";
+          const tag = url.searchParams.get("tag") || undefined;
+          const source = url.searchParams.get("source") || undefined;
+          const data = await m.discover({ q, tag, source, limit: 50 });
+          return json(data);
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/marketplace/install" && req.method === "POST") {
+        const body = await req.json().catch(() => ({}));
+        const name = String(body.name || "").trim();
+        if (!name) return json({ error: "name required" }, 400);
+        return json({ ok: true, queued: name });
+      }
+
       if (p === "/api/request-log" && req.method === "GET") {
         const url = new URL(req.url, "http://localhost");
         const level = (url.searchParams.get("level") || "").toLowerCase();
@@ -435,7 +487,7 @@ const server = serve({
           { id: "l2", title: "E1 proposed", type: "proposal", date: "2026-07-31", mission: "POOL-E1", outcome: "pending", role: "coo/coo" },
           { id: "l3", title: "Submodule conversion approved", type: "approval", date: "2026-07-31", mission: "POOL-SUB", outcome: "approved", role: "cto/cto" },
         ];
-        const filtered = term ? [e for e in entries if term in json.dumps(e).lower()] : entries;
+        const filtered = term ? entries.filter((e) => JSON.stringify(e).toLowerCase().includes(term)) : entries;
         return json({ query: q, ledger: filtered });
       }
 
