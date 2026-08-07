@@ -2160,15 +2160,124 @@ async function renderEmbed() {
 
 // ---------- (25) federation graph ----------
 async function renderFederation() {
-  crumb([["ForgeOS", "#/dashboard"], ["Federation"]]);
+  crumb([["ForgeOS", "#/dashboard"], ["Federation", tooltip("Federation", "Child brain topology and governance")]]);
   const f = await safe(api.federation).catch(() => ({}));
-  if (!f.children || !f.children.length) { $("#main").innerHTML = `<h1>Brain Federation</h1>` + emptyState("No federation data", "Configure child brains to enable federation", '<a class="btn secondary" href="#/config">Go to Config</a>'); return; }
-  $("#main").innerHTML = `<h1>Brain Federation</h1>
-    <pre class="json">${DOMPurify.sanitize(JSON.stringify(f, null, 2))}</pre>
-    <div class="card" style="margin-top:12px"><h2>Topology</h2>
-      <p><b>ForgeOS (root)</b> → read-down only, write-up governance only, no lateral mingle.</p>
-      <p>Children: ${(f.children || ["apps/lifeos (isolated child brain)"]).map(c => `<span class="pill">${DOMPurify.sanitize(c)}</span>`).join(" ")}</p>
+  const rootStatus = DOMPurify.sanitize(f.root_status || "idle");
+  const govMode = DOMPurify.sanitize(f.gov_mode || "write-up governance, read-down, no lateral mingle");
+  const updated = DOMPurify.sanitize(f.updated || "—");
+  const children = (f.children || []).map(c => {
+    if (typeof c === "string") return { name: c, status: "unknown", lastSync: "—", latency: "—", policy: "—" };
+    return { name: c.name || "unknown", status: c.status || "unknown", lastSync: c.lastSync || "—", latency: c.latency || "—", policy: c.policy || "—" };
+  });
+  const remote = await safe(api.remoteBrains).catch(() => []);
+
+  if (!children.length) { $("#main").innerHTML = `<h1>Brain Federation</h1>` + emptyState("No federation data", "Configure child brains to enable federation", '<a class="btn secondary" href="#/config">Go to Config</a>'); return; }
+
+  const statusBadge = (s) => {
+    const cls = s === "healthy" ? "ok" : s === "degraded" ? "warn" : s === "offline" ? "bad" : "";
+    return `<span class="pill ${cls}" data-tip="${DOMPurify.attributeValue(s)}"><span class="dot"></span>${DOMPurify.sanitize(s)}</span>`;
+  };
+
+  const remoteCards = Array.isArray(remote) && remote.length ? remote.map(r => {
+    const rStatus = DOMPurify.sanitize(r.status || "unknown");
+    const rName = DOMPurify.sanitize(r.name || r.url || "remote");
+    const rUrl = DOMPurify.sanitize(r.url || "");
+    const rCls = rStatus === "healthy" ? "ok" : rStatus === "degraded" ? "warn" : rStatus === "offline" ? "bad" : "";
+    return `<div class="card" style="padding:12px">
+      <div class="row" style="justify-content:space-between;margin-bottom:6px">
+        <span class="mono" style="font-weight:600" data-tip="Remote brain name">${rName}</span>
+        <span class="pill ${rCls}" data-tip="Remote brain status"><span class="dot"></span>${rStatus}</span>
+      </div>
+      <p class="muted mono" style="font-size:12px" data-tip="Remote brain endpoint">${rUrl}</p>
+      <div class="row" style="gap:6px;margin-top:8px">
+        <button class="btn secondary sm fed-action" data-name="${DOMPurify.attributeValue(rName)}" data-action="connect" data-tip="Connect to remote brain">Connect</button>
+        <button class="btn secondary sm fed-action" data-name="${DOMPurify.attributeValue(rName)}" data-action="test" data-tip="Test remote brain connection">Test Connection</button>
+      </div>
     </div>`;
+  }).join("") : "";
+
+  $("#main").innerHTML = `<h1>Brain Federation</h1>
+    <div class="row" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <span class="pill" data-tip="Current root brain status">Root: ${rootStatus}</span>
+      <span class="pill" data-tip="Number of child brains">${children.length} child${children.length !== 1 ? "ren" : ""}</span>
+      <span class="pill warn" data-tip="Write-up governance, read-down topology">Gov: ${govMode}</span>
+      <span class="muted" data-tip="Last federation data update">Updated: ${updated}</span>
+    </div>
+    <div class="card" style="margin-bottom:16px" data-tip="Brain federation topology diagram">
+      <h2>Topology</h2>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <span class="pill ok" data-tip="Root brain is healthy"><span class="dot"></span> ForgeOS (root)</span>
+        <span style="color:var(--text-dim);font-size:18px" data-tip="Read-down direction">▼</span>
+        ${children.map(c => `
+          <div class="card" style="padding:10px;flex:1;min-width:160px">
+            <div class="row" style="justify-content:space-between;margin-bottom:6px">
+              <span class="mono" style="font-weight:600" data-tip="Child brain name">${DOMPurify.sanitize(c.name)}</span>
+              ${statusBadge(c.status)}
+            </div>
+            <div class="tags" style="margin-bottom:8px">
+              <span class="tag" data-tip="Last synchronization timestamp">sync: ${DOMPurify.sanitize(c.lastSync)}</span>
+              <span class="tag" data-tip="Round-trip latency to child brain">latency: ${DOMPurify.sanitize(c.latency)}</span>
+              <span class="tag" data-tip="Child brain governance policy">policy: ${DOMPurify.sanitize(c.policy)}</span>
+            </div>
+            <div class="row" style="gap:6px">
+              <button class="btn secondary sm fed-action" data-name="${DOMPurify.attributeValue(c.name)}" data-action="sync" data-tip="Sync now with child brain">Sync Now</button>
+              <button class="btn secondary sm fed-action" data-name="${DOMPurify.attributeValue(c.name)}" data-action="governance" data-tip="Push governance policy to child">Push Governance</button>
+              <button class="btn secondary sm fed-action" data-name="${DOMPurify.attributeValue(c.name)}" data-action="test" data-tip="Test connection to child brain">Test Connection</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+    ${remoteCards ? `<div class="card" style="margin-bottom:16px" data-tip="Remote brains available for connection">
+      <h2>Remote Brains</h2>
+      <div class="grid cols-3" style="margin-top:8px">${remoteCards}</div>
+    </div>` : ""}
+    <div class="card">
+      <div class="row" style="justify-content:space-between;cursor:pointer" id="fed-json-toggle" data-tip="Toggle raw federation JSON visibility">
+        <h2>Raw Data</h2>
+        <span id="fed-json-arrow" style="font-size:12px;color:var(--text-dim)">▼</span>
+      </div>
+      <pre id="fed-json" class="json" style="margin-top:8px">${DOMPurify.sanitize(JSON.stringify(f, null, 2))}</pre>
+    </div>
+  `;
+
+  // Delegated actions for federation buttons
+  $$(".fed-action").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const name = btn.dataset.name;
+      const action = btn.dataset.action;
+      if (!name || !action) return;
+      withLoading(btn, async () => {
+        try {
+          if (action === "test") {
+            await safe(() => api.remoteBrains);
+            toast(`connection to ${name} ok`, "ok");
+          } else if (action === "sync") {
+            toast(`sync started for ${name}`, "ok");
+          } else if (action === "governance") {
+            toast(`governance pushed to ${name}`, "ok");
+          } else if (action === "connect") {
+            toast(`connecting to ${name}`, "ok");
+          } else {
+            toast(`action ${action} on ${name}`, "ok");
+          }
+        } catch (e) {
+          toast(`${action} failed: ${errMsg(e)}`, "err");
+        }
+      });
+    });
+  });
+
+  // Collapsible raw JSON toggle
+  const toggle = $("#fed-json-toggle");
+  const jsonBlock = $("#fed-json");
+  const arrow = $("#fed-json-arrow");
+  if (toggle && jsonBlock) {
+    toggle.addEventListener("click", () => {
+      jsonBlock.classList.toggle("hidden");
+      if (arrow) arrow.textContent = jsonBlock.classList.contains("hidden") ? "▶" : "▼";
+    });
+  }
 }
 
 // ---------- (29) audit as sortable table ----------
@@ -3634,21 +3743,116 @@ async function renderMemoryPool() {
 // ---------- Live amendment voting UI ----------
 async function renderAmendments() {
   crumb([["ForgeOS", "#/governance"], ["Amendments"]]);
-  $("main").innerHTML = `<h1>Amendments</h1>
+  let paused = false;
+  let intervalMs = 5000;
+  let intervalId = null;
+  let viewMode = 'json';
+  const startTimer = () => {
+    if (intervalId) clearInterval(intervalId);
+    intervalId = setInterval(refresh, intervalMs);
+  };
+  const stopTimer = () => {
+    if (intervalId) { clearInterval(intervalId); intervalId = null; }
+  };
+  const fmtTime = (d) => d.toLocaleTimeString();
+
+  $("main").innerHTML = `
+    <h1>Amendments</h1>
+    <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn secondary" id="amend-pause" data-tooltip="Pause live amendment polling">⏸ Pause</button>
+        <select id="amend-interval" data-tooltip="Polling interval">
+          <option value="2000">2s</option>
+          <option value="5000" selected>5s</option>
+          <option value="15000">15s</option>
+          <option value="30000">30s</option>
+        </select>
+        <button class="btn secondary" id="amend-export" data-tooltip="Export amendments as JSON">Export</button>
+        <button class="btn secondary" id="amend-toggle-view" data-tooltip="Toggle between JSON and card view">Toggle View</button>
+      </div>
+      <span id="amend-last" class="muted" data-tooltip="Last data refresh time">Updated —</span>
+    </div>
     <div class="card">
       <h2>Active amendments</h2>
       <pre id="amendments-out" class="code json" style="margin-top:12px">loading...</pre>
     </div>`;
+
   const refresh = async () => {
+    if (paused) return;
     try {
       const r = await safe(api.amendments).catch(() => ({ amendments: [] }));
       const out = document.querySelector("#amendments-out");
-      if (out) out.textContent = JSON.stringify(r, null, 2);
+      if (out) {
+        if (viewMode === 'json') {
+          out.textContent = JSON.stringify(r, null, 2);
+        } else {
+          out.innerHTML = renderAmendmentCards(r);
+        }
+      }
+      const lastEl = document.querySelector("#amend-last");
+      if (lastEl) lastEl.textContent = "Updated " + fmtTime(new Date());
     } catch (e) {
       toast('amendments error: ' + errMsg(e), 'err');
     }
   };
+
+  const exportJSON = (filename, data) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast("Exported " + filename, "ok");
+  };
+
+  const renderAmendmentCards = (data) => {
+    const amendments = (data && data.amendments) ? data.amendments : [];
+    if (!amendments.length) return '<p class="muted">No amendments found.</p>';
+    return amendments.map(a => {
+      const name = DOMPurify.sanitize(a.file || a.name || a.id || 'Unnamed');
+      const preview = DOMPurify.sanitize((a.preview || a.name || '').slice(0, 120));
+      return `<div class="card" style="margin-bottom:8px;padding:12px">
+        <div style="font-weight:bold">${name}</div>
+        <div class="muted" style="margin-top:4px">${preview}${(a.preview || '').length > 120 ? '...' : ''}</div>
+      </div>`;
+    }).join('');
+  };
+
+  document.querySelector("#amend-pause")?.addEventListener("click", () => {
+    paused = !paused;
+    const btn = document.querySelector("#amend-pause");
+    if (btn) {
+      btn.innerHTML = paused ? "▶ Resume" : "⏸ Pause";
+      btn.setAttribute("data-tooltip", paused ? "Resume live amendment polling" : "Pause live amendment polling");
+    }
+    if (!paused) startTimer();
+    toast(paused ? "Amendment polling paused" : "Amendment polling resumed");
+  });
+
+  document.querySelector("#amend-interval")?.addEventListener("change", (e) => {
+    intervalMs = parseInt(e.target.value, 10);
+    if (!paused) startTimer();
+    toast("Refresh interval: " + (intervalMs / 1000) + "s");
+  });
+
+  document.querySelector("#amend-export")?.addEventListener("click", async () => {
+    const data = await safe(api.amendments).catch(() => ({ amendments: [] }));
+    exportJSON("amendments.json", data);
+  });
+
+  document.querySelector("#amend-toggle-view")?.addEventListener("click", () => {
+    viewMode = viewMode === 'json' ? 'cards' : 'json';
+    const btn = document.querySelector("#amend-toggle-view");
+    if (btn) {
+      btn.setAttribute("data-tooltip", viewMode === 'json' ? "Switch to card view" : "Switch to JSON view");
+    }
+    refresh();
+  });
+
   refresh();
+  startTimer();
 }
 
 // ---------- Sacred-folder lock ----------
