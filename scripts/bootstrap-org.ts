@@ -63,7 +63,6 @@ export function parseSimpleYaml(text: string): Record<string, unknown> {
       const v = rest.join(':').trim();
       const targetObj = stack[stack.length - 1].obj;
       if (v === '' || v === '>-') {
-        // multiline or mapping follows
         targetObj[k.trim()] = '';
         stack.push({ key: k.trim(), obj: targetObj as Record<string, unknown> });
         lastKey = k.trim();
@@ -250,7 +249,7 @@ export function rolePage(role: RoleDef): string {
   );
 }
 
-function orgPage(): string {
+export function orgPage(): string {
   return (
     frontmatter({
       id: 'org',
@@ -259,7 +258,7 @@ function orgPage(): string {
       primitive: 'concept',
       version: '1.0.0',
     }) +
-    `# ForgeOS Organizational Memory\n\nThis directory is the canonical org brain scaffold. It is generated from\nthe `forgeos` schema pack.\n\n## Structure\n\n- `/org` — compiled truth above the line, history below.\n- `/board` `/exec` `/cto` `/cpo` `/coo` `/cmo` `/cfo` — scoped role pages.\n- `/decisions` — material decision records (ORG §3.5).\n- `/incidents` — escalation and post-mortem records (ORG §3.3).\n- `/capabilities` — marketplace capability definitions.\n- `/apps-feed` — governance uplinks from apps.\n\n## Operational Discipline\n\n1. MECE directories — every record has exactly one primary home.\n2. Compiled truth + timeline — above the line = current state; below = evidence.\n3. Enrichment on every signal — every action enriches the relevant entity page.\n`
+    `# ForgeOS Organizational Memory\n\nThis directory is the canonical org brain scaffold. It is generated from\nthe forgeos schema pack.\n\n## Structure\n\n- /org — compiled truth above the line, history below.\n- /board /exec /cto /cpo /coo /cmo /cfo — scoped role pages.\n- /decisions — material decision records (ORG §3.5).\n- /incidents — escalation and post-mortem records (ORG §3.3).\n- /capabilities — marketplace capability definitions.\n- /apps-feed — governance uplinks from apps.\n\n## Operational Discipline\n\n1. MECE directories — every record has exactly one primary home.\n2. Compiled truth + timeline — above the line = current state; below = evidence.\n3. Enrichment on every signal — every action enriches the relevant entity page.\n`
   );
 }
 
