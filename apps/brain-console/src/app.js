@@ -231,19 +231,19 @@ async function renderDashboard() {
   $("#main").innerHTML = skelGrid(4, 160);
   const [s, roles] = await Promise.all([safe(api.status).catch(() => null), safe(api.roles).catch(() => ({ roles: [] }))]);
   const healthPill = s && s.gbrain_health && s.gbrain_health.status === "ok"
-    ? `<span class="pill ok"><span class="dot"></span> brain ok</span>`
-    : `<span class="pill bad"><span class="dot"></span> brain down</span>`;
+    ? `<span class="pill ok" data-tooltip="Core brain service is healthy"><span class="dot"></span> brain ok</span>`
+    : `<span class="pill bad" data-tooltip="Core brain service is unreachable"><span class="dot"></span> brain down</span>`;
   const ollamaPill = s && s.ollama
-    ? `<span class="pill ok"><span class="dot"></span> ollama</span>`
-    : `<span class="pill bad"><span class="dot"></span> ollama off</span>`;
+    ? `<span class="pill ok" data-tooltip="Local LLM runtime available"><span class="dot"></span> ollama</span>`
+    : `<span class="pill bad" data-tooltip="Local LLM runtime offline"><span class="dot"></span> ollama off</span>`;
   const seeded = (roles.roles || []).filter(r => r.exists).length;
   $("#main").innerHTML = `
     <h1>Brain Console</h1>
     <div class="row" style="margin-bottom:24px">
       ${healthPill} ${ollamaPill}
-      <span class="pill"><span class="dot"></span> ${s && s.embedding_model ? DOMPurify.sanitize(s.embedding_model) : "—"}</span>
-      <span class="pill">pack ${((s && s.schema ? s.schema : "").match(/forgeos/) ? "forgeos" : "—")}</span>
-      ${s && s.auth ? `<span class="pill warn"><span class="dot"></span> auth on</span>` : ""}
+      <span class="pill" data-tooltip="Embedding model for semantic search"><span class="dot"></span> ${s && s.embedding_model ? DOMPurify.sanitize(s.embedding_model) : "—"}</span>
+      <span class="pill" data-tooltip="Loaded knowledge pack">pack ${((s && s.schema ? s.schema : "").match(/forgeos/) ? "forgeos" : "—")}</span>
+      ${s && s.auth ? `<span class="pill warn" data-tooltip="Authentication system is enabled"><span class="dot"></span> auth on</span>` : ""}
     </div>
     <div class="grid cols-3">
       <div class="card"><h2>Isolation</h2><p class="muted mono">${s && s.isolation ? DOMPurify.sanitize(s.isolation) : "—"}</p></div>
@@ -254,18 +254,54 @@ async function renderDashboard() {
     <div class="card" style="margin-top:16px"><h2>Quick actions</h2>
       <div class="row">
         <a class="btn primary" href="#/roles">Roles</a>
+        <button class="btn secondary" id="refresh-dashboard" data-tooltip="Reload dashboard data">Refresh</button>
         <a class="btn secondary" href="#/search" data-tooltip="Search across all brains">Search</a>
         <a class="btn secondary" href="#/capture" data-tooltip="Create new brain page">Capture</a>
-        <a class="btn secondary" href="#/embed">Re-embed</a>
+        <button class="btn secondary" id="copy-status" data-tooltip="Copy current status as JSON">Copy status</button>
+        <a class="btn secondary" href="#/embed" data-tooltip="Re-embed all knowledge">Re-embed</a>
       </div>
     </div>
-    <p class="muted" id="live" style="margin-top:12px">live: connecting…</p>`;
-  // SSE live status
+    <p class="muted" id="live" style="margin-top:12px">live: connecting… <span id="last-refreshed" data-tooltip="Time of last successful data fetch">(refreshed —)</span></p>`;
+
+  const refreshBtn = $("#refresh-dashboard");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", async () => {
+      refreshBtn.classList.add("loading");
+      await renderDashboard();
+      toast("dashboard refreshed", "ok");
+    });
+  }
+
+  const copyBtn = $("#copy-status");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", async () => {
+      try {
+        const status = await safe(() => api.status);
+        await navigator.clipboard.writeText(JSON.stringify(status, null, 2));
+        toast("status copied to clipboard", "ok");
+      } catch (e) {
+        toast(errMsg(e), "err");
+      }
+    });
+  }
+
   if (healthTimer) clearInterval(healthTimer);
   try {
     const es = new EventSource("/api/health/stream");
-    es.onmessage = (ev) => { const d = JSON.parse(ev.data); const el = $("#live"); if (el) el.textContent = "live: ok @ " + new Date(d.ts).toLocaleTimeString(); };
-    es.onerror = () => { const el = $("#live"); if (el) el.textContent = "live: (polling unavailable)"; };
+    es.onmessage = (ev) => {
+      const d = JSON.parse(ev.data);
+      const live = $("#live");
+      const lr = $("#last-refreshed");
+      if (live) {
+        live.innerHTML = `live: ok @ ${new Date(d.ts).toLocaleTimeString()} <span id="last-refreshed" data-tooltip="Time of last successful data fetch">(refreshed ${new Date().toLocaleTimeString()})</span>`;
+      }
+    };
+    es.onerror = () => {
+      const live = $("#live");
+      if (live) {
+        live.innerHTML = `live: (polling unavailable) <span id="last-refreshed" data-tooltip="Time of last successful data fetch">(refreshed ${new Date().toLocaleTimeString()})</span>`;
+      }
+    };
   } catch {}
   const refreshHealth = async () => {
     const card = $("#health-card");
@@ -278,6 +314,8 @@ async function renderDashboard() {
         <p class="mono">uptime ${Math.round((data.uptime || 0) / 1000)}s</p>
         <p class="muted">last min: ${data.requests?.lastMinute ?? "-"} req / ${data.errors?.lastMinute ?? "-"} err</p>
         ${recent.length ? `<pre class="code json">${DOMPurify.sanitize(JSON.stringify(recent, null, 2))}</pre>` : "<p class='muted'>no recent errors</p>"}`;
+      const lr = $("#last-refreshed");
+      if (lr) lr.textContent = "(refreshed " + new Date().toLocaleTimeString() + ")";
     } catch {
       card.innerHTML = "<h2>Health</h2><p class='muted'>error loading health</p>";
     }
