@@ -584,13 +584,98 @@ async function renderTimeline() {
   const r = await safe(() => api.timeline()).catch(() => ({ timeline: [] }));
   const items = Array.isArray(r.timeline) ? r.timeline : [];
   if (!items.length) { $("#main").innerHTML = `<h1>Timeline Engine</h1>` + emptyState("No milestones yet", "Capture timeline entries to track progress", '<a class="btn secondary" href="#/capture">Go to Capture</a>'); return; }
+  const statuses = [...new Set(items.map(i => i.status).filter(Boolean))].sort();
   $("#main").innerHTML = `<h1>Timeline Engine</h1>
-    <div class="card"><h2>Milestones</h2>
-    <div class="timeline">${items.map(i => `<div class="tl-item ${i.status==='done'?'done':i.status==='in-progress'?'active':''}">
-      <div class="tl-date">${DOMPurify.sanitize(i.date)}</div>
-      <div class="tl-body"><div class="tl-title">${DOMPurify.sanitize(i.title)}</div>
-      <div class="tl-meta">${DOMPurify.sanitize(i.owner)} · <span class="pill ${i.status==='done'?'ok':i.status==='in-progress'?'warn':''}">${DOMPurify.sanitize(i.status)}</span></div>
-      </div></div>`).join("")}</div></div>`;
+    <div class="card" style="margin-bottom:16px">
+      <h2>Milestones</h2>
+      <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+        <input type="search" id="tl-search" placeholder="Search milestones..." data-tooltip="Filter milestones by title or owner" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" />
+        <select id="tl-status" data-tooltip="Filter by milestone status" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="">All statuses</option>
+          ${statuses.map(s => `<option value="${DOMPurify.sanitize(s)}">${DOMPurify.sanitize(s)}</option>`).join("")}
+        </select>
+        <input type="date" id="tl-from" data-tooltip="Show milestones from this date" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" />
+        <input type="date" id="tl-to" data-tooltip="Show milestones until this date" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" />
+        <button class="btn secondary" id="tl-reset" data-tooltip="Clear all timeline filters">Reset</button>
+      </div>
+      <div id="tl-summary" class="row" style="margin-top:8px;gap:8px"></div>
+    </div>
+    <div class="card">
+      <div id="tl-list" class="timeline"></div>
+      <div id="tl-empty" class="hidden"></div>
+    </div>`;
+  const renderSummary = () => {
+    const counts: Record<string, number> = {};
+    items.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; });
+    const summaryEl = $("#tl-summary");
+    if (summaryEl) {
+      summaryEl.innerHTML = Object.entries(counts).map(([status, count]) =>
+        `<span class="pill ${status==='done'?'ok':status==='in-progress'?'warn':''}" data-tooltip="${count} milestone${count!==1?'s':''} with status ${status}"><span class="dot"></span>${status}: ${count}</span>`
+      ).join("") + `<span class="muted" data-tooltip="Total milestones on this timeline">Total: ${items.length}</span>`;
+    }
+  };
+  const renderList = () => {
+    const q = ($("#tl-search")?.value || "").toLowerCase();
+    const status = $("#tl-status")?.value || "";
+    const from = $("#tl-from")?.value || "";
+    const to = $("#tl-to")?.value || "";
+    let filtered = items;
+    if (q) {
+      filtered = filtered.filter(i => (i.title || "").toLowerCase().includes(q) || (i.owner || "").toLowerCase().includes(q));
+    }
+    if (status) {
+      filtered = filtered.filter(i => i.status === status);
+    }
+    if (from) {
+      filtered = filtered.filter(i => i.date && i.date >= from);
+    }
+    if (to) {
+      filtered = filtered.filter(i => i.date && i.date <= to);
+    }
+    const list = $("#tl-list");
+    const empty = $("#tl-empty");
+    if (!list) return;
+    if (!filtered.length) {
+      if (list) list.innerHTML = "";
+      if (empty) { empty.classList.remove("hidden"); empty.innerHTML = emptyState("No milestones match", "Try adjusting your filters"); }
+      return;
+    }
+    if (empty) empty.classList.add("hidden");
+    list.innerHTML = filtered.map(i => {
+      const desc = i.description ? `<div class="tl-desc hidden" data-id="${DOMPurify.sanitize(i.id || i.title)}">${DOMPurify.sanitize(i.description)}</div>` : "";
+      const expandBtn = i.description ? `<button class="btn secondary sm tl-expand" data-id="${DOMPurify.sanitize(i.id || i.title)}" data-tooltip="Show more details">▸</button>` : "";
+      return `<div class="tl-item ${i.status==='done'?'done':i.status==='in-progress'?'active':''}">
+        <div class="tl-date">${DOMPurify.sanitize(i.date)}</div>
+        <div class="tl-body">
+          <div class="tl-title">${DOMPurify.sanitize(i.title)}</div>
+          <div class="tl-meta">${DOMPurify.sanitize(i.owner)} · <span class="pill ${i.status==='done'?'ok':i.status==='in-progress'?'warn':''}" data-tooltip="Current status: ${DOMPurify.sanitize(i.status)}">${DOMPurify.sanitize(i.status)}</span>${expandBtn}</div>
+          ${desc}
+        </div></div>`;
+    }).join("");
+  };
+  renderSummary();
+  renderList();
+  $("#tl-reset")?.addEventListener("click", () => {
+    $("#tl-search").value = "";
+    $("#tl-status").value = "";
+    $("#tl-from").value = "";
+    $("#tl-to").value = "";
+    renderList();
+  });
+  ["#tl-search", "#tl-status", "#tl-from", "#tl-to"].forEach(sel => {
+    $(sel)?.addEventListener("input", renderList);
+    $(sel)?.addEventListener("change", renderList);
+  });
+  $("#tl-list")?.addEventListener("click", (e) => {
+    const btn = e.target.closest(".tl-expand");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const desc = document.querySelector(`.tl-desc[data-id="${CSS.escape(id)}"]`);
+    if (desc) {
+      desc.classList.toggle("hidden");
+      btn.textContent = desc.classList.contains("hidden") ? "▸" : "▾";
+    }
+  });
 }
 
 async function renderLedger() {
