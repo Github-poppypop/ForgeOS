@@ -704,19 +704,23 @@ async function renderSearch() {
   $("#q").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
 }
 
-// ---------- (24) capture w/ validation + preview + batch ----------
+// ---------- (24) capture w/ validation + preview + batch + tooltips ----------
 async function renderCapture() {
   crumb([["ForgeOS", "#/dashboard"], ["Capture"]]);
   $("#main").innerHTML = `<h1>Capture Page</h1>
     <div class="card" style="max-width:680px">
-      <div class="row"><label>slug</label><input id="slug" class="mono" value="decisions/demo" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      <div class="row"><label>slug</label><input id="slug" class="mono" value="decisions/demo" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/><button class="btn secondary" id="copy-slug" data-tooltip="Copy slug to clipboard">Copy</button></div>
       <div class="row" style="margin-top:8px"><label>type</label><input id="type" value="note" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      <div class="row" style="margin-top:8px"><label>template</label><select id="template" data-tooltip="Load a pre-built content template" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"><option value="">-- choose template --</option><option value="note">Note</option><option value="decision">Decision</option><option value="incident">Incident</option><option value="meeting">Meeting Notes</option><option value="action">Action Item</option></select></div>
+      <div class="row" style="margin-top:8px"><label>tags</label><input id="tags" placeholder="comma separated" data-tooltip="Comma-separated tags for categorization" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
       <textarea id="body" rows="8" style="width:100%;margin-top:8px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono)"># Demo
 Write something for the brain.</textarea>
       <div id="preview" class="json" style="margin-top:8px"></div>
+      <div id="draft-status" class="muted" style="margin-top:4px" data-tooltip="Last auto-saved to browser storage"></div>
       <div class="row" style="margin-top:8px">
         <button class="btn primary" id="cap">Capture</button>
         <button class="btn secondary" id="prev">Preview</button>
+        <button class="btn secondary" id="clear" data-tooltip="Clear all fields">Clear</button>
         <span id="slugmsg" class="muted"></span>
       </div>
     </div>`;
@@ -727,13 +731,53 @@ Write something for the brain.</textarea>
     $("#slugmsg").style.color = ok ? "" : "var(--danger)";
     return ok;
   };
+  try {
+    const draft = JSON.parse(localStorage.getItem('capture-draft') || '{}');
+    if (draft.slug) $("#slug").value = draft.slug;
+    if (draft.type) $("#type").value = draft.type;
+    if (draft.body) $("#body").value = draft.body;
+    if (draft.tags) $("#tags").value = draft.tags;
+    if (draft.template) $("#template").value = draft.template;
+    validate();
+  } catch {}
+  const saveDraft = () => {
+    try {
+      localStorage.setItem('capture-draft', JSON.stringify({slug: $("#slug").value.trim(), type: $("#type").value.trim(), body: $("#body").value, tags: $("#tags").value.trim(), template: $("#template").value}));
+      const ds = $("#draft-status");
+      if (ds) ds.textContent = "Draft saved " + new Date().toLocaleTimeString();
+    } catch {}
+  };
+  ["#slug", "#type", "#body", "#tags", "#template"].forEach(sel => { $(sel)?.addEventListener("input", saveDraft); });
+  $("#template")?.addEventListener("change", () => {
+    const t = $("#template").value;
+    const templates = {note: "# Note\n\n", decision: "# Decision\n\n## Context\n\n## Outcome\n\n", incident: "# Incident\n\n## Timeline\n\n## Resolution\n\n", meeting: "# Meeting Notes\n\n## Attendees\n\n## Agenda\n\n## Action Items\n\n", action: "# Action Item\n\n## Owner\n\n## Due Date\n\n## Status\n\n"};
+    if (t && templates[t]) { $("#body").value = templates[t]; saveDraft(); }
+  });
+  $("#copy-slug")?.addEventListener("click", () => {
+    navigator.clipboard?.writeText($("#slug").value.trim())
+      .then(() => toast("slug copied", "ok"), () => toast("copy failed", "err"));
+  });
+  $("#clear")?.addEventListener("click", () => {
+    $("#slug").value = "";
+    $("#type").value = "note";
+    $("#body").value = "# Demo\nWrite something for the brain.";
+    $("#tags").value = "";
+    $("#template").value = "";
+    $("#preview").textContent = "";
+    $("#slugmsg").textContent = "";
+    localStorage.removeItem("capture-draft");
+    const ds = $("#draft-status");
+    if (ds) ds.textContent = "";
+    validate();
+    toast("form cleared", "ok");
+  });
   $("#slug").addEventListener("input", validate);
   $("#prev").addEventListener("click", () => { $("#preview").textContent = $("#body").value; });
   $("#cap").addEventListener("click", () => withLoading($("#cap"), async () => {
     if (!validate()) return;
     const r = await safe(() => api.capture($("#slug").value.trim(), $("#type").value.trim(), $("#body").value));
     toast(r.err ? "capture failed: " + errMsg(r.err) : "captured " + $("#slug").value, r.err ? "err" : "ok");
-    if (!r.err) location.hash = "#/page/" + encodeURIComponent($("#slug").value.trim());
+    if (!r.err) { localStorage.removeItem("capture-draft"); location.hash = "#/page/" + encodeURIComponent($("#slug").value.trim()); }
   }));
 }
 
@@ -2033,24 +2077,84 @@ function renderConfig() {
   crumb([["ForgeOS", "#/dashboard"], ["Config"]]);
   const theme = localStorage.getItem("forgeos-theme") || "dark";
   $("#main").innerHTML = `<h1>Environment</h1>
-    <div class="card"><p class="muted">Isolated brain env:</p>
-    <ul class="mono">
-      <li>GBRAIN_HOME = C:\\ForgeOS</li>
-      <li>OLLAMA_BASE_URL = http://localhost:11434/v1</li>
-      <li>GBRAIN_EMBEDDING_DIMENSIONS = 1024</li>
-      <li>DATABASE_URL = (unset — Postgres pool breaks PGLite)</li>
-    </ul>
-    <div class="row" style="margin-top:12px"><label>Theme</label>
-      <select id="theme" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
-        <option value="dark" ${theme === "dark" ? "selected" : ""}>dark</option>
-        <option value="light" ${theme === "light" ? "selected" : ""}>light</option>
-        <option value="auto" ${theme === "auto" ? "selected" : ""}>auto (system)</option>
-        <option value="hc" ${theme === "hc" ? "selected" : ""}>high-contrast</option>
-      </select>
-      <button class="btn secondary" id="apply">Apply (persists)</button>
-      <a class="btn secondary" href="#/config">API docs</a>
-    </div>
-    <p class="muted" style="margin-top:8px">REST surface: <a class="link" href="/api/openapi">/api/openapi</a> · backup: POST /api/backup</p></div>`;
+    <div class="card">
+      <p class="muted" data-tooltip="This brain runs in its own isolated filespace">Isolated brain env:</p>
+      <details style="margin-top:8px">
+        <summary class="mono" data-tooltip="Click to expand environment variables">GBRAIN_HOME = C:\\ForgeOS · OLLAMA_BASE_URL = http://localhost:11434/v1 · GBRAIN_EMBEDDING_DIMENSIONS = 1024 · DATABASE_URL = (unset)</summary>
+        <ul class="mono" style="margin-top:8px">
+          <li>GBRAIN_HOME = C:\\ForgeOS</li>
+          <li>OLLAMA_BASE_URL = http://localhost:11434/v1</li>
+          <li>GBRAIN_EMBEDDING_DIMENSIONS = 1024</li>
+          <li>DATABASE_URL = (unset — Postgres pool breaks PGLite)</li>
+        </ul>
+      </details>
+      <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">
+        <label data-tooltip="Choose a UI color theme">Theme</label>
+        <select id="theme" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="dark" ${theme === "dark" ? "selected" : ""}>dark</option>
+          <option value="light" ${theme === "light" ? "selected" : ""}>light</option>
+          <option value="auto" ${theme === "auto" ? "selected" : ""}>auto (system)</option>
+          <option value="hc" ${theme === "hc" ? "selected" : ""}>high-contrast</option>
+        </select>
+        <button class="btn secondary" id="apply" data-tooltip="Persist theme choice to localStorage">Apply (persists)</button>
+        <button class="btn secondary" id="refresh-stats" data-tooltip="Reload system stats">Refresh stats</button>
+        <button class="btn secondary" id="copy-status" data-tooltip="Copy current brain status JSON to clipboard">Copy status</button>
+        <button class="btn secondary" id="backup" data-tooltip="Trigger a manual backup of brain state">Backup</button>
+        <a class="btn secondary" href="#/config" data-tooltip="View full API surface documentation">API docs</a>
+      </div>
+      <div id="config-stats" style="margin-top:12px"></div>
+      <p class="muted" style="margin-top:8px">REST surface: <a class="link" href="/api/openapi">/api/openapi</a> · backup: POST /api/backup</p>
+    </div>`;
+  
+  // Feature 1: Collapsible env vars
+  // Feature 2: Live system stats
+  const statsEl = $("#config-stats");
+  const renderStats = () => {
+    return safe(api.status).then(s => {
+      if (!s) return;
+      return Promise.all([safe(api.roles).catch(() => ({ roles: [] }))]).then(([{ roles }]) => {
+        const seeded = (roles || []).filter(r => r.exists).length;
+        statsEl.innerHTML = `<div class="row" style="gap:8px;flex-wrap:wrap">
+          <span class="pill" data-tooltip="Core brain service health"><span class="dot"></span> brain: ${s.gbrain_health && s.gbrain_health.status === "ok" ? "ok" : "down"}</span>
+          <span class="pill" data-tooltip="Local LLM runtime availability"><span class="dot"></span> ollama: ${s.ollama ? "on" : "off"}</span>
+          <span class="pill" data-tooltip="Loaded embedding model for semantic search">model: ${s.embedding_model || "—"}</span>
+          <span class="pill" data-tooltip="Seeded C-suite roles out of 7">roles: ${seeded}/7</span>
+          <span class="pill" data-tooltip="Active knowledge pack prefix">pack: ${((s.schema || "").match(/forgeos/) ? "forgeos" : "—")}</span>
+          ${s.auth ? `<span class="pill warn" data-tooltip="Authentication system is enabled"><span class="dot"></span> auth on</span>` : ""}
+        </div>`;
+      });
+    }).catch(() => {});
+  };
+  if (statsEl) renderStats();
+  
+  // Feature 3: Refresh stats
+  $("#refresh-stats")?.addEventListener("click", () => withLoading($("#refresh-stats"), renderStats));
+  
+  // Feature 4: Copy status
+  $("#copy-status")?.addEventListener("click", async () => {
+    try {
+      const status = await safe(() => api.status);
+      await navigator.clipboard.writeText(JSON.stringify(status, null, 2));
+      toast("status copied to clipboard", "ok");
+    } catch (e) {
+      toast(errMsg(e), "err");
+    }
+  });
+  
+  // Feature 5: Backup
+  $("#backup")?.addEventListener("click", async () => {
+    try {
+      const res = await safe(() => fetch("/api/backup", { method: "POST" }));
+      if (res && res.ok) {
+        toast("backup started", "ok");
+      } else {
+        toast("backup failed", "err");
+      }
+    } catch (e) {
+      toast(errMsg(e), "err");
+    }
+  });
+  
   $("#apply").addEventListener("click", () => {
     const t = $("#theme").value;
     localStorage.setItem("forgeos-theme", t);

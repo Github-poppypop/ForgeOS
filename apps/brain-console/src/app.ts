@@ -2010,24 +2010,84 @@ function renderConfig() {
   crumb([["ForgeOS", "#/dashboard"], ["Config"]]);
   const theme = localStorage.getItem("forgeos-theme") || "dark";
   $("#main").innerHTML = `<h1>Environment</h1>
-    <div class="card"><p class="muted">Isolated brain env:</p>
-    <ul class="mono">
-      <li>GBRAIN_HOME = C:\\ForgeOS</li>
-      <li>OLLAMA_BASE_URL = http://localhost:11434/v1</li>
-      <li>GBRAIN_EMBEDDING_DIMENSIONS = 1024</li>
-      <li>DATABASE_URL = (unset — Postgres pool breaks PGLite)</li>
-    </ul>
-    <div class="row" style="margin-top:12px"><label>Theme</label>
-      <select id="theme" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
-        <option value="dark" ${theme === "dark" ? "selected" : ""}>dark</option>
-        <option value="light" ${theme === "light" ? "selected" : ""}>light</option>
-        <option value="auto" ${theme === "auto" ? "selected" : ""}>auto (system)</option>
-        <option value="hc" ${theme === "hc" ? "selected" : ""}>high-contrast</option>
-      </select>
-      <button class="btn secondary" id="apply">Apply (persists)</button>
-      <a class="btn secondary" href="#/config">API docs</a>
-    </div>
-    <p class="muted" style="margin-top:8px">REST surface: <a class="link" href="/api/openapi">/api/openapi</a> · backup: POST /api/backup</p></div>`;
+    <div class="card">
+      <p class="muted" data-tooltip="This brain runs in its own isolated filespace">Isolated brain env:</p>
+      <details style="margin-top:8px">
+        <summary class="mono" data-tooltip="Click to expand environment variables">GBRAIN_HOME = C:\\ForgeOS · OLLAMA_BASE_URL = http://localhost:11434/v1 · GBRAIN_EMBEDDING_DIMENSIONS = 1024 · DATABASE_URL = (unset)</summary>
+        <ul class="mono" style="margin-top:8px">
+          <li>GBRAIN_HOME = C:\\ForgeOS</li>
+          <li>OLLAMA_BASE_URL = http://localhost:11434/v1</li>
+          <li>GBRAIN_EMBEDDING_DIMENSIONS = 1024</li>
+          <li>DATABASE_URL = (unset — Postgres pool breaks PGLite)</li>
+        </ul>
+      </details>
+      <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">
+        <label data-tooltip="Choose a UI color theme">Theme</label>
+        <select id="theme" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="dark" ${theme === "dark" ? "selected" : ""}>dark</option>
+          <option value="light" ${theme === "light" ? "selected" : ""}>light</option>
+          <option value="auto" ${theme === "auto" ? "selected" : ""}>auto (system)</option>
+          <option value="hc" ${theme === "hc" ? "selected" : ""}>high-contrast</option>
+        </select>
+        <button class="btn secondary" id="apply" data-tooltip="Persist theme choice to localStorage">Apply (persists)</button>
+        <button class="btn secondary" id="refresh-stats" data-tooltip="Reload system stats">Refresh stats</button>
+        <button class="btn secondary" id="copy-status" data-tooltip="Copy current brain status JSON to clipboard">Copy status</button>
+        <button class="btn secondary" id="backup" data-tooltip="Trigger a manual backup of brain state">Backup</button>
+        <a class="btn secondary" href="#/config" data-tooltip="View full API surface documentation">API docs</a>
+      </div>
+      <div id="config-stats" style="margin-top:12px"></div>
+      <p class="muted" style="margin-top:8px">REST surface: <a class="link" href="/api/openapi">/api/openapi</a> · backup: POST /api/backup</p>
+    </div>`;
+  
+  // Feature 1: Collapsible env vars
+  // Feature 2: Live system stats
+  const statsEl = $("#config-stats");
+  const renderStats = () => {
+    return safe(api.status).then(s => {
+      if (!s) return;
+      return Promise.all([safe(api.roles).catch(() => ({ roles: [] }))]).then(([{ roles }]) => {
+        const seeded = (roles || []).filter(r => r.exists).length;
+        statsEl.innerHTML = `<div class="row" style="gap:8px;flex-wrap:wrap">
+          <span class="pill" data-tooltip="Core brain service health"><span class="dot"></span> brain: ${s.gbrain_health && s.gbrain_health.status === "ok" ? "ok" : "down"}</span>
+          <span class="pill" data-tooltip="Local LLM runtime availability"><span class="dot"></span> ollama: ${s.ollama ? "on" : "off"}</span>
+          <span class="pill" data-tooltip="Loaded embedding model for semantic search">model: ${s.embedding_model || "—"}</span>
+          <span class="pill" data-tooltip="Seeded C-suite roles out of 7">roles: ${seeded}/7</span>
+          <span class="pill" data-tooltip="Active knowledge pack prefix">pack: ${((s.schema || "").match(/forgeos/) ? "forgeos" : "—")}</span>
+          ${s.auth ? `<span class="pill warn" data-tooltip="Authentication system is enabled"><span class="dot"></span> auth on</span>` : ""}
+        </div>`;
+      });
+    }).catch(() => {});
+  };
+  if (statsEl) renderStats();
+  
+  // Feature 3: Refresh stats
+  $("#refresh-stats")?.addEventListener("click", () => withLoading($("#refresh-stats"), renderStats));
+  
+  // Feature 4: Copy status
+  $("#copy-status")?.addEventListener("click", async () => {
+    try {
+      const status = await safe(() => api.status);
+      await navigator.clipboard.writeText(JSON.stringify(status, null, 2));
+      toast("status copied to clipboard", "ok");
+    } catch (e) {
+      toast(errMsg(e), "err");
+    }
+  });
+  
+  // Feature 5: Backup
+  $("#backup")?.addEventListener("click", async () => {
+    try {
+      const res = await safe(() => fetch("/api/backup", { method: "POST" }));
+      if (res && res.ok) {
+        toast("backup started", "ok");
+      } else {
+        toast("backup failed", "err");
+      }
+    } catch (e) {
+      toast(errMsg(e), "err");
+    }
+  });
+  
   $("#apply").addEventListener("click", () => {
     const t = $("#theme").value;
     localStorage.setItem("forgeos-theme", t);
