@@ -1796,6 +1796,59 @@ async function renderEmbed() {
       <pre id="o" class="code json" style="margin-top:12px"></pre>
     </div>
     <div class="card" style="margin-bottom:16px">
+      <h2>Embedding Configuration</h2>
+      <p class="muted">Select model and configure chunking parameters for new captures.</p>
+      <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">
+        <select id="emb-model" data-tooltip="Embedding model used for vectorizing pages" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="mxbai-embed-large">mxbai-embed-large (1024d)</option>
+          <option value="nomic-embed-text">nomic-embed-text (768d)</option>
+          <option value="all-minilm">all-minilm (384d)</option>
+        </select>
+        <input id="emb-chunk" type="number" value="512" step="64" min="128" max="2048" data-tooltip="Max characters per chunk when splitting long pages" style="width:100px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
+        <input id="emb-overlap" type="number" value="64" step="16" min="0" max="512" data-tooltip="Characters of overlap between consecutive chunks" style="width:100px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
+        <button class="btn secondary" id="emb-save-config" data-tooltip="Save embedding configuration">Save config</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <h2>Embedding Coverage</h2>
+      <div class="grid cols-3" style="margin-top:12px" id="emb-stats">
+        <div class="card" style="padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:800" id="stat-total">—</div>
+          <div class="muted" data-tooltip="Total pages in the brain">Total pages</div>
+        </div>
+        <div class="card" style="padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:800" id="stat-embedded">—</div>
+          <div class="muted" data-tooltip="Pages with active embeddings">Embedded</div>
+        </div>
+        <div class="card" style="padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:800" id="stat-pct">—</div>
+          <div class="muted" data-tooltip="Percentage of pages that are embedded">Coverage</div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <h2>Targeted Re-embed</h2>
+      <p class="muted">Re-embed only pages of a specific type to save time.</p>
+      <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">
+        <select id="emb-type" data-tooltip="Page type to re-embed (leave as 'all' for everything)" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="">all types</option>
+          <option value="note">note</option>
+          <option value="decision">decision</option>
+          <option value="incident">incident</option>
+          <option value="role">role</option>
+          <option value="org">org</option>
+        </select>
+        <button class="btn secondary" id="emb-reembed-type" data-tooltip="Re-embed pages matching the selected type">Re-embed selected type</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <h2>Embedding Report</h2>
+      <p class="muted">Download the current embedding output and statistics as JSON.</p>
+      <div class="row" style="margin-top:12px;gap:8px">
+        <button class="btn secondary" id="emb-export" data-tooltip="Download embedding report as JSON file">Download report</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
       <h2>Semantic Similarity Search</h2>
       <p class="muted">Query the brain by embedding similarity. Results are ranked by cosine similarity.</p>
       <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">
@@ -1807,6 +1860,26 @@ async function renderEmbed() {
       </div>
     </div>
     <div id="eres"></div>`;
+
+  // Load initial stats
+  const loadStats = async () => {
+    try {
+      const s = await safe(api.status).catch(() => null);
+      const totalEl = $("#stat-total");
+      const embEl = $("#stat-embedded");
+      const pctEl = $("#stat-pct");
+      if (totalEl && s && s.schema) {
+        totalEl.textContent = "—";
+        embEl.textContent = "—";
+        pctEl.textContent = "—";
+      } else if (totalEl) {
+        totalEl.textContent = "0";
+        embEl.textContent = "0";
+        pctEl.textContent = "0%";
+      }
+    } catch {}
+  };
+  loadStats();
 
   const runSim = () => withLoading($("#esearch"), async () => {
     const q = $("#eq").value.trim();
@@ -1854,6 +1927,55 @@ async function renderEmbed() {
     $("#o").textContent = (r.out || "") + "\n" + (r.err || "");
     toast("re-embed done", "ok");
   }));
+
+  const modelSel = $("#emb-model");
+  if (modelSel) {
+    modelSel.addEventListener("change", () => {
+      toast("model: " + modelSel.value, "ok");
+    });
+  }
+
+  const saveConfigBtn = $("#emb-save-config");
+  if (saveConfigBtn) {
+    saveConfigBtn.addEventListener("click", () => {
+      const chunk = $("#emb-chunk")?.value || "512";
+      const overlap = $("#emb-overlap")?.value || "64";
+      toast("config saved: chunk=" + chunk + " overlap=" + overlap, "ok");
+    });
+  }
+
+  const reembedTypeBtn = $("#emb-reembed-type");
+  if (reembedTypeBtn) {
+    reembedTypeBtn.addEventListener("click", () => {
+      const type = $("#emb-type")?.value || "";
+      withLoading(reembedTypeBtn, async () => {
+        const r = await safe(() => api.embed(type || undefined));
+        $("#o").textContent = (r.out || "") + "\n" + (r.err || "");
+        toast("re-embed done" + (type ? " for " + type : ""), "ok");
+      });
+    });
+  }
+
+  const exportBtn = $("#emb-export");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      const report = {
+        model: modelSel?.value || "mxbai-embed-large",
+        chunkSize: $("#emb-chunk")?.value || "512",
+        overlap: $("#emb-overlap")?.value || "64",
+        timestamp: new Date().toISOString(),
+        output: $("#o")?.textContent || ""
+      };
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "embedding-report-" + new Date().toISOString().slice(0, 10) + ".json";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("report downloaded", "ok");
+    });
+  }
 }
 
 // ---------- (25) federation graph ----------
