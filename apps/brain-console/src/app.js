@@ -498,27 +498,181 @@ async function renderOrg() {
   crumb([["ForgeOS", "#/dashboard"], ["Organization"]]);
   $("#main").innerHTML = skelGrid(3, 200);
   const org = await safe(() => api.org()).catch(() => null);
+  let roles = [];
+  let orgName = "ForgeOS Engineering Organization";
+  let hasDetails = false;
+
   if (org && org.roles) {
-    const byId = Object.fromEntries(org.roles.map(r => [r.id, r]));
-    const kidsOf = (id) => org.roles.filter(r => r.reportsTo === id).map(r => `<div class="node"><div class="node-title">${DOMPurify.sanitize(r.title)} <span class="muted">${DOMPurify.sanitize(r.id)}</span></div><div class="muted">${(r.responsibilities||[]).map(x=>`<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(x)}</span>`).join(" ")}</div></div>`).join("");
-    const ceo = org.roles.find(r => !r.reportsTo);
-    $("#main").innerHTML = `<h1>Organization</h1>
-      <div class="card"><h2>${DOMPurify.sanitize(org.name || "ForgeOS Engineering Organization")}</h2>
-      <div class="tree">${ceo ? `<div class="node"><div class="node-title">${DOMPurify.sanitize(ceo.title)} <span class="muted">${DOMPurify.sanitize(ceo.id)}</span></div><div class="muted">${(ceo.responsibilities||[]).map(x=>`<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(x)}</span>`).join(" ")}</div>${kidsOf(ceo.id)}</div>` : ""}</div></div>`;
+    orgName = org.name || orgName;
+    roles = org.roles.map(r => ({
+      id: r.id,
+      title: r.title || r.id,
+      parentId: r.reportsTo || null,
+      responsibilities: r.responsibilities || []
+    }));
+    hasDetails = true;
+  } else {
+    const resp = await safe(api.roles).catch(() => ({ roles: [] }));
+    roles = (resp.roles || []).map(r => ({
+      id: r.slug,
+      title: r.role || r.slug,
+      parentId: r.reports_to || null,
+      responsibilities: []
+    }));
+  }
+
+  if (!roles.length) {
+    $("#main").innerHTML = `<h1>Organization</h1>` + emptyState("No organization data", "Seed roles to build the org chart", '<a class="btn secondary" href="#/roles">Go to Roles</a>');
     return;
   }
-  const { roles } = await safe(api.roles).catch(() => ({ roles: [] }));
-  if (!org && !roles.length) { $("#main").innerHTML = `<h1>Organization</h1>` + emptyState("No organization data", "Seed roles to build the org chart", '<a class="btn secondary" href="#/roles">Go to Roles</a>'); return; }
-  const bySlug = Object.fromEntries(roles.map(r => [r.slug, r]));
-  const link = (slug) => `<a class="link" href="#/page/${encodeURIComponent(slug)}">${DOMPurify.sanitize((bySlug[slug] && bySlug[slug].role) || slug)}</a>`;
-  const kids = (slug) => roles.filter(r => r.reports_to === slug).map(r => link(r.slug));
-  const board = roles.find(r => r.slug === "board/board");
-  const ceo = roles.find(r => r.slug === "exec/ceo");
-  $("#main").innerHTML = `<h1>Org Chart <span class="muted">(from reports_to)</span></h1>
-    <div class="tree">
-      <div class="node">${link("board/board")}</div>
-      <div class="node">${link("exec/ceo")} ${kids("exec/ceo").length ? "→ " + kids("exec/ceo").join(", ") : ""}</div>
-    </div>`;
+
+  const byId = Object.fromEntries(roles.map(r => [r.id, r]));
+  const childrenMap = {};
+  const roots = [];
+  roles.forEach(r => {
+    if (r.parentId && byId[r.parentId]) {
+      if (!childrenMap[r.parentId]) childrenMap[r.parentId] = [];
+      childrenMap[r.parentId].push(r);
+    } else {
+      roots.push(r);
+    }
+  });
+
+  const totalRoles = roles.length;
+  const maxDepth = roots.reduce((max, r) => {
+    const depth = (function d(id, depth) {
+      const kids = childrenMap[id];
+      if (!kids || !kids.length) return depth;
+      return Math.max(...kids.map(c => d(c.id, depth + 1)));
+    })(r.id, 1);
+    return Math.max(max, depth);
+  }, 0);
+
+  let viewMode = "tree";
+  let searchQuery = "";
+  let expandedNodes = new Set(roots.map(r => r.id));
+
+  function getFilteredRoles() {
+    if (!searchQuery) return roles;
+    const q = searchQuery.toLowerCase();
+    const matchedIds = new Set();
+    roles.forEach(r => {
+      if ((r.title || "").toLowerCase().includes(q) || (r.id || "").toLowerCase().includes(q)) {
+        matchedIds.add(r.id);
+        let pid = r.parentId;
+        while (pid && byId[pid]) {
+          matchedIds.add(pid);
+          pid = byId[pid].parentId;
+        }
+      }
+    });
+    return roles.filter(r => matchedIds.has(r.id));
+  }
+
+  function getNodeTooltip(role) {
+    const parts = [role.title];
+    if (role.parentId && byId[role.parentId]) {
+      parts.push("Reports to: " + byId[role.parentId].title);
+    }
+    if (hasDetails && role.responsibilities && role.responsibilities.length) {
+      parts.push("Responsibilities: " + role.responsibilities.join(", "));
+    }
+    return parts.join(" · ");
+  }
+
+  function renderTreeNode(role, depth, filteredSet) {
+    if (!filteredSet.has(role.id)) return "";
+    const kids = childrenMap[role.id] || [];
+    const hasKids = kids.length > 0;
+    const isExpanded = expandedNodes.has(role.id);
+    const tip = DOMPurify.attributeValue(getNodeTooltip(role));
+    let html = `<div class="org-node" style="margin-left:${depth * 24}px">`;
+    html += `<div class="org-node-header" data-role-id="${DOMPurify.attributeValue(role.id)}" data-tip="${tip}" style="cursor:${hasKids ? 'pointer' : 'default'};display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;background:var(--surface-2);margin:2px 0">`;
+    html += hasKids
+      ? `<span class="org-caret" style="display:inline-block;width:16px;text-align:center;transition:transform 0.15s;transform:rotate(${isExpanded ? '90deg' : '0deg'});font-size:10px">▶</span>`
+      : `<span style="width:16px;display:inline-block"></span>`;
+    html += `<span style="font-weight:600">${DOMPurify.sanitize(role.title)}</span>`;
+    html += `<span class="muted" style="font-size:12px">${DOMPurify.sanitize(role.id)}</span>`;
+    if (hasDetails && role.responsibilities && role.responsibilities.length) {
+      html += `<span class="pill" style="font-size:10px;padding:1px 6px">${role.responsibilities.length} resp</span>`;
+    }
+    html += `</div>`;
+    if (hasKids && isExpanded) {
+      html += `<div class="org-children">`;
+      kids.forEach(kid => { html += renderTreeNode(kid, depth + 1, filteredSet); });
+      html += `</div>`;
+    }
+    html += `</div>`;
+    return html;
+  }
+
+  function renderListView() {
+    const filtered = getFilteredRoles();
+    if (!filtered.length) return emptyState("No matching roles", "Try a different search term");
+    return filtered.map(r => {
+      const tip = DOMPurify.attributeValue(getNodeTooltip(r));
+      return `<div class="card" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between" data-tip="${tip}">
+        <div><strong>${DOMPurify.sanitize(r.title)}</strong>
+        <span class="muted" style="margin-left:8px;font-size:12px">${DOMPurify.sanitize(r.id)}</span></div>
+        ${r.parentId && byId[r.parentId] ? `<span class="muted">→ ${DOMPurify.sanitize(byId[r.parentId].title)}</span>` : '<span class="pill ok">root</span>'}
+      </div>`;
+    }).join("");
+  }
+
+  function render() {
+    const filtered = getFilteredRoles();
+    const filteredSet = new Set(filtered.map(r => r.id));
+    const viewBtn = viewMode === "tree"
+      ? '<button class="btn secondary sm" id="view-list" data-tip="Switch to flat list view">List</button>'
+      : '<button class="btn secondary sm" id="view-tree" data-tip="Switch to tree view">Tree</button>';
+
+    let html = `<h1>${DOMPurify.sanitize(orgName)}</h1>
+      <div class="card" style="margin-bottom:12px">
+        <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <input type="search" id="org-search" placeholder="Search roles..." value="${DOMPurify.attributeValue(searchQuery)}" data-tip="Filter by title or ID" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:200px" />
+            ${viewBtn}
+          </div>
+          <div class="row" style="gap:8px">
+            <span class="pill" data-tip="Total roles in org">${totalRoles} roles</span>
+            <span class="pill" data-tip="Max reporting depth">Depth: ${maxDepth || 1}</span>
+            <span class="pill" data-tip="Roles matching search">${filtered.length} shown</span>
+          </div>
+        </div>
+      </div>`;
+
+    if (!filtered.length) {
+      html += emptyState("No matching roles", "Try a different search term");
+    } else if (viewMode === "tree") {
+      html += `<div class="card"><div class="org-tree">`;
+      roots.forEach(r => { html += renderTreeNode(r, 0, filteredSet); });
+      html += `</div></div>`;
+    } else {
+      html += `<div class="org-list">${renderListView()}</div>`;
+    }
+
+    $("#main").innerHTML = html;
+
+    $("#org-search")?.addEventListener("input", (e) => {
+      searchQuery = e.target.value;
+      if (searchQuery) {
+        roots.forEach(r => expandedNodes.add(r.id));
+      }
+      render();
+    });
+    $("#view-list")?.addEventListener("click", () => { viewMode = "list"; render(); });
+    $("#view-tree")?.addEventListener("click", () => { viewMode = "tree"; render(); });
+    $$(".org-node-header").forEach(header => {
+      header.addEventListener("click", () => {
+        const id = header.dataset.roleId;
+        if (expandedNodes.has(id)) expandedNodes.delete(id);
+        else expandedNodes.add(id);
+        render();
+      });
+    });
+  }
+
+  render();
 }
 
 // ---------- (23) search w/ snippet + score + click ----------
