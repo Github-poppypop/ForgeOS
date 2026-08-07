@@ -1253,24 +1253,65 @@ async function renderGovernance() {
   $("#main").innerHTML = skelGrid(3, 200);
   const gov = await safe(() => api.gov()).catch(() => null);
   if (!gov) { $("#main").innerHTML = emptyState("Governance offline", "The console may be offline or /governance is unavailable", '<a class="btn secondary" href="#/dashboard">Go to Dashboard</a>'); return; }
-  const section = (title, key, base) => {
-    const files = (gov.tree && gov.tree[key]) || [];
-    return `<div class="card"><h2>${title}</h2>
-      <p class="muted mono">${base}</p>
-      <ul class="mono" style="line-height:1.9">${files.length ? files.map(f => `<li><a class="link" href="#/page/${encodeURIComponent(key + "/" + f.replace(/\.md$/, ""))}">${DOMPurify.sanitize(f)}</a></li>`).join("") : "<li class='muted'>—</li>"}</ul>
-    </div>`;
+  const sections = [
+    { title: "Constitution", key: "constitution", base: "governance/constitution/", desc: "Foundational rules and principles" },
+    { title: "Engineering Standards", key: "standards", base: "governance/standards/", desc: "Code, testing, and deployment standards" },
+    { title: "RFCs", key: "rfcs", base: "governance/rfcs/", desc: "Request for Comments — proposed changes" },
+    { title: "Laws", key: "laws", base: "governance/laws/", desc: "Enforceable policies and constraints" },
+    { title: "Roadmap", key: "roadmap", base: "governance/roadmap/", desc: "Planned milestones and deliverables" },
+  ];
+  const totalFiles = sections.reduce((sum, s) => sum + ((gov.tree && gov.tree[s.key]) || []).length, 0);
+  const renderFiles = (key, base, files, query) => {
+    const q = (query || "").toLowerCase();
+    const filtered = q ? files.filter(f => f.toLowerCase().includes(q)) : files;
+    if (!filtered.length) return q ? '<li class="muted">No matches</li>' : '<li class=\'muted\'>—</li>';
+    return filtered.map(f => {
+      const href = "#/page/" + encodeURIComponent(key + "/" + f.replace(/\.md$/, ""));
+      const safeF = DOMPurify.sanitize(f);
+      const tip = DOMPurify.sanitize(base + f);
+      return `<li style="display:flex;align-items:center;gap:6px">
+        <a class="link gov-file-link" href="${href}" data-tooltip="${tip}">${safeF}</a>
+        <button class="btn ghost sm gov-copy-link" data-href="${href}" data-tooltip="Copy link" style="padding:2px 6px;font-size:11px;min-height:auto">⎘</button>
+      </li>`;
+    }).join("");
   };
   $("#main").innerHTML = `
-    <h1>Governance <span class="pill ok"><span class="dot"></span> sacred</span> <span class="pill"><span class="dot"></span> ${DOMPurify.sanitize(gov.gitDate || "")}</span></h1>
+    <h1>Governance <span class="pill ok" data-tooltip="Immutably enforced"><span class="dot"></span> sacred</span> <span class="pill" data-tooltip="${DOMPurify.sanitize(gov.gitDate || "Last git commit")}"><span class="dot"></span> ${DOMPurify.sanitize(gov.gitDate || "")}</span></h1>
     <p class="muted">Single source of truth. Immutable except by constitutional amendment.
       Authority: <span class="mono">${DOMPurify.sanitize(gov.authority || "")}</span></p>
-    <div class="grid cols-3">
-      ${section("Constitution", "constitution", "governance/constitution/")}
-      ${section("Engineering Standards", "standards", "governance/standards/")}
-      ${section("RFCs", "rfcs", "governance/rfcs/")}
-      ${section("Laws", "laws", "governance/laws/")}
-      ${section("Roadmap", "roadmap", "governance/roadmap/")}
+    
+    <div class="card" style="margin-top:12px">
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <input id="gov-search" class="input" placeholder="Search files…" data-tooltip="Filter files by name across all sections" style="max-width:320px"/>
+        <div class="row" style="gap:6px">
+          <button class="btn secondary sm" id="gov-expand-all" data-tooltip="Open all sections">Expand All</button>
+          <button class="btn secondary sm" id="gov-collapse-all" data-tooltip="Close all sections">Collapse All</button>
+          <button class="btn secondary sm" id="gov-copy-all" data-tooltip="Copy all file links">Copy All Links</button>
+        </div>
+      </div>
     </div>
+    
+    <div class="row" style="margin-top:12px;gap:8px">
+      <span class="tag" data-tooltip="Total documents across all governance sections">${totalFiles} files</span>
+      <span class="tag" data-tooltip="Top-level governance categories">${sections.length} sections</span>
+      <span class="tag" data-tooltip="Last git commit touching governance">Updated ${DOMPurify.sanitize(gov.gitDate || "—")}</span>
+    </div>
+    
+    <div class="grid cols-3" id="gov-grid">
+      ${sections.map(s => {
+        const files = (gov.tree && gov.tree[s.key]) || [];
+        const safeBase = DOMPurify.sanitize(s.base);
+        return `<div class="card gov-section" data-key="${s.key}" data-base="${safeBase}">
+          <h2 class="gov-section-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between" data-tooltip="${DOMPurify.sanitize(s.desc)}">
+            <span>${s.title} <span class="badge">${files.length}</span></span>
+            <span class="gov-chevron" style="transition:transform .2s;display:inline-block">▾</span>
+          </h2>
+          <p class="muted mono">${safeBase}</p>
+          <ul class="mono gov-file-list" style="line-height:1.9">${renderFiles(s.key, s.base, files)}</ul>
+        </div>`;
+      }).join("")}
+    </div>
+    
     <div class="card" style="margin-top:16px"><h2>Linked brain pages</h2>
       <div class="row">
         <a class="btn secondary" href="#/page/governance/index">governance/index</a>
@@ -1278,6 +1319,90 @@ async function renderGovernance() {
         <a class="btn secondary" href="#/page/decision-ledger">decision-ledger</a>
       </div>
     </div>`;
+
+  // Feature 1: Search filter
+  const searchInput = $("#gov-search");
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      const q = searchInput.value.trim();
+      const cards = $$(".gov-section");
+      cards.forEach(card => {
+        const key = card.dataset.key;
+        const base = card.dataset.base || "";
+        const files = (gov.tree && gov.tree[key]) || [];
+        const filtered = q ? files.filter(f => f.toLowerCase().includes(q.toLowerCase())) : files;
+        const list = card.querySelector(".gov-file-list");
+        const section = card.querySelector(".gov-section-header .badge");
+        if (!list) return;
+        list.innerHTML = renderFiles(key, base, files, q);
+        if (section) section.textContent = filtered.length;
+        card.style.display = filtered.length ? "" : "none";
+      });
+    });
+  }
+
+  // Feature 2: Copy link buttons
+  $("#main").addEventListener("click", (ev) => {
+    const btn = ev.target.closest(".gov-copy-link");
+    if (!btn) return;
+    const href = btn.dataset.href;
+    if (href && navigator.clipboard) {
+      navigator.clipboard.writeText(href).then(() => toast("Link copied", "ok"));
+    }
+  });
+
+  // Feature 3: Section collapse/expand
+  $("#main").addEventListener("click", (ev) => {
+    const header = ev.target.closest(".gov-section-header");
+    if (!header) return;
+    const card = header.closest(".gov-section");
+    if (!card) return;
+    const list = card.querySelector(".gov-file-list");
+    const chevron = card.querySelector(".gov-chevron");
+    if (!list) return;
+    const isHidden = list.style.display === "none";
+    list.style.display = isHidden ? "" : "none";
+    if (chevron) chevron.style.transform = isHidden ? "" : "rotate(-90deg)";
+  });
+
+  // Feature 5: Bulk actions
+  const expandAll = $("#gov-expand-all");
+  const collapseAll = $("#gov-collapse-all");
+  const copyAll = $("#gov-copy-all");
+
+  if (expandAll) {
+    expandAll.addEventListener("click", () => {
+      $$(".gov-section").forEach(card => {
+        const list = card.querySelector(".gov-file-list");
+        const chevron = card.querySelector(".gov-chevron");
+        if (list) list.style.display = "";
+        if (chevron) chevron.style.transform = "";
+      });
+    });
+  }
+  if (collapseAll) {
+    collapseAll.addEventListener("click", () => {
+      $$(".gov-section").forEach(card => {
+        const list = card.querySelector(".gov-file-list");
+        const chevron = card.querySelector(".gov-chevron");
+        if (list) list.style.display = "none";
+        if (chevron) chevron.style.transform = "rotate(-90deg)";
+      });
+    });
+  }
+  if (copyAll) {
+    copyAll.addEventListener("click", async () => {
+      const links = [];
+      $$(".gov-file-link").forEach(a => {
+        if (a.href) links.push(a.href);
+      });
+      if (!links.length) { toast("No links to copy", "warn"); return; }
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(links.join("\n"));
+        toast("Copied " + links.length + " links", "ok");
+      }
+    });
+  }
 }
 
 
