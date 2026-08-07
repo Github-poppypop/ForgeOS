@@ -3339,23 +3339,108 @@ async function renderPlugins() {
   crumb([["ForgeOS", "#/dashboard"], ["Plugins"]]);
   document.querySelector("main").innerHTML = `<h1>Plugins</h1>
     <div class="card">
-      <h2>Loaded modules</h2>
-      <button class="btn primary" id="plugin-reload-btn" data-tooltip="Reload plugins from disk">Reload Plugins</button>
+      <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h2>Loaded modules</h2>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <input id="plugin-search" class="input" placeholder="Search plugins..." data-tooltip="Filter plugins by name"/>
+          <button class="btn secondary" id="plugin-enable-all" data-tooltip="Enable all disabled plugins">Enable All</button>
+          <button class="btn secondary" id="plugin-disable-all" data-tooltip="Disable all active plugins">Disable All</button>
+          <button class="btn primary" id="plugin-reload-btn" data-tooltip="Reload plugins from disk">Reload Plugins</button>
+        </div>
+      </div>
+      <div id="plugin-stats" class="row" style="gap:12px;margin-top:8px"></div>
+      <div id="plugin-list" style="margin-top:12px"></div>
       <pre id="plugin-out" class="code json" style="margin-top:12px"></pre>
     </div>`;
   const refresh = async () => {
     try {
       const r = await safe(api.plugins).catch(() => ({ plugins: [] }));
+      const plugins = (r.plugins || []).map(p => ({
+        ...p,
+        _status: p.active === false ? 'inactive' : (p.error ? 'error' : 'active')
+      }));
       const out = document.querySelector("#plugin-out");
       if (out) out.textContent = JSON.stringify(r, null, 2);
+      renderPluginList(plugins);
     } catch (e) {
       const out = document.querySelector("#plugin-out");
       if (out) out.textContent = "plugin error: " + errMsg(e);
     }
   };
-  $("#plugin-reload-btn")?.addEventListener("click", async () => {
+  const renderPluginList = (plugins) => {
+    const list = document.querySelector("#plugin-list");
+    const stats = document.querySelector("#plugin-stats");
+    const search = (document.querySelector("#plugin-search")?.value || "").toLowerCase();
+    const filtered = plugins.filter(p => (p.name || "").toLowerCase().includes(search));
+    if (stats) {
+      const active = plugins.filter(p => p._status === 'active').length;
+      const inactive = plugins.filter(p => p._status === 'inactive').length;
+      const errors = plugins.filter(p => p._status === 'error').length;
+      stats.innerHTML = `<span class="badge badge-ok" data-tooltip="Running plugins">Active: ${active}</span>` +
+        `<span class="badge badge-warn" data-tooltip="Plugins that are disabled">Inactive: ${inactive}</span>` +
+        (errors ? `<span class="badge badge-err" data-tooltip="Plugins with errors">Errors: ${errors}</span>` : '');
+    }
+    if (!list) return;
+    if (!filtered.length) {
+      list.innerHTML = emptyState('No plugins found', search ? 'Try a different search term' : 'Plugins will appear here when loaded');
+      return;
+    }
+    list.innerHTML = filtered.map(p => {
+      const statusClass = p._status === 'active' ? 'badge-ok' : (p._status === 'inactive' ? 'badge-warn' : 'badge-err');
+      const statusLabel = p._status === 'active' ? 'Active' : (p._status === 'inactive' ? 'Inactive' : 'Error');
+      const toggleLabel = p._status === 'active' ? 'Disable' : 'Enable';
+      const details = DOMPurify.sanitize(JSON.stringify(p, null, 2));
+      return `<div class="card" style="margin-bottom:8px;padding:12px">
+        <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+            <b>${DOMPurify.sanitize(p.name || 'unnamed')}</b>
+            <span class="badge ${statusClass}" data-tooltip="Plugin status: ${statusLabel}">${statusLabel}</span>
+            ${p.version ? `<span class="muted" style="font-size:12px">v${DOMPurify.sanitize(p.version)}</span>` : ''}
+          </div>
+          <div class="row" style="gap:8px">
+            <button class="btn plugin-toggle" data-name="${DOMPurify.sanitize(p.name || '')}" data-tooltip="${toggleLabel} this plugin">${toggleLabel}</button>
+            <button class="btn secondary plugin-details" data-name="${DOMPurify.sanitize(p.name || '')}" data-tooltip="View plugin details and config">Details</button>
+          </div>
+        </div>
+        <div class="plugin-detail-panel" data-plugin="${DOMPurify.sanitize(p.name || '')}" style="display:none;margin-top:10px">
+          <pre class="code json">${details}</pre>
+        </div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll(".plugin-toggle").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const name = btn.dataset.name;
+        const isActive = btn.textContent === "Disable";
+        await safe(() => api.post(`/api/plugins/${encodeURIComponent(name)}/${isActive ? 'disable' : 'enable'}`, {})).catch(() => ({}));
+        toast(`${name} ${isActive ? 'disabled' : 'enabled'}`, 'ok');
+        refresh();
+      });
+    });
+    list.querySelectorAll(".plugin-details").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const panel = list.querySelector(`.plugin-detail-panel[data-plugin="${btn.dataset.name}"]`);
+        if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
+      });
+    });
+  };
+  document.querySelector("#plugin-search")?.addEventListener("input", refresh);
+  document.querySelector("#plugin-reload-btn")?.addEventListener("click", async () => {
     await reloadPlugins();
     await refresh();
+  });
+  document.querySelector("#plugin-enable-all")?.addEventListener("click", async () => {
+    const plugins = await safe(api.plugins).catch(() => ({ plugins: [] }));
+    const disabled = (plugins.plugins || []).filter(p => p.active !== false);
+    await Promise.all(disabled.map(p => safe(() => api.post(`/api/plugins/${encodeURIComponent(p.name || '')}/enable`, {})).catch(() => ({}))));
+    toast(`Enabled ${disabled.length} plugins`, 'ok');
+    refresh();
+  });
+  document.querySelector("#plugin-disable-all")?.addEventListener("click", async () => {
+    const plugins = await safe(api.plugins).catch(() => ({ plugins: [] }));
+    const enabled = (plugins.plugins || []).filter(p => p.active !== false);
+    await Promise.all(enabled.map(p => safe(() => api.post(`/api/plugins/${encodeURIComponent(p.name || '')}/disable`, {})).catch(() => ({}))));
+    toast(`Disabled ${enabled.length} plugins`, 'ok');
+    refresh();
   });
   refresh();
 }
