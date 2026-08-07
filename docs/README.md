@@ -10,6 +10,9 @@ and the public documentation site source.
 - `specs/` — technical & product specifications
 - `adr/` — Architecture Decision Records
 - `site/` — source for the external docs site (built from these docs)
+- `developers/` — agent authoring, API gateway, marketplace, Docker
+- `tutorials/` — video scripts, step-by-step walkthroughs
+- `onboarding/` — community funnel stages
 
 ## Rules
 - External-facing content must align to VISION.md and be validated with CPO
