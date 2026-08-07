@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { recordCost, getCostByRole } from './cost-accounting';
+import { recordCost, getCostByRole } from '../cost-accounting';
 
 describe('agents/cost-accounting', () => {
   it('records and retrieves cost by role', () => {
