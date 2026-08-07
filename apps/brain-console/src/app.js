@@ -2492,19 +2492,94 @@ async function renderMarketplace() {
   crumb([["ForgeOS", "#/dashboard"], ["Marketplace"]]);
   document.querySelector("main").innerHTML = `<h1>Agent Marketplace</h1>
     <div class="card">
-      <h2>Discoverable agents</h2>
-      <pre id="market-out" class="code json" style="margin-top:12px"></pre>
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <h2>Discoverable agents</h2>
+          <input type="search" id="market-search" placeholder="Search packages..." data-tooltip="Filter packages by name" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:180px" />
+          <select id="market-source-filter" data-tooltip="Filter by package source" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+            <option value="">All sources</option>
+            <option value="local">Local</option>
+            <option value="builtin">Builtin</option>
+            <option value="remote">Remote</option>
+          </select>
+        </div>
+        <div class="row" style="gap:8px">
+          <span id="market-count" class="pill" data-tooltip="Total discoverable packages">0 packages</span>
+          <button class="btn secondary" id="market-refresh" data-tooltip="Reload marketplace data">Refresh</button>
+        </div>
+      </div>
+      <div id="market-grid" class="grid cols-2" style="margin-top:12px"></div>
+      <pre id="market-out" class="code json" style="margin-top:12px;display:none"></pre>
     </div>`;
+  let packages = [];
+  const renderGrid = () => {
+    const searchEl = document.querySelector("#market-search");
+    const filterEl = document.querySelector("#market-source-filter");
+    const q = (searchEl?.value || "").toLowerCase();
+    const source = filterEl?.value || "";
+    const filtered = packages.filter((p) => {
+      const matchesSearch = !q || (p.name || "").toLowerCase().includes(q);
+      const matchesSource = !source || p.source === source;
+      return matchesSearch && matchesSource;
+    });
+    const countEl = document.querySelector("#market-count");
+    if (countEl) countEl.textContent = filtered.length + " package" + (filtered.length !== 1 ? "s" : "");
+    const grid = document.querySelector("#market-grid");
+    const out = document.querySelector("#market-out");
+    if (!filtered.length) {
+      if (grid) grid.innerHTML = `<p class="muted" style="text-align:center;padding:12px">no packages found</p>`;
+      if (out) out.style.display = "none";
+      return;
+    }
+    if (grid) {
+      grid.innerHTML = filtered.map((p) => {
+        const sourceCls = p.source === "local" ? "ok" : p.source === "builtin" ? "" : "warn";
+        const sourceTooltip = p.source === "local" ? "Installed locally on this machine" : p.source === "builtin" ? "Bundled with ForgeOS" : "Available from remote registry";
+        return `<div class="card" style="margin-top:0">
+          <div class="row" style="justify-content:space-between">
+            <strong>${DOMPurify.sanitize(p.name)}</strong>
+            <span class="pill ${sourceCls}" data-tooltip="${sourceTooltip}">${DOMPurify.sanitize(p.source)}</span>
+          </div>
+          <p class="muted mono" style="margin-top:6px">v${DOMPurify.sanitize(p.version || "—")}</p>
+          <div class="row" style="margin-top:8px;gap:6px">
+            <button class="btn primary sm" data-install="${DOMPurify.sanitize(p.name)}" data-tooltip="Install this package">Install</button>
+            <button class="btn secondary sm" data-details="${DOMPurify.sanitize(p.name)}" data-tooltip="View package details as JSON">Details</button>
+          </div>
+        </div>`;
+      }).join("");
+    }
+    if (out) out.style.display = "none";
+  };
   const refresh = async () => {
     try {
-      const r = await safe(api.marketplace).catch(() => ({ marketplace: [] }));
-      const out = document.querySelector("#market-out");
-      if (out) out.textContent = JSON.stringify(r, null, 2);
+      const r = await safe(() => api.get("/api/marketplace")).catch(() => ({ packages: [] }));
+      packages = r.packages || [];
+      renderGrid();
     } catch (e) {
-      const out = document.querySelector("#market-out");
-      if (out) out.textContent = "marketplace error: " + errMsg(e);
+      toast("marketplace error: " + errMsg(e), "err");
     }
   };
+  document.querySelector("#market-refresh")?.addEventListener("click", refresh);
+  document.querySelector("#market-search")?.addEventListener("input", renderGrid);
+  document.querySelector("#market-source-filter")?.addEventListener("change", renderGrid);
+  document.querySelector("#market-grid")?.addEventListener("click", async (e) => {
+    const installBtn = e.target.closest("[data-install]");
+    if (installBtn) {
+      const name = installBtn.dataset.install;
+      await safe(() => api.post("/api/marketplace/install", { name })).catch(() => ({}));
+      toast("install queued: " + name, "ok");
+      return;
+    }
+    const detailsBtn = e.target.closest("[data-details]");
+    if (detailsBtn) {
+      const pkg = packages.find((p) => p.name === detailsBtn.dataset.details);
+      const out = document.querySelector("#market-out");
+      if (out && pkg) {
+        out.textContent = JSON.stringify(pkg, null, 2);
+        out.style.display = "block";
+      }
+    }
+  });
   refresh();
 }
 
