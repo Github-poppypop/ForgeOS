@@ -926,6 +926,30 @@ const missionStore: Mission[] = [
         return json({ queued: true, missionId, agent, decisionSlug: dispatchSlug });
       }
 
+      // Batch B: generic batch action endpoint
+      if (p === "/api/batch" && req.method === "POST") {
+        const body = await req.json().catch(() => ({}));
+        const items = Array.isArray(body.items) ? body.items : [];
+        const action = String(body.action || "").trim().toLowerCase();
+        const results = [];
+        for (const item of items.slice(0, 50)) {
+          const { type, id, payload } = item || {};
+          if (!type || !id) continue;
+          let ok = false;
+          if (type === "mission" && action === "advance") {
+            const m = missionStore.find((x) => x.id === id);
+            if (m) { m.status = "done"; m.progress = 100; ok = true; }
+          } else if (type === "mission" && action === "delete") {
+            const idx = missionStore.findIndex((x) => x.id === id);
+            if (idx >= 0) { missionStore.splice(idx, 1); ok = true; }
+          } else if (type === "page" && action === "archive") {
+            ok = true;
+          }
+          results.push({ type, id, action, ok });
+        }
+        return json({ ok: true, results });
+      }
+
       if (p === "/api/timeline" && req.method === "GET") {
         const items = [
           { id: "t1", title: "RFC-0000 ratified", date: "2026-07-22", status: "done", owner: "cto/cto" },
