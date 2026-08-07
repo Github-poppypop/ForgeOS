@@ -1168,27 +1168,242 @@ async function renderMissions() {
   }, 5000);
 }
 async function renderMCP() {
-  crumb([["ForgeOS", "#/dashboard"], ["MCP"]]);
+  crumb([["ForgeOS", "#/dashboard"], ["MCP", tooltip("MCP", "Model Context Protocol — agent tooling bridge")]]);
   $("#main").innerHTML = `<h1>MCP / Agent Tools</h1>
-    <div class="card"><p class="muted">The console owns the isolated brain and exposes agent tooling. Connect agent runtimes here.</p>
-    <button class="btn secondary" id="probe" data-tooltip="Probe API status">Probe /api/status</button><pre id="h" class="code json" style="margin-top:12px"></pre></div>`;
-  $("#probe").addEventListener("click", () => withLoading($("#probe"), async () => {
-    const r = await safe(() => api.status());
-    $("#h").textContent = JSON.stringify(r, null, 2);
-  }));
+    <p class="muted" style="margin-bottom:16px">Manage MCP connections, monitor agents, inspect metrics, test tool invocations, and browse shared memory.</p>
+    <div class="card" style="margin-bottom:16px">
+      <div class="row" style="justify-content:space-between">
+        <h2>MCP Connection</h2>
+        <button class="btn secondary" id="mcp-refresh" data-tooltip="Refresh MCP endpoint status">Refresh</button>
+      </div>
+      <p class="muted">Bridge between the brain console and remote agent runtimes via Model Context Protocol.</p>
+      <pre id="mcp-out" class="code json" style="margin-top:8px">loading...</pre>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="row" style="justify-content:space-between">
+        <h2>Agent Status</h2>
+        <button class="btn secondary" id="agents-refresh" data-tooltip="Reload active agents from brain runtime">Refresh</button>
+      </div>
+      <p class="muted">Live agent monitoring from the isolated brain runtime.</p>
+      <div id="agent-grid" class="grid cols-3" style="margin-top:12px">loading...</div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="row" style="justify-content:space-between">
+        <h2>Agent Metrics</h2>
+        <button class="btn secondary" id="metrics-refresh" data-tooltip="Reload agent performance metrics">Refresh</button>
+      </div>
+      <p class="muted">Request counts, error rates, and latency percentiles across agents.</p>
+      <div id="metrics-grid" class="grid cols-3" style="margin-top:12px">loading...</div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <h2>Tool Invoke</h2>
+      <p class="muted">Send a test message to an agent via the MCP bridge.</p>
+      <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">
+        <input id="mcp-role" class="mono" placeholder="role (e.g. user)" data-tooltip="Agent role identifier for message routing" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:140px"/>
+        <input id="mcp-content" class="mono" placeholder="message content..." data-tooltip="Arbitrary message payload for the agent runtime" style="flex:1;min-width:200px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
+        <button class="btn primary" id="mcp-send" data-tooltip="Send test message to agent runtime">Send</button>
+      </div>
+      <pre id="mcp-send-out" class="code json" style="margin-top:8px"></pre>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>Memory Pool</h2>
+        <button class="btn secondary" id="memory-refresh" data-tooltip="Reload shared memory entries">Refresh</button>
+      </div>
+      <p class="muted">Shared cross-agent memory entries. Auto-refreshes every 5s.</p>
+      <div id="memory-pool" style="margin-top:12px">loading...</div>
+    </div>
+  `;
+  const refreshMCP = async () => {
+    try {
+      const r = await safe(() => api.get("/api/mcp")).catch(() => ({}));
+      const out = document.querySelector("#mcp-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast("mcp error: " + errMsg(e), "err");
+    }
+  };
+  document.querySelector("#mcp-refresh")?.addEventListener("click", () => withLoading(document.querySelector("#mcp-refresh"), refreshMCP));
+  refreshMCP();
+
+  const refreshAgents = async () => {
+    try {
+      const r = await safe(api.monitoringAgents).catch(() => ({ agents: [] }));
+      const grid = document.querySelector("#agent-grid");
+      if (!grid) return;
+      const agents = r.agents || [];
+      if (!agents.length) {
+        grid.innerHTML = `<p class="muted">No active agents — <a class="link" href="#/missions">dispatch a mission</a> to spawn one.</p>`;
+        return;
+      }
+      grid.innerHTML = agents.map(a => {
+        const statusClass = a.status === 'idle' ? 'ok' : (a.status === 'running' ? 'warn' : 'bad');
+        const statusTooltip = `Agent ${a.role} is currently ${a.status}`;
+        return `<div class="card" style="padding:12px">
+          <div class="row" style="justify-content:space-between;margin-bottom:6px">
+            <span class="mono" style="font-weight:600">${DOMPurify.sanitize(a.role)}</span>
+            <span class="pill ${statusClass}" data-tooltip="${statusTooltip}"><span class="dot"></span>${DOMPurify.sanitize(a.status)}</span>
+          </div>
+          <p class="muted" style="font-size:12px">Agent runtime slot</p>
+        </div>`;
+      }).join("");
+    } catch (e) {
+      toast("agents error: " + errMsg(e), "err");
+    }
+  };
+  document.querySelector("#agents-refresh")?.addEventListener("click", () => withLoading(document.querySelector("#agents-refresh"), refreshAgents));
+  refreshAgents();
+
+  const refreshMetrics = async () => {
+    try {
+      const r = await safe(api.agentMetrics).catch(() => ({ metrics: {} }));
+      const grid = document.querySelector("#metrics-grid");
+      if (!grid) return;
+      const m = r.metrics || {};
+      const entries = Object.entries(m).slice(0, 6);
+      if (!entries.length) {
+        grid.innerHTML = `<p class="muted">No metrics collected yet.</p>`;
+        return;
+      }
+      grid.innerHTML = entries.map(([k, v]) => {
+        const num = Number(v) || 0;
+        const max = Math.max(...entries.map(([,val]) => Number(val) || 1), 1);
+        const pct = Math.max(2, (num / max) * 100);
+        const pillClass = num === 0 ? 'ok' : (num < 10 ? 'warn' : 'bad');
+        return `<div class="card" style="padding:12px">
+          <div class="row" style="justify-content:space-between;margin-bottom:4px">
+            <span class="mono" style="font-size:12px;text-transform:uppercase;color:var(--text-dim)">${DOMPurify.sanitize(k)}</span>
+            <span class="pill ${pillClass}" data-tooltip="${DOMPurify.sanitize(k)}: ${num}">${num}</span>
+          </div>
+          <div style="width:100%;height:6px;background:var(--surface-2);border-radius:999px;overflow:hidden">
+            <div style="width:${pct.toFixed(1)}%;height:100%;background:var(--accent);border-radius:999px;transition:width 240ms ease"></div>
+          </div>
+        </div>`;
+      }).join("");
+    } catch (e) {
+      toast("metrics error: " + errMsg(e), "err");
+    }
+  };
+  document.querySelector("#metrics-refresh")?.addEventListener("click", () => withLoading(document.querySelector("#metrics-refresh"), refreshMetrics));
+  refreshMetrics();
+
+  document.querySelector("#mcp-send")?.addEventListener("click", () => {
+    const role = document.querySelector("#mcp-role")?.value?.trim() || "user";
+    const content = document.querySelector("#mcp-content")?.value?.trim() || "";
+    if (!content) {
+      toast("message content required", "err");
+      return;
+    }
+    withLoading(document.querySelector("#mcp-send"), async () => {
+      try {
+        const r = await safe(() => api.sendMessage({ role, content }));
+        const out = document.querySelector("#mcp-send-out");
+        if (out) out.textContent = JSON.stringify(r, null, 2);
+        toast("message sent", "ok");
+      } catch (e) {
+        toast("send failed: " + errMsg(e), "err");
+      }
+    });
+  });
+
+  const refreshMemory = async () => {
+    try {
+      const r = await safe(api.memoryPool).catch(() => ({ pool: [] }));
+      const container = document.querySelector("#memory-pool");
+      if (!container) return;
+      const pool = r.pool || [];
+      if (!pool.length) {
+        container.innerHTML = `<p class="muted">Memory pool is empty.</p>`;
+        return;
+      }
+      container.innerHTML = `<div class="grid cols-3">${pool.map((entry, i) => {
+        const key = DOMPurify.sanitize(entry.key || `mem-${i}`);
+        const type = DOMPurify.sanitize(entry.type || "raw");
+        const size = typeof entry.size === 'number' ? entry.size : (typeof entry.content === 'string' ? entry.content.length : 0);
+        return `<div class="card" style="padding:12px">
+          <div class="row" style="justify-content:space-between;margin-bottom:4px">
+            <span class="mono" style="font-weight:600" data-tooltip="Memory entry key">${key}</span>
+            <span class="pill" data-tooltip="Entry data type">${type}</span>
+          </div>
+          <p class="muted" style="font-size:12px" data-tooltip="Approximate byte size">${size} bytes</p>
+        </div>`;
+      }).join("")}</div>`;
+    } catch (e) {
+      toast("memory error: " + errMsg(e), "err");
+    }
+  };
+  document.querySelector("#memory-refresh")?.addEventListener("click", () => withLoading(document.querySelector("#memory-refresh"), refreshMemory));
+  refreshMemory();
+  setInterval(refreshMemory, 5000);
 }
 
 // ---------- (27) vault files clickable ----------
 async function renderVault() {
-  crumb([["ForgeOS", "#/dashboard"], ["Vault"]]);
-  $("#main").innerHTML = skelGrid(4, 160);
+  crumb([["ForgeOS", "#/dashboard"], ["Vault", tooltip("Vault", "Secret and credential vault"), "#/vault"]]);
+  $("main").innerHTML = skelGrid(4, 160);
   const v = await safe(api.vault).catch(() => ({ files: [], git: "—" }));
   const page = Number(new URLSearchParams(location.hash.split("?")[1] || "").get("page") || "1");
-  const vp = paginate((v.files || []), page, 10);
-  $("#main").innerHTML = `<h1>Obsidian Vault Sync</h1>
-    <div class="card"><p class="muted">Mirror at <span class="mono">C:\\ForgeOS\\vault</span> — git: ${DOMPurify.sanitize(v.git)}</p>
-    ${vp.items.length ? `<ul class="mono" style="line-height:1.9">${vp.items.map(f => `<li class="mono"><a class="link" href="#/vaultfile/${encodeURIComponent(f)}">${DOMPurify.sanitize(f)}</a></li>`).join("")}</ul>` : emptyState("Vault is empty", "Mirror at C:\ForgeOS\vault", '<a class="btn secondary" href="#/capture">Capture a page</a>')}
-    ${paginationControls(vp)}</div>`;
+  const q = new URLSearchParams(location.hash.split("?")[1] || "").get("q") || "";
+  let sortDir = "asc";
+
+  const render = (filterText = q) => {
+    let files = [...(v.files || [])];
+    if (filterText) {
+      files = files.filter(f => f.toLowerCase().includes(filterText.toLowerCase()));
+    }
+    files.sort((a, b) => sortDir === "asc" ? a.localeCompare(b) : b.localeCompare(a));
+    const vp = paginate(files, page, 10);
+
+    $("main").innerHTML = `<h1>Obsidian Vault Sync</h1>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:12px">
+          <div class="row">
+            <input id="vault-search" class="mono" placeholder="Filter vault files..." value="${DOMPurify.sanitize(filterText)}" data-tooltip="Filter vault files by name" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:240px"/>
+            <button class="btn secondary" id="sort-az" data-tooltip="Sort A to Z">A→Z</button>
+            <button class="btn secondary" id="sort-za" data-tooltip="Sort Z to A">Z→A</button>
+          </div>
+          <span class="muted" data-tooltip="Total files in vault">${files.length} file${files.length !== 1 ? 's' : ''}</span>
+        </div>
+        <p class="muted">Mirror at <span class="mono">C:\\ForgeOS\\vault</span> — git: ${DOMPurify.sanitize(v.git)}</p>
+        ${vp.items.length ? `<ul class="mono" style="line-height:1.9">${vp.items.map(f => {
+          const ext = f.split('.').pop();
+          const badgeCls = ext === 'md' ? 'ok' : ext === 'json' ? 'warn' : '';
+          const badgeTip = ext === 'md' ? 'Markdown document' : ext === 'json' ? 'JSON data file' : ext + ' file';
+          return `<li class="mono" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
+            <a class="link" href="#/vaultfile/${encodeURIComponent(f)}">${DOMPurify.sanitize(f)}</a>
+            <div class="row">
+              <span class="pill ${badgeCls}" data-tooltip="${badgeTip}">${ext}</span>
+              <button class="btn secondary" style="padding:2px 8px;font-size:12px" data-copy="${f}" data-tooltip="Copy file path">copy</button>
+            </div>
+          </li>`;
+        }).join("")}</ul>` : emptyState(filterText ? "No matching files" : "Vault is empty", filterText ? "Try a different query" : "Mirror at C:\\ForgeOS\\vault", filterText ? "" : '<a class="btn secondary" href="#/capture">Capture a page</a>')}
+        ${paginationControls(vp)}
+      </div>`;
+  };
+
+  render(q);
+
+  const applySort = (dir) => {
+    sortDir = dir;
+    render($("vault-search")?.value || q);
+  };
+
+  const main = $("main");
+  if (main) {
+    main.addEventListener("input", (e) => {
+      if (e.target.id === "vault-search") render(e.target.value);
+    });
+    main.addEventListener("click", (e) => {
+      if (e.target.closest("#sort-az")) { applySort("asc"); return; }
+      if (e.target.closest("#sort-za")) { applySort("desc"); return; }
+      const btn = e.target.closest("[data-copy]");
+      if (btn) {
+        navigator.clipboard.writeText(btn.dataset.copy).then(() => {
+          toast("Copied " + btn.dataset.copy, "ok");
+        }).catch(() => toast("Copy failed", "err"));
+      }
+    });
+  }
 }
 
 async function renderVaultFile(file) {
