@@ -74,10 +74,22 @@ function applyTheme(theme) {
   root.classList.remove("theme-system", "theme-dark", "theme-light", "theme-hc", "theme-midnight", "theme-solarized-light", "theme-retro", "theme-matrix", "theme-ocean", "theme-berry", "theme-graphite");
   if (!theme || theme === "system") {
     root.dataset.theme = "auto";
+    applySystemTheme();
     return;
   }
   root.dataset.theme = theme;
 }
+function applySystemTheme() {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const root = document.documentElement;
+  root.classList.remove('theme-light', 'theme-dark');
+  root.classList.add(mq.matches ? 'theme-dark' : 'theme-light');
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (document.documentElement.dataset.theme === 'auto' || !document.documentElement.dataset.theme) {
+    applySystemTheme();
+  }
+});
 
 function applyContrast(contrast) {
   const root = document.documentElement;
@@ -219,11 +231,11 @@ async function renderDashboard() {
   $("#main").innerHTML = skelGrid(4, 160);
   const [s, roles] = await Promise.all([safe(api.status).catch(() => null), safe(api.roles).catch(() => ({ roles: [] }))]);
   const healthPill = s && s.gbrain_health && s.gbrain_health.status === "ok"
-    ? `<span class="pill ok"><span class="dot"></span> brain ok</span>`
-    : `<span class="pill bad"><span class="dot"></span> brain down</span>`;
+    ? `<span class="pill ok" data-tooltip="Core brain service is healthy"><span class="dot"></span> brain ok</span>`
+    : `<span class="pill bad" data-tooltip="Core brain service is unreachable"><span class="dot"></span> brain down</span>`;
   const ollamaPill = s && s.ollama
-    ? `<span class="pill ok"><span class="dot"></span> ollama</span>`
-    : `<span class="pill bad"><span class="dot"></span> ollama off</span>`;
+    ? `<span class="pill ok" data-tooltip="Local LLM runtime available"><span class="dot"></span> ollama</span>`
+    : `<span class="pill bad" data-tooltip="Local LLM runtime offline"><span class="dot"></span> ollama off</span>`;
   const seeded = (roles.roles || []).filter(r => r.exists).length;
   $("#main").innerHTML = `
     <h1>Brain Console</h1>
@@ -803,7 +815,7 @@ async function renderTimeline() {
       <div id="tl-empty" class="hidden"></div>
     </div>`;
   const renderSummary = () => {
-    const counts: Record<string, number> = {};
+    const counts = {};
     items.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; });
     const summaryEl = $("#tl-summary");
     if (summaryEl) {
@@ -878,17 +890,18 @@ async function renderTimeline() {
 
 async function renderLedger() {
   crumb([["ForgeOS", "#/command"], ["Decision Ledger"]]);
-  $("#main").innerHTML = skelGrid(4, 160);
-  const { roles } = await safe(() => api.roles()).catch(() => ({ roles: [] }));
+  $("main").innerHTML = skelGrid(4, 160);
+  const { roles } = await safe(api.roles).catch(() => ({ roles: [] }));
   const roleOptions = (roles || []).map(r =>
     `<option value="${DOMPurify.sanitize(r.slug)}">${DOMPurify.sanitize(r.role || r.slug)}</option>`
   ).join("");
   const statusOptions = ["approved", "pending", "proposed", "rejected"].map(s =>
     `<option value="${DOMPurify.sanitize(s)}">${DOMPurify.sanitize(s)}</option>`
   ).join("");
-  $("#main").innerHTML = `<h1>Decision Ledger</h1>
+  $("main").innerHTML = `<h1>Decision Ledger</h1>
     <div class="card">
       <div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
+        <input id="l-search" placeholder="Search ledger…" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
         <input type="date" id="l-from" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="From date">
         <input type="date" id="l-to" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="To date">
         <select id="l-role" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
@@ -910,13 +923,18 @@ async function renderLedger() {
     const to = $("#l-to")?.value || "";
     const role = $("#l-role")?.value || "";
     const status = $("#l-status")?.value || "";
+    const q = $("#l-search")?.value?.trim() || "";
     const params = {};
     if (from) params.from = from;
     if (to) params.to = to;
     if (role) params.role = role;
     if (status) params.status = status;
-    const r = await safe(() => api.ledger(Object.keys(params).length ? params : undefined)).catch(() => ({ ledger: [] }));
-    const entries = Array.isArray(r.ledger) ? r.ledger : [];
+    const base = await safe(() => api.ledger(Object.keys(params).length ? params : undefined)).catch(() => ({ ledger: [] }));
+    let entries = Array.isArray(base.ledger) ? base.ledger : [];
+    if (q) {
+      const search = await safe(() => api.ledgerSearch(q)).catch(() => ({ ledger: [] }));
+      entries = Array.isArray(search.ledger) ? search.ledger : entries;
+    }
     const tbody = $("#ledger-tbody");
     if (tbody) {
       tbody.innerHTML = entries.map(e => `<tr>
@@ -933,6 +951,10 @@ async function renderLedger() {
     const el = $(sel);
     if (el) el.addEventListener("change", loadLedger);
   });
+  $("#l-search")?.addEventListener("input", () => {
+    clearTimeout(window._ledgerSearchTimer);
+    window._ledgerSearchTimer = setTimeout(loadLedger, 250);
+  });
   const resetBtn = $("#l-reset");
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
@@ -940,6 +962,7 @@ async function renderLedger() {
       $("#l-to").value = "";
       $("#l-role").value = "";
       $("#l-status").value = "";
+      $("#l-search").value = "";
       loadLedger();
     });
   }
@@ -3012,7 +3035,7 @@ async function renderSettings() {
   if (shortcuts) shortcuts.checked = savedShortcuts;
   if (statusbar) statusbar.checked = savedStatusbar;
 
-  const applyCompact = (on: boolean) => {
+  const applyCompact = (on) => {
     document.body.classList.toggle("compact", on);
     const root = document.documentElement;
     if (on) {
@@ -3028,16 +3051,16 @@ async function renderSettings() {
     }
   };
 
-  const applyAnimations = (on: boolean) => {
+  const applyAnimations = (on) => {
     document.documentElement.style.setProperty("--trans", on ? ".12s ease" : "0s");
     document.documentElement.style.setProperty("--trans-slow", on ? ".24s ease" : "0s");
   };
 
-  const applyShortcuts = (on: boolean) => {
+  const applyShortcuts = (on) => {
     document.querySelectorAll(".kbd").forEach(el => el.style.display = on ? "" : "none");
   };
 
-  const applyStatusbar = (on: boolean) => {
+  const applyStatusbar = (on) => {
     const bar = document.querySelector("#status-bar");
     if (bar) bar.style.display = on ? "" : "none";
   };
@@ -3337,6 +3360,223 @@ async function renderPlugins() {
   refresh();
 }
 
+
+// ---------- Agent heartbeat/dead-man switch ----------
+async function renderAgentHeartbeat() {
+  crumb([["ForgeOS", "#/monitoring"], ["Agent Heartbeat"]]);
+  $("main").innerHTML = `<h1>Agent Heartbeat</h1>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>Live status</h2>
+        <button class="btn primary" id="arm-deadman">Arm dead-man switch</button>
+      </div>
+      <pre id="heartbeat-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.agentHeartbeat).catch(() => ({ ts: Date.now(), agents: [], status: 'degraded' }));
+      const out = document.querySelector("#heartbeat-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('heartbeat error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+  setInterval(refresh, 5000);
+  document.querySelector("#arm-deadman")?.addEventListener("click", async () => {
+    await safe(() => api.armDeadman()).catch(() => ({}));
+    toast('dead-man switch armed', 'ok');
+  });
+}
+
+// ---------- Cross-agent memory pool ----------
+async function renderMemoryPool() {
+  crumb([["ForgeOS", "#/monitoring"], ["Memory Pool"]]);
+  $("main").innerHTML = `<h1>Agent Memory Pool</h1>
+    <div class="card">
+      <h2>Shared memory</h2>
+      <pre id="memory-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.memoryPool).catch(() => ({ pool: [] }));
+      const out = document.querySelector("#memory-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('memory pool error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+  setInterval(refresh, 5000);
+}
+
+// ---------- Live amendment voting UI ----------
+async function renderAmendments() {
+  crumb([["ForgeOS", "#/governance"], ["Amendments"]]);
+  $("main").innerHTML = `<h1>Amendments</h1>
+    <div class="card">
+      <h2>Active amendments</h2>
+      <pre id="amendments-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.amendments).catch(() => ({ amendments: [] }));
+      const out = document.querySelector("#amendments-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('amendments error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+}
+
+// ---------- Sacred-folder lock ----------
+async function renderSacred() {
+  crumb([["ForgeOS", "#/governance"], ["Sacred Lock"]]);
+  $("main").innerHTML = `<h1>Sacred Folder Lock</h1>
+    <div class="card">
+      <h2>Protected paths</h2>
+      <pre id="sacred-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.sacred).catch(() => ({ locked: true, paths: [] }));
+      const out = document.querySelector("#sacred-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('sacred lock error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+}
+
+// ---------- Process supervisor ----------
+async function renderProcesses() {
+  crumb([["ForgeOS", "#/dashboard"], ["Processes"]]);
+  $("main").innerHTML = `<h1>Process Supervisor</h1>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>Managed processes</h2>
+        <button class="btn primary" id="new-process">Add process</button>
+      </div>
+      <pre id="processes-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.processes).catch(() => ({ processes: [] }));
+      const out = document.querySelector("#processes-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('process supervisor error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+  document.querySelector("#new-process")?.addEventListener("click", async () => {
+    const cmd = prompt("Process command:");
+    if (!cmd) return;
+    await safe(() => api.createProcess({ command: cmd })).catch(() => ({}));
+    toast('process queued', 'ok');
+    refresh();
+  });
+}
+
+// ---------- Port conflict prevention ----------
+async function renderPortConflicts() {
+  crumb([["ForgeOS", "#/settings"], ["Port Conflicts"]]);
+  $("main").innerHTML = `<h1>Port Conflict Prevention</h1>
+    <div class="card">
+      <h2>Reserved ports</h2>
+      <pre id="ports-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.portConflicts).catch(() => ({ conflicts: [] }));
+      const out = document.querySelector("#ports-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('port scan error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+}
+
+// ---------- SPA hot-reload without SW cache fights ----------
+async function renderReload() {
+  crumb([["ForgeOS", "#/settings"], ["SPA Reload"]]);
+  $("main").innerHTML = `<h1>SPA Hot Reload</h1>
+    <div class="card">
+      <p class="muted">Bust service worker cache and reload app shell without stale HTML/JS.</p>
+      <button class="btn primary" id="bust-sw" style="margin-top:12px">Bust cache & reload</button>
+    </div>`;
+  document.querySelector("#bust-sw")?.addEventListener("click", async () => {
+    try {
+      await safe(() => api.bustSW()).catch(() => ({}));
+    } finally {
+      toast('reloading...', 'ok');
+      setTimeout(() => location.reload(), 300);
+    }
+  });
+}
+
+// ---------- Plugin manifest ----------
+async function renderPluginManifest() {
+  crumb([["ForgeOS", "#/plugins"], ["Manifest"]]);
+  $("main").innerHTML = `<h1>Plugin Manifest</h1>
+    <div class="card">
+      <h2>Registered plugins</h2>
+      <pre id="manifest-out" class="code json" style="margin-top:12px">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const r = await safe(api.pluginManifest).catch(() => ({ manifest: [] }));
+      const out = document.querySelector("#manifest-out");
+      if (out) out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      toast('manifest error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+}
+
+// ---------- PoolLeague control panel ----------
+async function renderPoolLeague() {
+  crumb([["ForgeOS", "#/dashboard"], ["PoolLeague"]]);
+  $("main").innerHTML = `<h1>PoolLeague</h1>
+    <div class="grid cols-2">
+      <div class="card">
+        <h2>Status</h2>
+        <pre id="pool-status" class="code json">loading...</pre>
+      </div>
+      <div class="card">
+        <h2>Tournaments</h2>
+        <pre id="pool-tournaments" class="code json">loading...</pre>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Matches</h2>
+      <pre id="pool-matches" class="code json">loading...</pre>
+    </div>`;
+  const refresh = async () => {
+    try {
+      const [status, tournaments, matches] = await Promise.all([
+        safe(api.poolleagueStatus).catch(() => ({ ok: false })),
+        safe(api.poolleagueTournaments).catch(() => ({ tournaments: [] })),
+        safe(api.poolleagueMatches).catch(() => ({ matches: [] })),
+      ]);
+      const s = document.querySelector("#pool-status");
+      const t = document.querySelector("#pool-tournaments");
+      const m = document.querySelector("#pool-matches");
+      if (s) s.textContent = JSON.stringify(status, null, 2);
+      if (t) t.textContent = JSON.stringify(tournaments, null, 2);
+      if (m) m.textContent = JSON.stringify(matches, null, 2);
+    } catch (e) {
+      toast('poolleague error: ' + errMsg(e), 'err');
+    }
+  };
+  refresh();
+  setInterval(refresh, 5000);
+}
+
 // ===================== ROUTER =====================
 
 
@@ -3365,26 +3605,170 @@ async function reloadPlugins() {
   if (btn) btn.textContent = 'Reload Plugins';
   toast('Plugins reloaded');
 }
-// ---------- Webhook management panel ----------
-
+// ---------- (45) webhook management: search, pagination, delete, toggle, retry ----------
 async function renderWebhooks() {
-  const list = await api.listWebhooks().catch(() => ({ webhooks: [], deadLetter: [] }));
+  crumb([["ForgeOS", "#/dashboard"], ["Webhooks", tooltip("Webhooks", "Outbound webhook management")]]);
+  const list = await safe(() => api.listWebhooks()).catch(() => ({ webhooks: [], deadLetter: [] }));
+  const webhooks = Array.isArray(list.webhooks) ? list.webhooks : [];
+  const deadLetter = Array.isArray(list.deadLetter) ? list.deadLetter : [];
+
+  const qp = new URLSearchParams(location.hash.split("?")[1] || "");
+  const page = Number(qp.get("page") || "1");
+  const searchQ = (qp.get("q") || "").toLowerCase();
+  const dlqPage = Number(qp.get("dlq") || "1");
+
+  function getFilteredWebhooks() {
+    if (!searchQ) return webhooks;
+    return webhooks.filter(w =>
+      (w.url || "").toLowerCase().includes(searchQ) ||
+      (w.events || []).some(e => (e || "").toLowerCase().includes(searchQ))
+    );
+  }
+
+  const wp = paginate(getFilteredWebhooks(), page, 8);
+  const dp = paginate(deadLetter, dlqPage, 8);
+
+  const buildWebhookUrl = (extra) => {
+    const qs = new URLSearchParams();
+    if (searchQ) qs.set("q", searchQ);
+    if (wp.page > 1) qs.set("page", wp.page);
+    qs.set("dlq", dp.page);
+    const base = "#/webhooks";
+    return extra ? `${base}?${qs.toString()}&${extra}` : `${base}?${qs.toString()}`;
+  };
+
   document.querySelector("main").innerHTML = `<h1>Webhooks</h1>
-    <div class="card"><h3>Create Webhook</h3>
-      <input id="wh-url" class="input" placeholder="https://example.com/hook"/>
-      <input id="wh-events" class="input" placeholder="mission.created,agent.completed"/>
-      <input id="wh-secret" class="input" placeholder="optional secret"/>
-      <button class="btn" id="wh-create">Create</button>
+    <div class="card" style="margin-bottom:16px">
+      <h3 data-tooltip="Register a new outbound webhook">Create Webhook</h3>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <input id="wh-url" class="input" placeholder="https://example.com/hook" data-tooltip="Webhook target URL" style="flex:1;min-width:200px"/>
+        <input id="wh-events" class="input" placeholder="mission.created,agent.completed" data-tooltip="Comma-separated event types to listen for" style="flex:1;min-width:200px"/>
+        <input id="wh-secret" class="input" placeholder="optional secret" data-tooltip="Optional HMAC signing secret" style="flex:1;min-width:120px"/>
+        <button class="btn primary" id="wh-create" data-tooltip="Create new webhook">Create</button>
+      </div>
     </div>
-    <h2>Active Webhooks</h2>
-    <div id="wh-list">${(list.webhooks||[]).map(w => `<div class="card"><b>${w.url}</b><br/><span class="muted">${w.events.join(", ")} ${w.active ? "✅" : "⏸️"}</span></div>`).join("")}</div>
-    <h2>Dead Letter Queue</h2>
-    <div id="dlq-list">${((list.deadLetter||[])).map(d => `<div class="card"><b>${d.url || d.id || 'unknown'}</b><br/><span class="muted">${d.event || d.payload?.event || ''} — ${d.error || d.reason || 'failed'}</span></div>`).join("")}</div>`;
+    <div class="card" style="margin-bottom:16px">
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <h2 data-tooltip="Active webhook registrations">Active Webhooks <span class="muted" style="font-size:12px">(${webhooks.length})</span></h2>
+        <div class="row" style="gap:8px">
+          <input id="wh-search" placeholder="Search by URL or event..." value="${DOMPurify.attributeValue(searchQ)}" data-tooltip="Filter active webhooks" style="padding:6px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:220px"/>
+          <span class="pill" data-tooltip="Active webhook count">${webhooks.length} total</span>
+          <span class="pill" data-tooltip="Filtered webhook count">${getFilteredWebhooks().length} shown</span>
+        </div>
+      </div>
+      <div id="wh-list">
+        ${wp.items.length ? wp.items.map(w => `<div class="card" style="margin-bottom:8px">
+          <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <div style="flex:1;min-width:200px">
+              <b data-tooltip="Webhook target endpoint">${DOMPurify.sanitize(w.url || '')}</b>
+              <span class="pill ${w.active ? 'ok' : 'warn'}" data-tooltip="${w.active ? 'Webhook is active and receiving events' : 'Webhook is paused — no events delivered'}"><span class="dot"></span>${w.active ? 'active' : 'paused'}</span>
+            </div>
+            <div class="row" style="gap:6px">
+              <button class="btn secondary sm" data-toggle-webhook="${encodeURIComponent(w.url || '')}" data-tooltip="${w.active ? 'Pause this webhook' : 'Resume this webhook'}">${w.active ? '⏸ Pause' : '▶ Resume'}</button>
+              <button class="btn secondary sm" data-retry-webhook="${encodeURIComponent(w.url || '')}" data-tooltip="Send a test event to this webhook">Test</button>
+              <button class="btn secondary sm danger" data-delete-webhook="${encodeURIComponent(w.url || '')}" data-tooltip="Permanently delete this webhook">🗑 Delete</button>
+            </div>
+          </div>
+          <p class="muted" style="margin-top:4px;font-size:12px" data-tooltip="Subscribed event types">${(w.events || []).map(e => `<span class="pill mono" style="font-size:10px;padding:1px 6px;margin:1px">${DOMPurify.sanitize(e)}</span>`).join(' ')}</p>
+        </div>`).join("") : emptyState(searchQ ? "No matching webhooks" : "No active webhooks", searchQ ? "Try a different search" : "Create a webhook to get started")}
+      </div>
+      ${paginationControls(wp)}
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <h2 data-tooltip="Failed webhook deliveries awaiting manual retry">Dead Letter Queue <span class="muted" style="font-size:12px">(${deadLetter.length})</span></h2>
+        <span class="pill" data-tooltip="Retryable failed deliveries">${deadLetter.length} failed</span>
+      </div>
+      <div id="dlq-list">
+        ${dp.items.length ? dp.items.map(d => `<div class="card" style="margin-bottom:8px">
+          <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <div>
+              <b data-tooltip="Dead-letter target or id">${DOMPurify.sanitize(d.url || d.id || 'unknown')}</b>
+              <span class="pill bad" data-tooltip="This delivery failed"><span class="dot"></span>failed</span>
+            </div>
+            <button class="btn primary sm" data-retry-dlq="${encodeURIComponent(d.id || d.url || '')}" data-tooltip="Retry this failed delivery">↻ Retry</button>
+          </div>
+          <p class="muted" style="margin-top:4px;font-size:12px">${DOMPurify.sanitize(d.event || d.payload?.event || '')} — ${DOMPurify.sanitize(d.error || d.reason || 'failed')}</p>
+        </div>`).join("") : emptyState("Dead letter queue is empty", "All webhook deliveries are succeeding")}
+      </div>
+      ${paginationControls(dp)}
+    </div>`;
+
+  const searchEl = $("#wh-search");
+  if (searchEl) {
+    searchEl.addEventListener("input", () => {
+      const q = searchEl.value.trim();
+      const qs = new URLSearchParams(location.hash.split("?")[1] || "");
+      if (q) qs.set("q", q); else qs.delete("q");
+      qs.set("page", "1");
+      location.hash = `#/webhooks?${qs.toString()}`;
+    });
+  }
+
+  $$("[data-toggle-webhook]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const url = decodeURIComponent(btn.dataset.toggleWebhook);
+      await withLoading(btn, async () => {
+        const r = await safe(() => api.toggleWebhook(url)).catch(() => ({ error: true }));
+        if (r && !r.error) { toast("webhook toggled", "ok"); renderWebhooks(); }
+        else toast("toggle failed", "err");
+      });
+    });
+  });
+
+  $$("[data-delete-webhook]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const url = decodeURIComponent(btn.dataset.deleteWebhook);
+      if (!await confirmAction("Delete webhook", `Permanently delete webhook at ${DOMPurify.sanitize(url)}?`)) return;
+      await safe(() => api.deleteWebhook(url)).catch(() => ({}));
+      toast("webhook deleted", "ok");
+      renderWebhooks();
+    });
+  });
+
+  $$("[data-retry-webhook]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const url = decodeURIComponent(btn.dataset.retryWebhook);
+      await withLoading(btn, async () => {
+        const r = await safe(() => api.testWebhook(url)).catch(() => ({ ok: false }));
+        toast(r && r.ok ? "test event sent" : "test failed", r && r.ok ? "ok" : "err");
+      });
+    });
+  });
+
+  $$("[data-retry-dlq]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = decodeURIComponent(btn.dataset.retryDlq);
+      await withLoading(btn, async () => {
+        const r = await safe(() => api.retryDlq(id)).catch(() => ({ ok: false }));
+        toast(r && r.ok ? "retry queued" : "retry failed", r && r.ok ? "ok" : "err");
+        if (r && r.ok) setTimeout(renderWebhooks, 800);
+      });
+    });
+  });
+
+  $$("#main [data-page]").forEach(b => {
+    b.addEventListener("click", () => {
+      const qs = new URLSearchParams(location.hash.split("?")[1] || "");
+      const target = b.dataset.page;
+      const isDlq = b.closest("#dlq-list") || b.closest(".pagination")?.closest("#dlq-list") ? true : false;
+      if (isDlq) qs.set("dlq", target);
+      else qs.set("page", target);
+      location.hash = `#/webhooks?${qs.toString()}`;
+    });
+  });
+
   $("#wh-create")?.addEventListener("click", async () => {
     const url = $("#wh-url")?.value;
     const events = ($("#wh-events")?.value || "").split(",").map(s => s.trim()).filter(Boolean);
-    await api.createWebhook(url, events, $("#wh-secret")?.value);
-    renderWebhooks();
+    const secret = $("#wh-secret")?.value;
+    if (!url) { toast("url is required", "err"); return; }
+    if (!events.length) { toast("at least one event is required", "err"); return; }
+    await withLoading($("#wh-create"), async () => {
+      const r = await safe(() => api.createWebhook(url, events, secret)).catch(() => ({ error: true }));
+      if (r && !r.error) { toast("webhook created", "ok"); renderWebhooks(); }
+      else toast("create failed", "err");
+    });
   });
 }
 
@@ -3467,6 +3851,18 @@ async function loadPanel(name) {
 }
 
 // ---------- Offline capture queue (IndexedDB) ----------
+function initOfflineIndicator() {
+  const indicator = document.createElement('div');
+  indicator.className = 'offline-indicator hidden';
+  indicator.innerHTML = '<span class="dot offline"></span> offline — edits queued';
+  document.body.appendChild(indicator);
+  const update = () => indicator.classList.toggle('hidden', navigator.onLine);
+  window.addEventListener('online', update);
+  window.addEventListener('offline', update);
+  update();
+}
+initOfflineIndicator();
+
 let offlineDB = null;
 function openOfflineDB() {
   return new Promise((resolve, reject) => {
@@ -3587,7 +3983,7 @@ const _rawRoutes = {
   command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, timeline: renderTimeline, ledger: renderLedger,
   search: renderSearch, capture: renderCapture, decisions: renderDecisions, missions: renderMissions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
   embed: renderEmbed, federation: renderFederation, audit: renderAudit, schema: renderSchema, config: renderConfig,
-  projects: renderProjects, wizard: renderWizard, monitoring: renderMonitoring, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins, webhooks: renderWebhooks,
+  projects: renderProjects, wizard: renderWizard, monitoring: renderMonitoring, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins, webhooks: renderWebhooks, heartbeat: renderAgentHeartbeat, memory: renderMemoryPool, amendments: renderAmendments, sacred: renderSacred, processes: renderProcesses, portConflicts: renderPortConflicts, reload: renderReload, pluginManifest: renderPluginManifest, poolleague: renderPoolLeague,
 };
 const routes = {};
 for (const [name, fn] of Object.entries(_rawRoutes)) {
@@ -3906,10 +4302,28 @@ function paintSel(items) { items.forEach((li, i) => li.classList.toggle("sel", i
 function renderCmdk(q) {
   const ul = $("#cmdk ul");
   const hist = JSON.parse(localStorage.getItem("forgeos-hist") || "[]");
-  const opts = CMDS.filter(c => c.label.toLowerCase().includes(q.toLowerCase()));
+  const ql = q.toLowerCase();
+  const opts = CMDS.filter(c => c.label.toLowerCase().includes(ql));
+  const groups = {};
+  const recent = [];
+  for (const cmd of CMDS) {
+    const label = cmd.label;
+    const group = label.split(" ")[0] || "Other";
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(cmd);
+  }
   const histItems = q ? [] : hist.map(h => ({ label: "↺ " + (NAV.flatMap(g => g.items).find(n => (n[2] ?? n[1]) === h)?.[0] || h), go: () => location.hash = "#/" + h }));
+  let html = '';
   const all = q ? opts : opts.concat(histItems);
-  ul.innerHTML = all.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join("") || "<li class='muted'>no match</li>";
+  if (q) {
+    html = all.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join('');
+  } else {
+    html += '<li class="cmdk-group"><b>Recent</b></li>' + histItems.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join('');
+    for (const [group, cmds] of Object.entries(groups)) {
+      html += `<li class="cmdk-group"><b>${DOMPurify.sanitize(group)}</b></li>` + cmds.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join('');
+    }
+  }
+  ul.innerHTML = html || "<li class='muted'>no match</li>";
   $$("#cmdk li").forEach((li, i) => li.addEventListener("click", () => { all[i].go(); $("#cmdk").classList.remove("open"); }));
   paintSel($$("#cmdk li"));
 }
@@ -3971,6 +4385,186 @@ function showShortcuts() {
     <button class="btn secondary" id="c">Close</button></div>`;
   document.body.appendChild(back);
   back.querySelector("#c").addEventListener("click", () => back.remove());
+}
+
+// =====================================================================
+// BOOT DIAGNOSTICS & BLACK SCREEN FIX (1)
+// =====================================================================
+(function bootDiagnostics() {
+  try {
+    const t0 = performance.now();
+    const appRoot = document.getElementById('app');
+    const bootLog = [];
+    bootLog.push('[BOOT] start app=' + !!appRoot + ' title=' + document.title);
+    console.log('[BOOT] start app=' + !!appRoot + ' title=' + document.title);
+    const origShell = window.shell;
+    if (typeof origShell !== 'function') {
+      throw new Error('shell() is not defined before route()');
+    }
+    origShell();
+    const after = document.getElementById('app');
+    const dt = Math.round(performance.now() - t0);
+    bootLog.push('[BOOT] shell completed in ' + dt + 'ms children=' + (after ? after.children.length : 'null'));
+    console.log('[BOOT] shell completed in ' + dt + 'ms children=' + (after ? after.children.length : 'null'));
+    if (after && after.children.length === 0) {
+      after.style.background = '#10131b';
+      after.innerHTML = '<div style="padding:16px;color:#adc6ff;font-family:monospace">[BOOT] shell ran but #app is still empty. Check console.</div>';
+      bootLog.push('[BOOT] fallback injected');
+      console.warn('[BOOT] fallback injected');
+    }
+    safe(() => fetch('/api/health', { headers: { 'x-boot-log': encodeURIComponent(bootLog.join('\n')) } })).catch(() => {});
+  } catch (e) {
+    console.error('[BOOT] fatal:', e);
+    const appRoot = document.getElementById('app');
+    if (appRoot) {
+      appRoot.style.background = '#10131b';
+      appRoot.innerHTML = '<div style="padding:16px;color:#ffb4ab;font-family:monospace">Boot error: ' + DOMPurify.sanitize(e && e.message ? e.message : String(e)) + '</div>';
+    }
+  }
+})();
+
+// =====================================================================
+// SYSTEM PREFERENCE SYNC (4)
+// =====================================================================
+(function syncSystemTheme() {
+  const saved = localStorage.getItem('forgeos-theme');
+  if (saved && saved !== 'system') return;
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const apply = () => {
+    const t = mq.matches ? 'dark' : 'light';
+    applyTheme(t);
+    const sel = document.querySelector('#s-theme');
+    if (sel && document.activeElement !== sel) sel.value = 'system';
+  };
+  apply();
+  mq.addEventListener('change', apply);
+})();
+
+// =====================================================================
+// CROSS-AGENT MEMORY POOL (9)
+// =====================================================================
+const agentMemoryPool = {
+  key: 'forgeos-agent-memory',
+  add(agent, key, value) {
+    const pool = JSON.parse(localStorage.getItem(this.key) || '{}');
+    const entry = { agent, key, value, ts: Date.now() };
+    const arr = pool[agent] || [];
+    arr.push(entry);
+    pool[agent] = arr.slice(-20);
+    localStorage.setItem(this.key, JSON.stringify(pool));
+  },
+  recent(agent, limit = 10) {
+    const pool = JSON.parse(localStorage.getItem(this.key) || '{}');
+    return (pool[agent] || []).slice(-limit);
+  },
+  all(limit = 50) {
+    const pool = JSON.parse(localStorage.getItem(this.key) || '{}');
+    const out = [];
+    for (const [agent, entries] of Object.entries(pool)) {
+      entries.slice(-5).forEach(e => out.push({ agent, ...e }));
+    }
+    return out.sort((a, b) => b.ts - a.ts).slice(0, limit);
+  }
+};
+
+// =====================================================================
+// AGENT AUDIT TRAIL (10)
+// =====================================================================
+const agentAudit = {
+  key: 'forgeos-agent-audit',
+  log(entry) {
+    const trail = JSON.parse(localStorage.getItem(this.key) || '[]');
+    trail.unshift({ ...entry, id: crypto.randomUUID(), ts: Date.now() });
+    localStorage.setItem(this.key, JSON.stringify(trail.slice(0, 500)));
+  },
+  recent(limit = 20) {
+    return JSON.parse(localStorage.getItem(this.key) || '[]').slice(0, limit);
+  }
+};
+
+// =====================================================================
+// HUMAN-IN-THE-LOOP APPROVAL GATES (12)
+// =====================================================================
+const approvalQueue = {
+  key: 'forgeos-approval-queue',
+  enqueue(action) {
+    const q = JSON.parse(localStorage.getItem(this.key) || '[]');
+    q.unshift({ ...action, id: crypto.randomUUID(), status: 'pending', ts: Date.now() });
+    localStorage.setItem(this.key, JSON.stringify(q.slice(0, 100)));
+    return q[0];
+  },
+  resolve(id, approved) {
+    const q = JSON.parse(localStorage.getItem(this.key) || '[]');
+    const item = q.find(x => x.id === id);
+    if (item) item.status = approved ? 'approved' : 'rejected';
+    localStorage.setItem(this.key, JSON.stringify(q));
+    return item;
+  },
+  pending() {
+    return JSON.parse(localStorage.getItem(this.key) || '[]').filter(x => x.status === 'pending');
+  }
+};
+
+// =====================================================================
+// DECISION LEDGER SEARCH (15)
+// =====================================================================
+function searchLedger(query) {
+  const q = (query || '').toLowerCase();
+  const items = JSON.parse(localStorage.getItem('forgeos-ledger') || '[]');
+  if (!q) return items;
+  return items.filter(item => {
+    const text = [item.title, item.decision, item.owner, item.topic, item.status, item.rfc].filter(Boolean).join(' ').toLowerCase();
+    return text.includes(q);
+  });
+}
+
+// =====================================================================
+// SACRED FOLDER LOCK (16)
+// =====================================================================
+const sacredPaths = ['/governance', '/governance/constitution', '/governance/laws', '/governance/standards', '/governance/rfcs'];
+function isSacredPath(pathname) {
+  return sacredPaths.some(p => pathname === p || pathname.startsWith(p + '/'));
+}
+function guardSacredWrite(operation) {
+  if (isSacredPath(location.pathname)) {
+    toast('Governance is immutable except by constitutional amendment', 'err');
+    return false;
+  }
+  return operation();
+}
+
+// =====================================================================
+// PORT CONFLICT PREVENTION (21)
+// =====================================================================
+function detectPort(port) {
+  return fetch('http://127.0.0.1:' + port, { mode: 'no-cors', cache: 'no-store' }).then(() => true).catch(() => false);
+}
+
+// =====================================================================
+// SOURCE-MAP-FRIENDLY BOOT LOGS (24)
+// =====================================================================
+function bootStack(message) {
+  const err = new Error(message);
+  if (err.stack) console.log('[BOOT][' + message + '] ' + err.stack.split('\n').slice(1, 3).join('\n'));
+  else console.log('[BOOT][' + message + ']');
+}
+
+// =====================================================================
+// REPO-AWARE AGENTS.MD ENFORCEMENT (25)
+// =====================================================================
+function enforceAgentsRules(change) {
+  const forbidden = ['bun build', 'bun build ./'];
+  const path = change.file || '';
+  if (path.endsWith('AGENTS.md')) return true;
+  if (forbidden.some(f => change.diff && change.diff.includes(f))) {
+    toast('AGENTS.md forbids bun build in this env', 'err');
+    return false;
+  }
+  if (path.includes('src/app.js') && change.diff && change.diff.includes('bun build')) {
+    toast('AGENTS.md forbids build-step dependencies', 'err');
+    return false;
+  }
+  return true;
 }
 
 // ---------- (66) onboarding tour ----------
@@ -4112,6 +4706,18 @@ function tickStatusBar(s) {
 
 // ===================== SHELL =====================
 // (12) sidebar collapse (persisted) + (20) mobile hamburger
+// Error boundary: catch uncaught errors and show fallback UI
+window.addEventListener('error', (e) => {
+  console.error('[BOUNDARY]', e.message, e.filename, e.lineno);
+  const main = document.querySelector('main');
+  if (main) main.innerHTML = '<div class="card"><h1>Runtime error</h1><pre>' + DOMPurify.sanitize(e.message) + '</pre></div>';
+});
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('[BOUNDARY] unhandled', e.reason);
+  const main = document.querySelector('main');
+  if (main) main.innerHTML = '<div class="card"><h1>Async error</h1><pre>' + DOMPurify.sanitize(String(e.reason)) + '</pre></div>';
+});
+
 function shell() {
   const theme = localStorage.getItem("forgeos-theme") || "dark";
   document.documentElement.setAttribute("data-theme", theme);
@@ -4190,7 +4796,7 @@ function shell() {
   safe(() => api.status()).then(s => tickStatusBar(s || {})).catch(() => tickStatusBar({}));
   setInterval(async () => { tickStatusBar(await safe(() => api.status()).catch(() => ({}))); }, 1000);
 }
-shell();
+try { shell(); } catch (e) { console.error('[BOOT] shell failed', e); const main = document.querySelector('main'); if (main) main.innerHTML = '<div class="card"><h1>Boot error</h1><pre>' + DOMPurify.sanitize(String(e)) + '</pre></div>'; }
 
 // ---------- Keyboard shortcuts cheatsheet ----------
 const SHORTCUTS = [
@@ -4198,6 +4804,35 @@ const SHORTCUTS = [
     ["?", "Show shortcuts"],
     ["1-9", "Jump to nav item"],
     ["G then 1-9", "Quick goto panel"],
+    ["Ctrl+K", "Command palette"],
+    ["Esc", "Close dialogs"],
+  ]},
+  { cat: "Panels", items: [
+    ["D", "Dashboard"],
+    ["G", "Governance"],
+    ["M", "Missions"],
+    ["L", "Decision Ledger"],
+    ["S", "Settings"],
+  ]},
+  { cat: "System", items: [
+    ["Ctrl+Shift+R", "Hard reload"],
+    ["Ctrl+Shift+I", "DevTools"],
+  ]},
+];
+function showShortcuts() {
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop open";
+  modal.innerHTML = `<div class="modal" style="max-width:520px">
+    <h2>Keyboard Shortcuts</h2>
+    <div class="grid cols-2">
+      ${SHORTCUTS.map(g => `<div style="margin-bottom:12px"><b>${g.cat}</b><ul style="margin:4px 0;padding-left:18px">${g.items.map(([k,desc]) => `<li><span class="kbd">${k}</span> ${desc}</li>`).join("")}</ul></div>`).join("")}
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" id="shortcuts-close">Close</button></div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector("#shortcuts-close").addEventListener("click", () => modal.remove());
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+}
     ["Cmd/Ctrl + K", "Command palette"],
   ]},
   { cat: "Editing", items: [

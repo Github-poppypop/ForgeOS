@@ -3339,23 +3339,108 @@ async function renderPlugins() {
   crumb([["ForgeOS", "#/dashboard"], ["Plugins"]]);
   document.querySelector("main").innerHTML = `<h1>Plugins</h1>
     <div class="card">
-      <h2>Loaded modules</h2>
-      <button class="btn primary" id="plugin-reload-btn" data-tooltip="Reload plugins from disk">Reload Plugins</button>
+      <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h2>Loaded modules</h2>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <input id="plugin-search" class="input" placeholder="Search plugins..." data-tooltip="Filter plugins by name"/>
+          <button class="btn secondary" id="plugin-enable-all" data-tooltip="Enable all disabled plugins">Enable All</button>
+          <button class="btn secondary" id="plugin-disable-all" data-tooltip="Disable all active plugins">Disable All</button>
+          <button class="btn primary" id="plugin-reload-btn" data-tooltip="Reload plugins from disk">Reload Plugins</button>
+        </div>
+      </div>
+      <div id="plugin-stats" class="row" style="gap:12px;margin-top:8px"></div>
+      <div id="plugin-list" style="margin-top:12px"></div>
       <pre id="plugin-out" class="code json" style="margin-top:12px"></pre>
     </div>`;
   const refresh = async () => {
     try {
       const r = await safe(api.plugins).catch(() => ({ plugins: [] }));
+      const plugins = (r.plugins || []).map(p => ({
+        ...p,
+        _status: p.active === false ? 'inactive' : (p.error ? 'error' : 'active')
+      }));
       const out = document.querySelector("#plugin-out");
       if (out) out.textContent = JSON.stringify(r, null, 2);
+      renderPluginList(plugins);
     } catch (e) {
       const out = document.querySelector("#plugin-out");
       if (out) out.textContent = "plugin error: " + errMsg(e);
     }
   };
-  $("#plugin-reload-btn")?.addEventListener("click", async () => {
+  const renderPluginList = (plugins) => {
+    const list = document.querySelector("#plugin-list");
+    const stats = document.querySelector("#plugin-stats");
+    const search = (document.querySelector("#plugin-search")?.value || "").toLowerCase();
+    const filtered = plugins.filter(p => (p.name || "").toLowerCase().includes(search));
+    if (stats) {
+      const active = plugins.filter(p => p._status === 'active').length;
+      const inactive = plugins.filter(p => p._status === 'inactive').length;
+      const errors = plugins.filter(p => p._status === 'error').length;
+      stats.innerHTML = `<span class="badge badge-ok" data-tooltip="Running plugins">Active: ${active}</span>` +
+        `<span class="badge badge-warn" data-tooltip="Plugins that are disabled">Inactive: ${inactive}</span>` +
+        (errors ? `<span class="badge badge-err" data-tooltip="Plugins with errors">Errors: ${errors}</span>` : '');
+    }
+    if (!list) return;
+    if (!filtered.length) {
+      list.innerHTML = emptyState('No plugins found', search ? 'Try a different search term' : 'Plugins will appear here when loaded');
+      return;
+    }
+    list.innerHTML = filtered.map(p => {
+      const statusClass = p._status === 'active' ? 'badge-ok' : (p._status === 'inactive' ? 'badge-warn' : 'badge-err');
+      const statusLabel = p._status === 'active' ? 'Active' : (p._status === 'inactive' ? 'Inactive' : 'Error');
+      const toggleLabel = p._status === 'active' ? 'Disable' : 'Enable';
+      const details = DOMPurify.sanitize(JSON.stringify(p, null, 2));
+      return `<div class="card" style="margin-bottom:8px;padding:12px">
+        <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+            <b>${DOMPurify.sanitize(p.name || 'unnamed')}</b>
+            <span class="badge ${statusClass}" data-tooltip="Plugin status: ${statusLabel}">${statusLabel}</span>
+            ${p.version ? `<span class="muted" style="font-size:12px">v${DOMPurify.sanitize(p.version)}</span>` : ''}
+          </div>
+          <div class="row" style="gap:8px">
+            <button class="btn plugin-toggle" data-name="${DOMPurify.sanitize(p.name || '')}" data-tooltip="${toggleLabel} this plugin">${toggleLabel}</button>
+            <button class="btn secondary plugin-details" data-name="${DOMPurify.sanitize(p.name || '')}" data-tooltip="View plugin details and config">Details</button>
+          </div>
+        </div>
+        <div class="plugin-detail-panel" data-plugin="${DOMPurify.sanitize(p.name || '')}" style="display:none;margin-top:10px">
+          <pre class="code json">${details}</pre>
+        </div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll(".plugin-toggle").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const name = btn.dataset.name;
+        const isActive = btn.textContent === "Disable";
+        await safe(() => api.post(`/api/plugins/${encodeURIComponent(name)}/${isActive ? 'disable' : 'enable'}`, {})).catch(() => ({}));
+        toast(`${name} ${isActive ? 'disabled' : 'enabled'}`, 'ok');
+        refresh();
+      });
+    });
+    list.querySelectorAll(".plugin-details").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const panel = list.querySelector(`.plugin-detail-panel[data-plugin="${btn.dataset.name}"]`);
+        if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
+      });
+    });
+  };
+  document.querySelector("#plugin-search")?.addEventListener("input", refresh);
+  document.querySelector("#plugin-reload-btn")?.addEventListener("click", async () => {
     await reloadPlugins();
     await refresh();
+  });
+  document.querySelector("#plugin-enable-all")?.addEventListener("click", async () => {
+    const plugins = await safe(api.plugins).catch(() => ({ plugins: [] }));
+    const disabled = (plugins.plugins || []).filter(p => p.active !== false);
+    await Promise.all(disabled.map(p => safe(() => api.post(`/api/plugins/${encodeURIComponent(p.name || '')}/enable`, {})).catch(() => ({}))));
+    toast(`Enabled ${disabled.length} plugins`, 'ok');
+    refresh();
+  });
+  document.querySelector("#plugin-disable-all")?.addEventListener("click", async () => {
+    const plugins = await safe(api.plugins).catch(() => ({ plugins: [] }));
+    const enabled = (plugins.plugins || []).filter(p => p.active !== false);
+    await Promise.all(enabled.map(p => safe(() => api.post(`/api/plugins/${encodeURIComponent(p.name || '')}/disable`, {})).catch(() => ({}))));
+    toast(`Disabled ${enabled.length} plugins`, 'ok');
+    refresh();
   });
   refresh();
 }
@@ -3605,26 +3690,170 @@ async function reloadPlugins() {
   if (btn) btn.textContent = 'Reload Plugins';
   toast('Plugins reloaded');
 }
-// ---------- Webhook management panel ----------
-
+// ---------- (45) webhook management: search, pagination, delete, toggle, retry ----------
 async function renderWebhooks() {
-  const list = await api.listWebhooks().catch(() => ({ webhooks: [], deadLetter: [] }));
+  crumb([["ForgeOS", "#/dashboard"], ["Webhooks", tooltip("Webhooks", "Outbound webhook management")]]);
+  const list = await safe(() => api.listWebhooks()).catch(() => ({ webhooks: [], deadLetter: [] }));
+  const webhooks = Array.isArray(list.webhooks) ? list.webhooks : [];
+  const deadLetter = Array.isArray(list.deadLetter) ? list.deadLetter : [];
+
+  const qp = new URLSearchParams(location.hash.split("?")[1] || "");
+  const page = Number(qp.get("page") || "1");
+  const searchQ = (qp.get("q") || "").toLowerCase();
+  const dlqPage = Number(qp.get("dlq") || "1");
+
+  function getFilteredWebhooks() {
+    if (!searchQ) return webhooks;
+    return webhooks.filter(w =>
+      (w.url || "").toLowerCase().includes(searchQ) ||
+      (w.events || []).some(e => (e || "").toLowerCase().includes(searchQ))
+    );
+  }
+
+  const wp = paginate(getFilteredWebhooks(), page, 8);
+  const dp = paginate(deadLetter, dlqPage, 8);
+
+  const buildWebhookUrl = (extra) => {
+    const qs = new URLSearchParams();
+    if (searchQ) qs.set("q", searchQ);
+    if (wp.page > 1) qs.set("page", wp.page);
+    qs.set("dlq", dp.page);
+    const base = "#/webhooks";
+    return extra ? `${base}?${qs.toString()}&${extra}` : `${base}?${qs.toString()}`;
+  };
+
   document.querySelector("main").innerHTML = `<h1>Webhooks</h1>
-    <div class="card"><h3>Create Webhook</h3>
-      <input id="wh-url" class="input" placeholder="https://example.com/hook"/>
-      <input id="wh-events" class="input" placeholder="mission.created,agent.completed"/>
-      <input id="wh-secret" class="input" placeholder="optional secret"/>
-      <button class="btn" id="wh-create">Create</button>
+    <div class="card" style="margin-bottom:16px">
+      <h3 data-tooltip="Register a new outbound webhook">Create Webhook</h3>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <input id="wh-url" class="input" placeholder="https://example.com/hook" data-tooltip="Webhook target URL" style="flex:1;min-width:200px"/>
+        <input id="wh-events" class="input" placeholder="mission.created,agent.completed" data-tooltip="Comma-separated event types to listen for" style="flex:1;min-width:200px"/>
+        <input id="wh-secret" class="input" placeholder="optional secret" data-tooltip="Optional HMAC signing secret" style="flex:1;min-width:120px"/>
+        <button class="btn primary" id="wh-create" data-tooltip="Create new webhook">Create</button>
+      </div>
     </div>
-    <h2>Active Webhooks</h2>
-    <div id="wh-list">${(list.webhooks||[]).map(w => `<div class="card"><b>${w.url}</b><br/><span class="muted">${w.events.join(", ")} ${w.active ? "✅" : "⏸️"}</span></div>`).join("")}</div>
-    <h2>Dead Letter Queue</h2>
-    <div id="dlq-list">${((list.deadLetter||[])).map(d => `<div class="card"><b>${d.url || d.id || 'unknown'}</b><br/><span class="muted">${d.event || d.payload?.event || ''} — ${d.error || d.reason || 'failed'}</span></div>`).join("")}</div>`;
+    <div class="card" style="margin-bottom:16px">
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <h2 data-tooltip="Active webhook registrations">Active Webhooks <span class="muted" style="font-size:12px">(${webhooks.length})</span></h2>
+        <div class="row" style="gap:8px">
+          <input id="wh-search" placeholder="Search by URL or event..." value="${DOMPurify.attributeValue(searchQ)}" data-tooltip="Filter active webhooks" style="padding:6px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:220px"/>
+          <span class="pill" data-tooltip="Active webhook count">${webhooks.length} total</span>
+          <span class="pill" data-tooltip="Filtered webhook count">${getFilteredWebhooks().length} shown</span>
+        </div>
+      </div>
+      <div id="wh-list">
+        ${wp.items.length ? wp.items.map(w => `<div class="card" style="margin-bottom:8px">
+          <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <div style="flex:1;min-width:200px">
+              <b data-tooltip="Webhook target endpoint">${DOMPurify.sanitize(w.url || '')}</b>
+              <span class="pill ${w.active ? 'ok' : 'warn'}" data-tooltip="${w.active ? 'Webhook is active and receiving events' : 'Webhook is paused — no events delivered'}"><span class="dot"></span>${w.active ? 'active' : 'paused'}</span>
+            </div>
+            <div class="row" style="gap:6px">
+              <button class="btn secondary sm" data-toggle-webhook="${encodeURIComponent(w.url || '')}" data-tooltip="${w.active ? 'Pause this webhook' : 'Resume this webhook'}">${w.active ? '⏸ Pause' : '▶ Resume'}</button>
+              <button class="btn secondary sm" data-retry-webhook="${encodeURIComponent(w.url || '')}" data-tooltip="Send a test event to this webhook">Test</button>
+              <button class="btn secondary sm danger" data-delete-webhook="${encodeURIComponent(w.url || '')}" data-tooltip="Permanently delete this webhook">🗑 Delete</button>
+            </div>
+          </div>
+          <p class="muted" style="margin-top:4px;font-size:12px" data-tooltip="Subscribed event types">${(w.events || []).map(e => `<span class="pill mono" style="font-size:10px;padding:1px 6px;margin:1px">${DOMPurify.sanitize(e)}</span>`).join(' ')}</p>
+        </div>`).join("") : emptyState(searchQ ? "No matching webhooks" : "No active webhooks", searchQ ? "Try a different search" : "Create a webhook to get started")}
+      </div>
+      ${paginationControls(wp)}
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <h2 data-tooltip="Failed webhook deliveries awaiting manual retry">Dead Letter Queue <span class="muted" style="font-size:12px">(${deadLetter.length})</span></h2>
+        <span class="pill" data-tooltip="Retryable failed deliveries">${deadLetter.length} failed</span>
+      </div>
+      <div id="dlq-list">
+        ${dp.items.length ? dp.items.map(d => `<div class="card" style="margin-bottom:8px">
+          <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <div>
+              <b data-tooltip="Dead-letter target or id">${DOMPurify.sanitize(d.url || d.id || 'unknown')}</b>
+              <span class="pill bad" data-tooltip="This delivery failed"><span class="dot"></span>failed</span>
+            </div>
+            <button class="btn primary sm" data-retry-dlq="${encodeURIComponent(d.id || d.url || '')}" data-tooltip="Retry this failed delivery">↻ Retry</button>
+          </div>
+          <p class="muted" style="margin-top:4px;font-size:12px">${DOMPurify.sanitize(d.event || d.payload?.event || '')} — ${DOMPurify.sanitize(d.error || d.reason || 'failed')}</p>
+        </div>`).join("") : emptyState("Dead letter queue is empty", "All webhook deliveries are succeeding")}
+      </div>
+      ${paginationControls(dp)}
+    </div>`;
+
+  const searchEl = $("#wh-search");
+  if (searchEl) {
+    searchEl.addEventListener("input", () => {
+      const q = searchEl.value.trim();
+      const qs = new URLSearchParams(location.hash.split("?")[1] || "");
+      if (q) qs.set("q", q); else qs.delete("q");
+      qs.set("page", "1");
+      location.hash = `#/webhooks?${qs.toString()}`;
+    });
+  }
+
+  $$("[data-toggle-webhook]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const url = decodeURIComponent(btn.dataset.toggleWebhook);
+      await withLoading(btn, async () => {
+        const r = await safe(() => api.toggleWebhook(url)).catch(() => ({ error: true }));
+        if (r && !r.error) { toast("webhook toggled", "ok"); renderWebhooks(); }
+        else toast("toggle failed", "err");
+      });
+    });
+  });
+
+  $$("[data-delete-webhook]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const url = decodeURIComponent(btn.dataset.deleteWebhook);
+      if (!await confirmAction("Delete webhook", `Permanently delete webhook at ${DOMPurify.sanitize(url)}?`)) return;
+      await safe(() => api.deleteWebhook(url)).catch(() => ({}));
+      toast("webhook deleted", "ok");
+      renderWebhooks();
+    });
+  });
+
+  $$("[data-retry-webhook]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const url = decodeURIComponent(btn.dataset.retryWebhook);
+      await withLoading(btn, async () => {
+        const r = await safe(() => api.testWebhook(url)).catch(() => ({ ok: false }));
+        toast(r && r.ok ? "test event sent" : "test failed", r && r.ok ? "ok" : "err");
+      });
+    });
+  });
+
+  $$("[data-retry-dlq]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = decodeURIComponent(btn.dataset.retryDlq);
+      await withLoading(btn, async () => {
+        const r = await safe(() => api.retryDlq(id)).catch(() => ({ ok: false }));
+        toast(r && r.ok ? "retry queued" : "retry failed", r && r.ok ? "ok" : "err");
+        if (r && r.ok) setTimeout(renderWebhooks, 800);
+      });
+    });
+  });
+
+  $$("#main [data-page]").forEach(b => {
+    b.addEventListener("click", () => {
+      const qs = new URLSearchParams(location.hash.split("?")[1] || "");
+      const target = b.dataset.page;
+      const isDlq = b.closest("#dlq-list") || b.closest(".pagination")?.closest("#dlq-list") ? true : false;
+      if (isDlq) qs.set("dlq", target);
+      else qs.set("page", target);
+      location.hash = `#/webhooks?${qs.toString()}`;
+    });
+  });
+
   $("#wh-create")?.addEventListener("click", async () => {
     const url = $("#wh-url")?.value;
     const events = ($("#wh-events")?.value || "").split(",").map(s => s.trim()).filter(Boolean);
-    await api.createWebhook(url, events, $("#wh-secret")?.value);
-    renderWebhooks();
+    const secret = $("#wh-secret")?.value;
+    if (!url) { toast("url is required", "err"); return; }
+    if (!events.length) { toast("at least one event is required", "err"); return; }
+    await withLoading($("#wh-create"), async () => {
+      const r = await safe(() => api.createWebhook(url, events, secret)).catch(() => ({ error: true }));
+      if (r && !r.error) { toast("webhook created", "ok"); renderWebhooks(); }
+      else toast("create failed", "err");
+    });
   });
 }
 
