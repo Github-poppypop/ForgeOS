@@ -287,7 +287,27 @@ async function renderDashboard() {
 
   if (healthTimer) clearInterval(healthTimer);
   try {
-    const es = new EventSource("/api/health/stream");
+    const useWs = window.WebSocket && location.protocol !== 'https:';
+    if (useWs) {
+      const ws = new WebSocket(`ws://${location.host}/api/health/stream`);
+      ws.onmessage = (ev) => {
+        try {
+          const d = JSON.parse(ev.data);
+          const live = $("live");
+          const lr = $("last-refreshed");
+          if (live) {
+            live.innerHTML = `live: ws ok @ ${new Date(d.ts).toLocaleTimeString()} <span id="last-refreshed" data-tooltip="Time of last successful data fetch">(refreshed ${new Date().toLocaleTimeString()})</span>`;
+          }
+        } catch {}
+      };
+      ws.onerror = () => {
+        const live = $("live");
+        if (live) {
+          live.innerHTML = `live: (ws unavailable, fallback not available) <span id="last-refreshed" data-tooltip="Time of last successful data fetch">(refreshed ${new Date().toLocaleTimeString()})</span>`;
+        }
+      };
+    } else {
+      const es = new EventSource("/api/health/stream");
     es.onmessage = (ev) => {
       const d = JSON.parse(ev.data);
       const live = $("#live");
@@ -2332,6 +2352,8 @@ async function renderAudit() {
         </select>
         <button class="btn secondary" id="a-reset" data-tooltip="Reset audit filters">Reset</button>
         <button class="btn secondary" id="a-export" data-tooltip="Download audit rows as JSON">Export</button>
+        <button class="btn secondary" id="a-cols-btn" data-tooltip="Toggle visible columns">Columns</button>
+        <div id="a-cols-menu" class="hidden" style="position:absolute;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;z-index:20"></div>
       </div>
       <div class="row" style="gap:8px;margin-bottom:10px">
         <span id="a-count" class="muted" data-tooltip="Visible audit rows">0 entries</span>
@@ -2388,6 +2410,38 @@ async function renderAudit() {
     a.click();
     toast("exported audit", "ok");
   });
+
+  const auditDefaultCols = { date: true, type: true, slug: true, title: true };
+  window._auditCols = { ...auditDefaultCols };
+  const applyAuditCols = () => {
+    const cols = window._auditCols;
+    const map = ["date", "type", "slug", "title"];
+    document.querySelectorAll("#audit-table thead tr th").forEach((th, i) => th.classList.toggle("hidden", !cols[map[i]]));
+    document.querySelectorAll("#audit-table tbody tr").forEach(tr => {
+      Array.from(tr.children).forEach((td, i) => td.classList.toggle("hidden", !cols[map[i]]));
+    });
+  };
+  const colsBtn = $("#a-cols-btn");
+  const colsMenu = $("#a-cols-menu");
+  if (colsBtn && colsMenu) {
+    colsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      colsMenu.classList.toggle("hidden");
+    });
+    document.addEventListener("click", () => colsMenu.classList.add("hidden"));
+    colsMenu.addEventListener("click", (e) => e.stopPropagation());
+    const labels = { date: "Date", type: "Type", slug: "Slug", title: "Title" };
+    colsMenu.innerHTML = Object.keys(labels).map(k =>
+      `<label style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer;font-size:13px"><input type="checkbox" class="a-col-toggle" data-col="${k}" ${window._auditCols[k] ? "checked" : ""} /> ${labels[k]}</label>`
+    ).join("");
+    colsMenu.querySelectorAll(".a-col-toggle").forEach(cb => {
+      cb.addEventListener("change", () => {
+        window._auditCols[cb.dataset.col] = cb.checked;
+        applyAuditCols();
+      });
+    });
+  }
+  applyAuditCols();
 }
 
 // ---------- audit style helper ----------
@@ -5551,12 +5605,16 @@ function tickStatusBar(s) {
 window.addEventListener('error', (e) => {
   console.error('[BOUNDARY]', e.message, e.filename, e.lineno);
   const main = document.querySelector('main');
-  if (main) main.innerHTML = '<div class="card"><h1>Runtime error</h1><pre>' + DOMPurify.sanitize(e.message) + '</pre></div>';
+  if (main) main.innerHTML = '<div class="card"><h1 data-tooltip="Unexpected runtime failure">Runtime error</h1><pre>' + DOMPurify.sanitize(e.message) + '</pre><button class="btn" id="boundary-reload">Reload</button></div>';
+  const btn = document.getElementById('boundary-reload');
+  if (btn) btn.addEventListener('click', () => location.reload());
 });
 window.addEventListener('unhandledrejection', (e) => {
   console.error('[BOUNDARY] unhandled', e.reason);
   const main = document.querySelector('main');
-  if (main) main.innerHTML = '<div class="card"><h1>Async error</h1><pre>' + DOMPurify.sanitize(String(e.reason)) + '</pre></div>';
+  if (main) main.innerHTML = '<div class="card"><h1 data-tooltip="Unhandled async failure">Async error</h1><pre>' + DOMPurify.sanitize(String(e.reason)) + '</pre><button class="btn" id="boundary-reload">Reload</button></div>';
+  const btn = document.getElementById('boundary-reload');
+  if (btn) btn.addEventListener('click', () => location.reload());
 });
 
 function shell() {

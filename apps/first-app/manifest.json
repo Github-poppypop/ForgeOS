@@ -1,0 +1,9 @@
+{
+  "name": "@forgeos/first-app",
+  "version": "0.1.0",
+  "type": "app",
+  "entry": "apps/first-app/public/index.html",
+  "description": "First ForgeOS sample app scaffold",
+  "capabilities": ["display", "forgeos-console-link"],
+  "docs": "apps/first-app/README.md"
+}

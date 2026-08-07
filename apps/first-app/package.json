@@ -1,0 +1,11 @@
+{
+  "name": "@forgeos/first-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "First ForgeOS sample app",
+  "scripts": {
+    "dev": "echo 'wire to ForgeOS console on 7777'",
+    "test": "echo 'add app tests'"
+  },
+  "license": "MIT"
+}
