@@ -644,10 +644,30 @@ async function renderMissions() {
   
   const page = Number(new URLSearchParams(location.hash.split("?")[1] || "").get("page") || "1");
   const statusFilter = new URLSearchParams(location.hash.split("?")[1] || "").get("status") || "";
+  const searchQuery = new URLSearchParams(location.hash.split("?")[1] || "").get("search") || "";
+  const sortCol = new URLSearchParams(location.hash.split("?")[1] || "").get("sort") || "";
+  const sortDir = new URLSearchParams(location.hash.split("?")[1] || "").get("dir") || "asc";
+
+  window._missionCols = window._missionCols || { id:1, title:1, status:1, phase:1, progress:1, eta:1, dependencies:1, owner:1 };
+  const visibleCols = window._missionCols;
   
   let filtered = missions;
   if (statusFilter) {
     filtered = missions.filter(m => m.status === statusFilter);
+  }
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter(m => (m.id + " " + (m.title || "")).toLowerCase().includes(q));
+  }
+  if (sortCol) {
+    filtered = [...filtered].sort((a, b) => {
+      let av = a[sortCol] || "", bv = b[sortCol] || "";
+      if (typeof av === "string") av = av.toLowerCase();
+      if (typeof bv === "string") bv = bv.toLowerCase();
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
   }
   
   const p = paginate(filtered, page, 10);
@@ -665,7 +685,7 @@ async function renderMissions() {
           <option value="">agent…</option>
           ${agentOptions}
         </select>
-        <button class="btn primary" id="d-go" data-tooltip="Send mission to agent" data-tooltip="Send mission to agent">Dispatch</button>
+        <button class="btn primary" id="d-go" data-tooltip="Send mission to agent">Dispatch</button>
         <pre id="d-out" class="code json" style="margin-top:8px;min-height:0"></pre>
       </div>
     </div>
@@ -680,17 +700,40 @@ async function renderMissions() {
           <option value="done" ${statusFilter==="done"?"selected":""}>done</option>
           <option value="failed" ${statusFilter==="failed"?"selected":""}>failed</option>
         </select>
+        <input type="search" id="m-search" placeholder="Search missions..." value="${DOMPurify.sanitize(searchQuery)}" data-tooltip="Filter missions by ID or title" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:180px" />
+        <button class="btn secondary sm" id="m-refresh" data-tooltip="Reload missions list">Refresh</button>
+        <button class="btn secondary sm" id="m-export" data-tooltip="Download missions as JSON">Export</button>
+        <div style="position:relative;display:inline-flex">
+          <button class="btn secondary sm" id="m-cols-btn" data-tooltip="Show or hide table columns">Columns ▾</button>
+          <div id="m-cols-menu" class="hidden" style="position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;min-width:180px;z-index:50;box-shadow:var(--shadow)"></div>
+        </div>
+        <span id="m-bulk-actions" class="hidden">
+          <button class="btn success sm" id="m-bulk-advance" data-tooltip="Advance all selected missions">Advance selected</button>
+          <button class="btn secondary sm" id="m-clear-sel" data-tooltip="Clear row selection">Clear</button>
+        </span>
       </div>
-      <table class="tbl"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Phase</th><th>Progress</th><th>ETA</th><th>Dependencies</th><th>Owner</th><th></th></tr></thead>
+      <table class="tbl"><thead><tr>
+        <th style="width:32px"><input type="checkbox" id="m-select-all" data-tooltip="Select all missions on this page" /></th>
+        <th data-sort="id" class="col-id" data-tooltip="Sort by mission ID" style="cursor:pointer">ID ${sortCol==='id'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="title" class="col-title" data-tooltip="Sort by title" style="cursor:pointer">Title ${sortCol==='title'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="status" class="col-status" data-tooltip="Sort by status" style="cursor:pointer">Status ${sortCol==='status'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="phase" class="col-phase" data-tooltip="Sort by phase" style="cursor:pointer">Phase ${sortCol==='phase'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="progress" class="col-progress" data-tooltip="Sort by progress" style="cursor:pointer">Progress ${sortCol==='progress'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="eta" class="col-eta" data-tooltip="Sort by ETA" style="cursor:pointer">ETA ${sortCol==='eta'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="dependencies" class="col-dependencies" data-tooltip="Sort by dependencies" style="cursor:pointer">Dependencies ${sortCol==='dependencies'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="owner" class="col-owner" data-tooltip="Sort by owner" style="cursor:pointer">Owner ${sortCol==='owner'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th></th>
+      </tr></thead>
       <tbody>${p.items.map(m => `<tr>
-        <td class="mono">${DOMPurify.sanitize(m.id)}</td>
-        <td>${DOMPurify.sanitize(m.title)}</td>
-        <td>${statusPill(m.status)}</td>
-        <td>${DOMPurify.sanitize(m.phase)}</td>
-        <td>${pct(m.progress)}</td>
-        <td class="mono" style="white-space:nowrap">${DOMPurify.sanitize(m.eta ? m.eta.slice(0,10) : "—")}</td>
-        <td>${(m.dependencies||[]).map(d => `<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(d)}</span>`).join(" ") || "<span class='muted'>none</span>"}</td>
-        <td>${DOMPurify.sanitize(m.owner)}</td>
+        <td><input type="checkbox" class="m-sel" data-id="${DOMPurify.sanitize(m.id)}" data-tooltip="Select mission ${DOMPurify.sanitize(m.id)}" /></td>
+        <td class="mono col-id">${DOMPurify.sanitize(m.id)}</td>
+        <td class="col-title">${DOMPurify.sanitize(m.title)}</td>
+        <td class="col-status">${statusPill(m.status)}</td>
+        <td class="col-phase">${DOMPurify.sanitize(m.phase)}</td>
+        <td class="col-progress">${pct(m.progress)}</td>
+        <td class="col-eta mono" style="white-space:nowrap">${DOMPurify.sanitize(m.eta ? m.eta.slice(0,10) : "—")}</td>
+        <td class="col-dependencies">${(m.dependencies||[]).map(d => `<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(d)}</span>`).join(" ") || "<span class='muted'>none</span>"}</td>
+        <td class="col-owner">${DOMPurify.sanitize(m.owner)}</td>
         <td>
           ${m.status !== "done" ? `<button class="btn secondary" data-a="${DOMPurify.sanitize(m.id)}">Advance →</button>` : "✓"}
           <button class="btn secondary" data-log="${DOMPurify.sanitize(m.id)}">Logs</button>
@@ -713,6 +756,8 @@ async function renderMissions() {
       const qs = new URLSearchParams(location.hash.split("?")[1] || "");
       qs.set("page", b.dataset.page);
       if (statusFilter) qs.set("status", statusFilter);
+      const searchEl = $("#m-search");
+      if (searchEl && searchEl.value) qs.set("search", searchEl.value);
       url.hash = `#/missions?${qs.toString()}`;
       location.hash = url.hash;
     });
@@ -730,6 +775,160 @@ async function renderMissions() {
       location.hash = url.hash;
     });
   }
+  
+  // Sort handlers
+  $$("#main [data-sort]").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.sort;
+      const url = new URL(location);
+      const qs = new URLSearchParams(location.hash.split("?")[1] || "");
+      const currentSort = qs.get("sort") || "";
+      const currentDir = qs.get("dir") || "asc";
+      if (currentSort === col) {
+        qs.set("dir", currentDir === "asc" ? "desc" : "asc");
+      } else {
+        qs.set("sort", col);
+        qs.set("dir", "asc");
+      }
+      qs.set("page", "1");
+      url.hash = `#/missions?${qs.toString()}`;
+      location.hash = url.hash;
+    });
+  });
+  
+  // Search handler
+  const searchEl = $("#m-search");
+  if (searchEl) {
+    searchEl.addEventListener("input", () => {
+      const url = new URL(location);
+      const qs = new URLSearchParams(location.hash.split("?")[1] || "");
+      if (searchEl.value) qs.set("search", searchEl.value);
+      else qs.delete("search");
+      qs.set("page", "1");
+      url.hash = `#/missions?${qs.toString()}`;
+      location.hash = url.hash;
+    });
+  }
+  
+  // Column visibility handler
+  const colsBtn = $("#m-cols-btn");
+  const colsMenu = $("#m-cols-menu");
+  if (colsBtn && colsMenu) {
+    colsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      colsMenu.classList.toggle("hidden");
+    });
+    document.addEventListener("click", () => colsMenu.classList.add("hidden"));
+    colsMenu.addEventListener("click", (e) => e.stopPropagation());
+    
+    const colLabels = { id: "ID", title: "Title", status: "Status", phase: "Phase", progress: "Progress", eta: "ETA", dependencies: "Dependencies", owner: "Owner" };
+    colsMenu.innerHTML = Object.keys(colLabels).map(k =>
+      `<label style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer;font-size:13px">
+        <input type="checkbox" class="m-col-toggle" data-col="${k}" ${visibleCols[k] ? "checked" : ""} /> ${colLabels[k]}
+      </label>`
+    ).join("");
+    
+    colsMenu.querySelectorAll(".m-col-toggle").forEach(cb => {
+      cb.addEventListener("change", () => {
+        visibleCols[cb.dataset.col] = cb.checked ? 1 : 0;
+        renderMissions();
+      });
+    });
+  }
+  
+  // Export handler
+  const exportBtn = $("#m-export");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      const rows = [];
+      $$("#main tbody tr").forEach(tr => {
+        const cells = tr.querySelectorAll("td");
+        if (cells.length >= 10) {
+          rows.push({
+            id: (cells[1].textContent || "").trim(),
+            title: (cells[2].textContent || "").trim(),
+            status: (cells[3].textContent || "").trim(),
+            phase: (cells[4].textContent || "").trim(),
+            progress: (cells[5].textContent || "").trim(),
+            eta: (cells[6].textContent || "").trim(),
+            dependencies: Array.from(cells[7].querySelectorAll(".pill")).map(p => (p.textContent || "").trim()),
+            owner: (cells[8].textContent || "").trim()
+          });
+        }
+      });
+      const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `missions-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(`exported ${rows.length} missions`, "ok");
+    });
+  }
+  
+  // Refresh handler
+  const refreshBtn = $("#m-refresh");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      renderMissions();
+      toast("missions refreshed", "ok");
+    });
+  }
+  
+  // Select-all handler
+  const selectAll = $("#m-select-all");
+  if (selectAll) {
+    selectAll.addEventListener("change", () => {
+      $$("#main .m-sel").forEach(cb => cb.checked = selectAll.checked);
+      updateBulkActions();
+    });
+  }
+  
+  // Bulk advance handler
+  const bulkAdvance = $("#m-bulk-advance");
+  if (bulkAdvance) {
+    bulkAdvance.addEventListener("click", async () => {
+      const ids = Array.from($$("#main .m-sel:checked")).map(cb => cb.dataset.id);
+      if (!ids.length) return;
+      if (!await confirmAction("Bulk Advance", `Advance ${ids.length} mission(s)?`)) return;
+      for (const id of ids) {
+        await safe(() => api.advanceMission(id, {})).catch(e => ({ error: errMsg(e) }));
+      }
+      toast(`advanced ${ids.length} missions`, "ok");
+      renderMissions();
+    });
+  }
+  
+  // Clear selection handler
+  const clearSel = $("#m-clear-sel");
+  if (clearSel) {
+    clearSel.addEventListener("click", () => {
+      $$("#main .m-sel").forEach(cb => cb.checked = false);
+      updateBulkActions();
+    });
+  }
+  
+  // Row checkbox change handler
+  $$("#main .m-sel").forEach(cb => {
+    cb.addEventListener("change", updateBulkActions);
+  });
+  
+  function updateBulkActions() {
+    const count = $$("#main .m-sel:checked").length;
+    const bulkBar = $("#m-bulk-actions");
+    if (bulkBar) bulkBar.classList.toggle("hidden", count === 0);
+    const selectAll = $("#m-select-all");
+    if (selectAll) {
+      const total = $$("#main .m-sel").length;
+      selectAll.checked = total > 0 && count === total;
+    }
+  }
+  
+  // Apply column visibility
+  Object.keys(visibleCols).forEach(col => {
+    $$(`.col-${col}`).forEach(el => el.style.display = visibleCols[col] ? "" : "none");
+  });
   
   // Advance handlers
   $$("#main [data-a]").forEach(b => {
@@ -801,10 +1000,27 @@ async function renderMissions() {
   // Auto-refresh missions every 5s
   missionRefreshTimer = setInterval(() => {
     safe(api.missions).then(({ missions }) => {
-      const currentFilter = $("#m-filter")?.value || "";
       let filtered = missions;
+      const currentFilter = $("#m-filter")?.value || "";
       if (currentFilter) {
         filtered = missions.filter(m => m.status === currentFilter);
+      }
+      const searchEl2 = $("#m-search");
+      if (searchEl2 && searchEl2.value) {
+        const q = searchEl2.value.toLowerCase();
+        filtered = filtered.filter(m => (m.id + " " + (m.title || "")).toLowerCase().includes(q));
+      }
+      const currentSort = new URLSearchParams(location.hash.split("?")[1] || "").get("sort") || "";
+      const currentDir = new URLSearchParams(location.hash.split("?")[1] || "").get("dir") || "asc";
+      if (currentSort) {
+        filtered = [...filtered].sort((a, b) => {
+          let av = a[currentSort] || "", bv = b[currentSort] || "";
+          if (typeof av === "string") av = av.toLowerCase();
+          if (typeof bv === "string") bv = bv.toLowerCase();
+          if (av < bv) return currentDir === "asc" ? -1 : 1;
+          if (av > bv) return currentDir === "asc" ? 1 : -1;
+          return 0;
+        });
       }
       
       const currentPage = Number(new URLSearchParams(location.hash.split("?")[1] || "").get("page") || "1");
@@ -815,14 +1031,15 @@ async function renderMissions() {
       const tbody = $("#main tbody");
       if (tbody) {
         tbody.innerHTML = p.items.map(m => `<tr>
-          <td class="mono">${DOMPurify.sanitize(m.id)}</td>
-          <td>${DOMPurify.sanitize(m.title)}</td>
-          <td>${statusPill(m.status)}</td>
-          <td>${DOMPurify.sanitize(m.phase)}</td>
-          <td>${pct(m.progress)}</td>
-          <td class="mono" style="white-space:nowrap">${DOMPurify.sanitize(m.eta ? m.eta.slice(0,10) : "—")}</td>
-          <td>${(m.dependencies||[]).map(d => `<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(d)}</span>`).join(" ") || "<span class='muted'>none</span>"}</td>
-          <td>${DOMPurify.sanitize(m.owner)}</td>
+          <td><input type="checkbox" class="m-sel" data-id="${DOMPurify.sanitize(m.id)}" data-tooltip="Select mission ${DOMPurify.sanitize(m.id)}" /></td>
+          <td class="mono col-id">${DOMPurify.sanitize(m.id)}</td>
+          <td class="col-title">${DOMPurify.sanitize(m.title)}</td>
+          <td class="col-status">${statusPill(m.status)}</td>
+          <td class="col-phase">${DOMPurify.sanitize(m.phase)}</td>
+          <td class="col-progress">${pct(m.progress)}</td>
+          <td class="col-eta mono" style="white-space:nowrap">${DOMPurify.sanitize(m.eta ? m.eta.slice(0,10) : "—")}</td>
+          <td class="col-dependencies">${(m.dependencies||[]).map(d => `<span class="pill mono" style="margin:2px">${DOMPurify.sanitize(d)}</span>`).join(" ") || "<span class='muted'>none</span>"}</td>
+          <td class="col-owner">${DOMPurify.sanitize(m.owner)}</td>
           <td>
             ${m.status !== "done" ? `<button class="btn secondary" data-a="${DOMPurify.sanitize(m.id)}">Advance →</button>` : "✓"}
             <button class="btn secondary" data-log="${DOMPurify.sanitize(m.id)}">Logs</button>
@@ -868,6 +1085,11 @@ async function renderMissions() {
             }, 2000);
           });
         });
+        
+        // Re-apply column visibility
+        Object.keys(visibleCols).forEach(col => {
+          $$(`.col-${col}`).forEach(el => el.style.display = visibleCols[col] ? "" : "none");
+        });
       }
       
       // Update pagination controls
@@ -885,6 +1107,8 @@ async function renderMissions() {
             qs.set("page", b.dataset.page);
             const currentFilter = $("#m-filter")?.value || "";
             if (currentFilter) qs.set("status", currentFilter);
+            const searchEl3 = $("#m-search");
+            if (searchEl3 && searchEl3.value) qs.set("search", searchEl3.value);
             url.hash = `#/missions?${qs.toString()}`;
             location.hash = url.hash;
           });
@@ -895,8 +1119,6 @@ async function renderMissions() {
     }).catch(() => {});
   }, 5000);
 }
-
-
 async function renderMCP() {
   crumb([["ForgeOS", "#/dashboard"], ["MCP"]]);
   $("#main").innerHTML = `<h1>MCP / Agent Tools</h1>
@@ -2154,15 +2376,48 @@ async function renderSettings() {
 // ---------- Phase 11: workflows ----------
 async function renderWorkflows() {
   crumb([["ForgeOS", "#/dashboard"], ["Workflows"]]);
-  document.querySelector("main").innerHTML = `<h1>Agent Workflows</h1>
-    <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <h2>Workflows</h2>
-        <button class="btn primary" id="new-workflow">New workflow</button>
+  let paused = false;
+  let intervalMs = 5000;
+  let intervalId = null;
+  const startTimer = () => {
+    if (intervalId) clearInterval(intervalId);
+    intervalId = setInterval(refresh, intervalMs);
+  };
+  const stopTimer = () => {
+    if (intervalId) { clearInterval(intervalId); intervalId = null; }
+  };
+  const fmtTime = (d) => d.toLocaleTimeString();
+
+  $("main").innerHTML = `
+    <h1>Agent Workflows</h1>
+    <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn secondary" id="wf-pause" data-tooltip="Pause live monitoring">⏸ Pause</button>
+        <select id="wf-interval" data-tooltip="Polling interval">
+          <option value="2000">2s</option>
+          <option value="5000" selected>5s</option>
+          <option value="15000">15s</option>
+          <option value="30000">30s</option>
+        </select>
+        <button class="btn secondary" id="wf-export" data-tooltip="Export workflows as JSON">Export JSON</button>
       </div>
-      <pre id="workflow-out" class="code json" style="margin-top:12px"></pre>
+      <span id="wf-last" class="muted" data-tooltip="Last data refresh time">Updated —</span>
+    </div>
+    <div class="card" data-wf-section="list">
+      <div class="row" style="justify-content:space-between;cursor:pointer" data-toggle="list">
+        <h2>Workflows</h2>
+        <span class="muted" data-toggle-icon="list">▼</span>
+      </div>
+      <div data-wf-body="list">
+        <div class="row" style="justify-content:space-between">
+          <h2 style="font-size:14px;margin:0">Active Workflows</h2>
+          <button class="btn primary" id="new-workflow" data-tooltip="Create a new workflow">New workflow</button>
+        </div>
+        <pre id="workflow-out" class="code json" style="margin-top:12px"></pre>
+      </div>
     </div>`;
   const refresh = async () => {
+    if (paused) return;
     try {
       const r = await safe(api.workflows).catch(() => ({ workflows: [] }));
       const out = document.querySelector("#workflow-out");
@@ -2171,15 +2426,65 @@ async function renderWorkflows() {
       const out = document.querySelector("#workflow-out");
       if (out) out.textContent = "workflow error: " + errMsg(e);
     }
+    const lastEl = document.querySelector("#wf-last");
+    if (lastEl) lastEl.textContent = "Updated " + fmtTime(new Date());
   };
-  refresh();
-  document.querySelector("#new-workflow").addEventListener("click", async () => {
+
+  const exportJSON = (filename, data) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast("Exported " + filename, "ok");
+  };
+
+  document.querySelector("#wf-pause")?.addEventListener("click", () => {
+    paused = !paused;
+    const btn = document.querySelector("#wf-pause");
+    if (btn) {
+      btn.innerHTML = paused ? "▶ Resume" : "⏸ Pause";
+      btn.setAttribute("data-tooltip", paused ? "Resume live monitoring" : "Pause live monitoring");
+    }
+    if (!paused) startTimer();
+    toast(paused ? "Monitoring paused" : "Monitoring resumed");
+  });
+
+  document.querySelector("#wf-interval")?.addEventListener("change", (e) => {
+    intervalMs = parseInt(e.target.value, 10);
+    if (!paused) startTimer();
+    toast("Refresh interval: " + (intervalMs / 1000) + "s");
+  });
+
+  document.querySelector("#wf-export")?.addEventListener("click", async () => {
+    const data = await safe(api.workflows).catch(() => ({ workflows: [] }));
+    exportJSON("workflows.json", data);
+  });
+
+  $$("[data-toggle]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.getAttribute("data-toggle");
+      const body = document.querySelector("[data-wf-body='" + key + "']");
+      const icon = document.querySelector("[data-toggle-icon='" + key + "']");
+      if (!body) return;
+      const hidden = body.style.display === "none";
+      body.style.display = hidden ? "" : "none";
+      if (icon) icon.textContent = hidden ? "▼" : "▶";
+    });
+  });
+
+  document.querySelector("#new-workflow")?.addEventListener("click", async () => {
     const title = prompt("Workflow title:");
     if (!title) return;
     const r = await safe(() => api.createWorkflow({ title, steps: [] })).catch(e => ({ error: errMsg(e) }));
     toast(r.error ? "workflow failed: " + r.error : "workflow created", r.error ? "err" : "ok");
     refresh();
   });
+
+  refresh();
+  startTimer();
 }
 
 // ---------- Phase 11: marketplace ----------
