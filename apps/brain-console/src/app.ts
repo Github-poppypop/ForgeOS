@@ -4836,10 +4836,66 @@ async function route() {
   activePanel = panel;
 }
 
-// ---------- (27) command palette: fuzzy + arrows + history ----------
+// ---------- (27) command palette: fuzzy + arrows + history + tooltips ----------
 const MAXHIST = 8;
-function pushHist(h) { const a = JSON.parse(localStorage.getItem("forgeos-hist") || "[]"); a.unshift(h); localStorage.setItem("forgeos-hist", JSON.stringify(a.slice(0, MAXHIST))); }
-const CMDS = NAV.flatMap(g => g.items).map(([label, , p]) => ({ label, go: () => { pushHist(p); location.hash = "#/" + p; } }));
+function pushHist(h) {
+  const raw = localStorage.getItem("forgeos-hist") || "[]";
+  let a = JSON.parse(raw);
+  if (a.length && typeof a[0] === 'string') a = a.map(p => ({ p, ts: 0 }));
+  a = a.filter(e => e.p !== h);
+  a.unshift({ p: h, ts: Date.now() });
+  localStorage.setItem("forgeos-hist", JSON.stringify(a.slice(0, MAXHIST)));
+}
+const CMD_TIPS = {
+  "command": "Command Center overview",
+  "governance": "View and manage ForgeOS governance",
+  "dashboard": "Console dashboard with system metrics",
+  "roles": "Manage C-suite roles and permissions",
+  "org": "Organization chart and structure",
+  "timeline": "Decision timeline and history",
+  "ledger": "Decision ledger with filters",
+  "decisions": "Decision management and tracking",
+  "search": "Search across brains and pages",
+  "capture": "Capture and create new brain pages",
+  "vault": "Vault file explorer",
+  "embed": "Re-embed all knowledge",
+  "schema": "Brain schema explorer",
+  "federation": "Cross-brain federation status",
+  "audit": "Audit log and compliance trail",
+  "missions": "Agent missions and dispatch",
+  "mcp": "Model Context Protocol tools",
+  "workflows": "Agent workflow management",
+  "monitoring": "Live agent and PoolLeague status",
+  "projects": "Project management and kanban",
+  "wizard": "Setup wizard for first-time config",
+  "config": "Console configuration",
+  "marketplace": "Browse discoverable agents",
+  "plugins": "Manage console plugins",
+  "settings": "Console settings and configuration",
+};
+const CMD_SHORTCUTS = {};
+SHORTCUTS.forEach(([k, action]) => {
+  NAV.flatMap(g => g.items).forEach((item) => {
+    const [label] = item;
+    if (label === action) {
+      const p = item[2] || item[1];
+      CMD_SHORTCUTS[p] = k;
+    }
+  });
+});
+NAV.flatMap(g => g.items).forEach((item, idx) => {
+  if (idx < 9) {
+    const p = item[2] || item[1];
+    if (!CMD_SHORTCUTS[p]) CMD_SHORTCUTS[p] = String(idx + 1);
+  }
+});
+const CMDS = NAV.flatMap(g => g.items).map((item) => {
+  const [label, desc, path] = item;
+  const p = path || desc;
+  const tip = CMD_TIPS[p] || '';
+  const shortcut = CMD_SHORTCUTS[p] || '';
+  return { label, p, tip, shortcut, go: () => { pushHist(p); location.hash = "#/" + p; } };
+});
 let cmdkSel = 0;
 function openCmdk() {
   const el = $("#cmdk"); el.classList.add("open"); cmdkSel = 0;
@@ -4854,9 +4910,17 @@ function openCmdk() {
   };
 }
 function paintSel(items) { items.forEach((li, i) => li.classList.toggle("sel", i === cmdkSel)); }
+function highlightMatch(text, q) {
+  if (!q) return DOMPurify.sanitize(text);
+  const lower = text.toLowerCase();
+  const ql = q.toLowerCase();
+  const idx = lower.indexOf(ql);
+  if (idx === -1) return DOMPurify.sanitize(text);
+  return DOMPurify.sanitize(text.slice(0, idx)) + `<mark>${DOMPurify.sanitize(text.slice(idx, idx + q.length))}</mark>` + highlightMatch(text.slice(idx + q.length), q);
+}
 function renderCmdk(q) {
   const ul = $("#cmdk ul");
-  const hist = JSON.parse(localStorage.getItem("forgeos-hist") || "[]");
+  const hist = JSON.parse(localStorage.getItem("forgeos-hist") || "[]").map(h => typeof h === 'string' ? { p: h, ts: 0 } : h);
   const ql = q.toLowerCase();
   const opts = CMDS.filter(c => c.label.toLowerCase().includes(ql));
   const groups = {};
@@ -4867,19 +4931,34 @@ function renderCmdk(q) {
     if (!groups[group]) groups[group] = [];
     groups[group].push(cmd);
   }
-  const histItems = q ? [] : hist.map(h => ({ label: "↺ " + (NAV.flatMap(g => g.items).find(n => (n[2] ?? n[1]) === h)?.[0] || h), go: () => location.hash = "#/" + h }));
+  const histItems = q ? [] : hist.map(h => {
+    const found = NAV.flatMap(g => g.items).find(n => (n[2] ?? n[1]) === h.p);
+    const label = "↺ " + (found ? found[0] : h.p);
+    const tsTip = h.ts ? `Last visited: ${new Date(h.ts).toLocaleString()}` : 'unknown';
+    return { label, go: () => location.hash = "#/" + h.p, tip: tsTip };
+  });
   let html = '';
   const all = q ? opts : opts.concat(histItems);
   if (q) {
-    html = all.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join('');
+    html = all.map((c, i) => {
+      const tipAttr = c.tip ? ` data-tooltip="${DOMPurify.sanitize(c.tip)}"` : '';
+      const badge = c.shortcut ? ` <span class="kbd">${c.shortcut}</span>` : '';
+      return `<li data-i="${i}"${tipAttr}>${highlightMatch(c.label, q)}${badge}</li>`;
+    }).join('');
   } else {
-    html += '<li class="cmdk-group"><b>Recent</b></li>' + histItems.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join('');
+    html += '<li class="cmdk-group"><b>Recent</b></li>' + histItems.map((c, i) => {
+      const tipAttr = c.tip ? ` data-tooltip="${DOMPurify.sanitize(c.tip)}"` : '';
+      return `<li data-i="${i}"${tipAttr}>${DOMPurify.sanitize(c.label)}</li>`;
+    }).join('');
     for (const [group, cmds] of Object.entries(groups)) {
-      html += `<li class="cmdk-group"><b>${DOMPurify.sanitize(group)}</b></li>` + cmds.map((c, i) => `<li data-i="${i}">${DOMPurify.sanitize(c.label)}</li>`).join('');
+      html += `<li class="cmdk-group"><b>${DOMPurify.sanitize(group)}</b></li>` + cmds.map((c, i) => {
+        const tipAttr = c.tip ? ` data-tooltip="${DOMPurify.sanitize(c.tip)}"` : '';
+        return `<li data-i="${i}"${tipAttr}>${DOMPurify.sanitize(c.label)}</li>`;
+      }).join('');
     }
   }
-  ul.innerHTML = html || "<li class='muted'>no match</li>";
-  $$("#cmdk li").forEach((li, i) => li.addEventListener("click", () => { all[i].go(); $("#cmdk").classList.remove("open"); }));
+  ul.innerHTML = html || `<li class="muted" data-tooltip="Try a different search term or press Esc to clear">no match</li>`;
+  $$("#cmdk li").forEach((li, i) => li.addEventListener("click", () => { all[i] && all[i].go(); $("#cmdk").classList.remove("open"); }));
   paintSel($$("#cmdk li"));
 }
 // ---------- (35) confirm modal ----------
