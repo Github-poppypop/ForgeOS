@@ -1,0 +1,44 @@
+{
+  "id": "api-gateway",
+  "name": "ForgeOS API Gateway",
+  "version": "1.0.0",
+  "description": "Reverse-proxy, route catalog, and auth layer for ForgeOS services.",
+  "owner": "CTO",
+  "ops_owner": "COO",
+  "runtime": "node:20-alpine",
+  "port": 8080,
+  "health_path": "/healthz",
+  "upstream": {
+    "brain_console": "http://127.0.0.1:7777",
+    "lifeos": "http://127.0.0.1:3001",
+    "poolleague": "http://127.0.0.1:3002"
+  },
+  "routes": [
+    { "id": "r1",  "method": "GET",  "path": "/healthz",                "upstream": "self",    "auth": false, "rate_limit": "10/min", "description": "Gateway health check" },
+    { "id": "r2",  "method": "GET",  "path": "/api/status",             "upstream": "brain_console", "auth": true,  "rate_limit": "20/min", "description": "Brain Console status" },
+    { "id": "r3",  "method": "GET",  "path": "/api/health",             "upstream": "brain_console", "auth": false, "rate_limit": "10/min", "description": "Health probe (no token)" },
+    { "id": "r4",  "method": "GET",  "path": "/api/health/detailed",    "upstream": "brain_console", "auth": true,  "rate_limit": "5/min",  "description": "Detailed health" },
+    { "id": "r5",  "method": "POST", "path": "/api/agent/dispatch",     "upstream": "brain_console", "auth": true,  "rate_limit": "5/min",  "description": "Dispatch agent mission" },
+    { "id": "r6",  "method": "GET",  "path": "/api/agent/:id/status",   "upstream": "brain_console", "auth": true,  "rate_limit": "20/min", "description": "Mission status" },
+    { "id": "r7",  "method": "GET",  "path": "/api/agent/:id/log",      "upstream": "brain_console", "auth": true,  "rate_limit": "10/min", "description": "Mission log stream" },
+    { "id": "r8",  "method": "POST", "path": "/api/capture",            "upstream": "brain_console", "auth": true,  "rate_limit": "2/min",  "description": "Capture brain page" },
+    { "id": "r9",  "method": "POST", "path": "/api/embed",              "upstream": "brain_console", "auth": true,  "rate_limit": "1/min",  "description": "Re-embed knowledge" },
+    { "id": "r10", "method": "GET",  "path": "/api/search",             "upstream": "brain_console", "auth": false, "rate_limit": "10/min", "description": "Semantic search" },
+    { "id": "r11", "method": "GET",  "path": "/api/governance",         "upstream": "brain_console", "auth": false, "rate_limit": "10/min", "description": "Governance tree" },
+    { "id": "r12", "method": "GET",  "path": "/api/roles",              "upstream": "brain_console", "auth": false, "rate_limit": "10/min", "description": "C-suite roles" },
+    { "id": "r13", "method": "GET",  "path": "/api/vault",              "upstream": "brain_console", "auth": true,  "rate_limit": "10/min", "description": "Brain vault listing" },
+    { "id": "r14", "method": "GET",  "path": "/api/audit",              "upstream": "brain_console", "auth": true,  "rate_limit": "10/min", "description": "Audit log" },
+    { "id": "r15", "method": "GET",  "path": "/api/decisions",          "upstream": "brain_console", "auth": true,  "rate_limit": "10/min", "description": "Decision ledger" },
+    { "id": "r16", "method": "GET",  "path": "/api/missions",           "upstream": "brain_console", "auth": true,  "rate_limit": "10/min", "description": "Mission center" },
+    { "id": "r17", "method": "GET",  "path": "/api/plugins",            "upstream": "brain_console", "auth": true,  "rate_limit": "10/min", "description": "Plugin registry" },
+    { "id": "r18", "method": "GET",  "path": "/api/webhooks",           "upstream": "brain_console", "auth": true,  "rate_limit": "10/min", "description": "Webhook subscriptions" },
+    { "id": "r19", "method": "GET",  "path": "/api/marketplace",        "upstream": "brain_console", "auth": false, "rate_limit": "20/min", "description": "Marketplace listings" },
+    { "id": "r20", "method": "POST", "path": "/api/marketplace/subscribe", "upstream": "brain_console", "auth": true, "rate_limit": "5/min", "description": "Subscribe to capability" },
+    { "id": "r21", "method": "GET",  "path": "/api/request-log",        "upstream": "brain_console", "auth": true,  "rate_limit": "5/min",  "description": "Recent request log" }
+  ],
+  "sla": {
+    "availability_target": "99.9%",
+    "p99_latency_ms": 200,
+    "rate_limit_burst": 5
+  }
+}
