@@ -783,9 +783,145 @@ Write something for the brain.</textarea>
 
 async function renderDecisions() {
   crumb([["ForgeOS", "#/dashboard"], ["Decisions / Incidents"]]);
-  $("#main").innerHTML = `<h1>Decisions & Incidents</h1>
-    <div class="card"><p class="muted">Capture with slug <span class="mono">decisions/…</span> or <span class="mono">incidents/…</span>. Each incident opens a page before remediation (COO policy).</p>
-    <a class="btn secondary" href="#/capture">Go to Capture →</a></div>`;
+  $("main").innerHTML = skelGrid(4, 160);
+  const { ledger } = await safe(() => api.ledger()).catch(() => ({ ledger: [] }));
+  const entries = Array.isArray(ledger) ? ledger : [];
+  const counts = { total: entries.length, approved: 0, pending: 0, proposed: 0, rejected: 0 };
+  entries.forEach(e => {
+    const o = (e.outcome || "").toLowerCase();
+    if (counts[o] !== undefined) counts[o]++;
+  });
+  const typeOpts = ["approval", "proposal", "incident"].map(t =>
+    `<option value="${DOMPurify.sanitize(t)}">${DOMPurify.sanitize(t)}</option>`
+  ).join("");
+  $("main").innerHTML = `<h1>Decisions & Incidents</h1>
+    <div class="card" style="margin-bottom:16px">
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="pill" data-tooltip="Total decisions and incidents">Total: ${counts.total}</span>
+        <span class="pill ok" data-tooltip="Approved decisions">Approved: ${counts.approved}</span>
+        <span class="pill warn" data-tooltip="Pending decisions">Pending: ${counts.pending}</span>
+        <span class="pill warn" data-tooltip="Proposed decisions">Proposed: ${counts.proposed}</span>
+        <span class="pill bad" data-tooltip="Rejected decisions">Rejected: ${counts.rejected}</span>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <input type="search" id="dec-search" placeholder="Search decisions..." data-tooltip="Filter by title, mission, or role" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" />
+        <select id="dec-type" data-tooltip="Filter by entry type" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="">all types</option>
+          ${typeOpts}
+        </select>
+        <select id="dec-status" data-tooltip="Filter by outcome status" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="">all statuses</option>
+          <option value="approved">approved</option>
+          <option value="pending">pending</option>
+          <option value="proposed">proposed</option>
+          <option value="rejected">rejected</option>
+        </select>
+        <button class="btn secondary" id="dec-reset" data-tooltip="Clear all filters">Reset</button>
+      </div>
+    </div>
+    <div class="card">
+      <table class="tbl" id="dec-table">
+        <thead>
+          <tr>
+            <th data-sort="date" data-tooltip="Sort by date">Date ▸</th>
+            <th data-sort="title" data-tooltip="Sort by title">Title</th>
+            <th data-sort="type" data-tooltip="Sort by type">Type</th>
+            <th data-sort="mission" data-tooltip="Sort by mission">Mission</th>
+            <th data-sort="outcome" data-tooltip="Sort by outcome">Outcome</th>
+            <th data-tooltip="Expand to view role details">Role</th>
+          </tr>
+        </thead>
+        <tbody id="dec-tbody"></tbody>
+      </table>
+      <div id="dec-empty" class="hidden"></div>
+    </div>`;
+  let sortCol = "date";
+  let sortAsc = false;
+  const render = () => {
+    const q = ($("#dec-search")?.value || "").toLowerCase();
+    const type = $("#dec-type")?.value || "";
+    const status = $("#dec-status")?.value || "";
+    let filtered = entries.slice();
+    if (q) {
+      filtered = filtered.filter(e =>
+        (e.title || "").toLowerCase().includes(q) ||
+        (e.mission || "").toLowerCase().includes(q) ||
+        (e.role || "").toLowerCase().includes(q)
+      );
+    }
+    if (type) {
+      filtered = filtered.filter(e => (e.type || "").toLowerCase() === type.toLowerCase());
+    }
+    if (status) {
+      filtered = filtered.filter(e => (e.outcome || "").toLowerCase() === status.toLowerCase());
+    }
+    filtered.sort((a, b) => {
+      const av = (a[sortCol] || "").toString().toLowerCase();
+      const bv = (b[sortCol] || "").toString().toLowerCase();
+      if (av < bv) return sortAsc ? -1 : 1;
+      if (av > bv) return sortAsc ? 1 : -1;
+      return 0;
+    });
+    const tbody = $("#dec-tbody");
+    const empty = $("#dec-empty");
+    if (!tbody) return;
+    if (!filtered.length) {
+      tbody.innerHTML = "";
+      if (empty) { empty.classList.remove("hidden"); empty.innerHTML = emptyState("No decisions match", "Try adjusting your filters"); }
+      return;
+    }
+    if (empty) empty.classList.add("hidden");
+    tbody.innerHTML = filtered.map(e => {
+      const pillCls = { approved: "ok", pending: "warn", proposed: "warn", rejected: "bad" }[e.outcome] || "";
+      const expandId = DOMPurify.sanitize(e.id);
+      return `<tr>
+        <td class="mono">${DOMPurify.sanitize(e.date)}</td>
+        <td>${DOMPurify.sanitize(e.title)}</td>
+        <td><span class="pill">${DOMPurify.sanitize(e.type)}</span></td>
+        <td class="mono">${DOMPurify.sanitize(e.mission)}</td>
+        <td><span class="pill ${pillCls}">${DOMPurify.sanitize(e.outcome)}</span></td>
+        <td><button class="btn secondary sm dec-expand" data-id="${expandId}" data-tooltip="View full role and details">▸</button></td>
+      </tr>
+      <tr class="dec-detail hidden" data-id="${expandId}">
+        <td colspan="6">
+          <div class="muted">
+            <strong>ID:</strong> ${DOMPurify.sanitize(e.id)} · 
+            <strong>Role:</strong> ${DOMPurify.sanitize(e.role)} · 
+            <strong>Mission:</strong> ${DOMPurify.sanitize(e.mission)}
+          </div>
+        </td>
+      </tr>`;
+    }).join("");
+  };
+  render();
+  $("#dec-reset")?.addEventListener("click", () => {
+    $("#dec-search").value = "";
+    $("#dec-type").value = "";
+    $("#dec-status").value = "";
+    render();
+  });
+  ["#dec-search", "#dec-type", "#dec-status"].forEach(sel => {
+    $(sel)?.addEventListener("input", render);
+    $(sel)?.addEventListener("change", render);
+  });
+  document.querySelector("#dec-table thead")?.addEventListener("click", (ev) => {
+    const th = ev.target.closest("th[data-sort]");
+    if (!th) return;
+    const col = th.dataset.sort;
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = true; }
+    render();
+  });
+  $("#dec-tbody")?.addEventListener("click", (ev) => {
+    const btn = ev.target.closest(".dec-expand");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const detail = document.querySelector(`.dec-detail[data-id="${CSS.escape(id)}"]`);
+    if (detail) {
+      detail.classList.toggle("hidden");
+      btn.textContent = detail.classList.contains("hidden") ? "▸" : "▾";
+    }
+  });
 }
 
 async function renderTimeline() {
