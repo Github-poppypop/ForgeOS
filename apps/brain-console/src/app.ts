@@ -804,7 +804,7 @@ async function renderDecisions() {
         <span class="pill bad" data-tooltip="Rejected decisions">Rejected: ${counts.rejected}</span>
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
-        <input type="search" id="dec-search" placeholder="Search decisions..." data-tooltip="Filter by title, mission, or role" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" />
+        <input type="search" id="dec-search" placeholder="Search decisions..." data-tooltip="Filter by title, mission, or role" aria-label="Search decisions" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" />
         <select id="dec-type" data-tooltip="Filter by entry type" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
           <option value="">all types</option>
           ${typeOpts}
@@ -823,12 +823,12 @@ async function renderDecisions() {
       <table class="tbl" id="dec-table">
         <thead>
           <tr>
-            <th data-sort="date" data-tooltip="Sort by date">Date ▸</th>
-            <th data-sort="title" data-tooltip="Sort by title">Title</th>
-            <th data-sort="type" data-tooltip="Sort by type">Type</th>
-            <th data-sort="mission" data-tooltip="Sort by mission">Mission</th>
-            <th data-sort="outcome" data-tooltip="Sort by outcome">Outcome</th>
-            <th data-tooltip="Expand to view role details">Role</th>
+            <th data-sort="date" data-tooltip="Sort by date" aria-sort="none">Date</th>
+            <th data-sort="title" data-tooltip="Sort by title" aria-sort="none">Title</th>
+            <th data-sort="type" data-tooltip="Sort by type" aria-sort="none">Type</th>
+            <th data-sort="mission" data-tooltip="Sort by mission" aria-sort="none">Mission</th>
+            <th data-sort="outcome" data-tooltip="Sort by outcome" aria-sort="none">Outcome</th>
+            <th data-tooltip="Expand to view role details" aria-label="Actions">Actions</th>
           </tr>
         </thead>
         <tbody id="dec-tbody"></tbody>
@@ -910,6 +910,9 @@ async function renderDecisions() {
     const col = th.dataset.sort;
     if (sortCol === col) sortAsc = !sortAsc;
     else { sortCol = col; sortAsc = true; }
+    document.querySelectorAll("#dec-table th[data-sort]").forEach(th => {
+      th.setAttribute("aria-sort", th.dataset.sort === sortCol ? (sortAsc ? "ascending" : "descending") : "none");
+    });
     render();
   });
   $("#dec-tbody")?.addEventListener("click", (ev) => {
@@ -935,7 +938,7 @@ async function renderTimeline() {
     <div class="card" style="margin-bottom:16px">
       <h2>Milestones</h2>
       <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
-        <input type="search" id="tl-search" placeholder="Search milestones..." data-tooltip="Filter milestones by title or owner" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" />
+        <input type="search" id="tl-search" placeholder="Search milestones..." data-tooltip="Filter milestones by title or owner" aria-label="Search milestones" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" />
         <select id="tl-status" data-tooltip="Filter by milestone status" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
           <option value="">All statuses</option>
           ${statuses.map(s => `<option value="${DOMPurify.sanitize(s)}">${DOMPurify.sanitize(s)}</option>`).join("")}
@@ -1029,7 +1032,7 @@ async function renderLedger() {
   $("main").innerHTML = `<h1>Decision Ledger <span class="muted" data-tooltip="Filtered decisions from brain">Live</span></h1>
     <div class="card">
       <div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
-        <input id="l-search" placeholder="Search ledger…" data-tooltip="Search decisions by title or mission" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
+        <input id="l-search" placeholder="Search ledger…" data-tooltip="Search decisions by title or mission" aria-label="Search decision ledger" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
         <input type="date" id="l-from" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="From date" data-tooltip="Filter from date">
         <input type="date" id="l-to" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" title="To date" data-tooltip="Filter to date">
         <select id="l-role" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)" data-tooltip="Filter by role">
@@ -1211,7 +1214,7 @@ async function renderMissions() {
           <option value="done" ${statusFilter==="done"?"selected":""}>done</option>
           <option value="failed" ${statusFilter==="failed"?"selected":""}>failed</option>
         </select>
-        <input type="search" id="m-search" placeholder="Search missions..." value="${DOMPurify.sanitize(searchQuery)}" data-tooltip="Filter missions by ID or title" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:180px" />
+        <input type="search" id="m-search" placeholder="Search missions..." value="${DOMPurify.sanitize(searchQuery)}" data-tooltip="Filter missions by ID or title" aria-label="Search missions" style="padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:180px" />
         <button class="btn secondary sm" id="m-refresh" data-tooltip="Reload missions list">Refresh</button>
         <button class="btn secondary sm" id="m-export" data-tooltip="Download missions as JSON">Export</button>
         <div style="position:relative;display:inline-flex">
@@ -1223,17 +1226,17 @@ async function renderMissions() {
           <button class="btn secondary sm" id="m-clear-sel" data-tooltip="Clear row selection">Clear</button>
         </span>
       </div>
-      <table class="tbl"><thead><tr>
-        <th style="width:32px"><input type="checkbox" id="m-select-all" data-tooltip="Select all missions on this page" /></th>
-        <th data-sort="id" class="col-id" data-tooltip="Sort by mission ID" style="cursor:pointer">ID ${sortCol==='id'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
-        <th data-sort="title" class="col-title" data-tooltip="Sort by title" style="cursor:pointer">Title ${sortCol==='title'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
-        <th data-sort="status" class="col-status" data-tooltip="Sort by status" style="cursor:pointer">Status ${sortCol==='status'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
-        <th data-sort="phase" class="col-phase" data-tooltip="Sort by phase" style="cursor:pointer">Phase ${sortCol==='phase'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
-        <th data-sort="progress" class="col-progress" data-tooltip="Sort by progress" style="cursor:pointer">Progress ${sortCol==='progress'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
-        <th data-sort="eta" class="col-eta" data-tooltip="Sort by ETA" style="cursor:pointer">ETA ${sortCol==='eta'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
-        <th data-sort="dependencies" class="col-dependencies" data-tooltip="Sort by dependencies" style="cursor:pointer">Dependencies ${sortCol==='dependencies'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
-        <th data-sort="owner" class="col-owner" data-tooltip="Sort by owner" style="cursor:pointer">Owner ${sortCol==='owner'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
-        <th></th>
+      <table class="tbl" aria-label="Missions table"><thead><tr>
+        <th style="width:32px"><input type="checkbox" id="m-select-all" data-tooltip="Select all missions on this page" aria-label="Select all missions" /></th>
+        <th data-sort="id" class="col-id" data-tooltip="Sort by mission ID" style="cursor:pointer" aria-sort="${sortCol==='id'?(sortDir==='asc'?'ascending':'descending'):'none'}">ID ${sortCol==='id'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="title" class="col-title" data-tooltip="Sort by title" style="cursor:pointer" aria-sort="${sortCol==='title'?(sortDir==='asc'?'ascending':'descending'):'none'}">Title ${sortCol==='title'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="status" class="col-status" data-tooltip="Sort by status" style="cursor:pointer" aria-sort="${sortCol==='status'?(sortDir==='asc'?'ascending':'descending'):'none'}">Status ${sortCol==='status'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="phase" class="col-phase" data-tooltip="Sort by phase" style="cursor:pointer" aria-sort="${sortCol==='phase'?(sortDir==='asc'?'ascending':'descending'):'none'}">Phase ${sortCol==='phase'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="progress" class="col-progress" data-tooltip="Sort by progress" style="cursor:pointer" aria-sort="${sortCol==='progress'?(sortDir==='asc'?'ascending':'descending'):'none'}">Progress ${sortCol==='progress'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="eta" class="col-eta" data-tooltip="Sort by ETA" style="cursor:pointer" aria-sort="${sortCol==='eta'?(sortDir==='asc'?'ascending':'descending'):'none'}">ETA ${sortCol==='eta'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="dependencies" class="col-dependencies" data-tooltip="Sort by dependencies" style="cursor:pointer" aria-sort="${sortCol==='dependencies'?(sortDir==='asc'?'ascending':'descending'):'none'}">Dependencies ${sortCol==='dependencies'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th data-sort="owner" class="col-owner" data-tooltip="Sort by owner" style="cursor:pointer" aria-sort="${sortCol==='owner'?(sortDir==='asc'?'ascending':'descending'):'none'}">Owner ${sortCol==='owner'?(sortDir==='asc'?'↑':'↓'):'▾'}</th>
+        <th aria-label="Actions"></th>
       </tr></thead>
       <tbody>${p.items.map(m => `<tr>
         <td><input type="checkbox" class="m-sel" data-id="${DOMPurify.sanitize(m.id)}" data-tooltip="Select mission ${DOMPurify.sanitize(m.id)}" /></td>
@@ -1821,25 +1824,37 @@ async function renderVault() {
       <div class="card">
         <div class="row" style="justify-content:space-between;margin-bottom:12px">
           <div class="row">
-            <input id="vault-search" class="mono" placeholder="Filter vault files..." value="${DOMPurify.sanitize(filterText)}" data-tooltip="Filter vault files by name" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:240px"/>
-            <button class="btn secondary" id="sort-az" data-tooltip="Sort A to Z">A→Z</button>
-            <button class="btn secondary" id="sort-za" data-tooltip="Sort Z to A">Z→A</button>
+            <input id="vault-search" class="mono" placeholder="Filter vault files..." value="${DOMPurify.sanitize(filterText)}" data-tooltip="Filter vault files by name" aria-label="Filter vault files" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:240px"/>
+            <button class="btn secondary" id="sort-az" data-tooltip="Sort A to Z" aria-label="Sort files ascending">A→Z</button>
+            <button class="btn secondary" id="sort-za" data-tooltip="Sort Z to A" aria-label="Sort files descending">Z→A</button>
+            <div style="position:relative;display:inline-flex">
+              <button class="btn secondary sm" id="v-cols-btn" data-tooltip="Show or hide table columns" aria-label="Toggle vault table columns">Columns ▾</button>
+              <div id="v-cols-menu" class="hidden" style="position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;min-width:180px;z-index:50;box-shadow:var(--shadow)"></div>
+            </div>
           </div>
           <span class="muted" data-tooltip="Total files in vault">${files.length} file${files.length !== 1 ? 's' : ''}</span>
         </div>
         <p class="muted">Mirror at <span class="mono">C:\\ForgeOS\\vault</span> — git: ${DOMPurify.sanitize(v.git)}</p>
-        ${vp.items.length ? `<ul class="mono" style="line-height:1.9">${vp.items.map(f => {
-          const ext = f.split('.').pop();
-          const badgeCls = ext === 'md' ? 'ok' : ext === 'json' ? 'warn' : '';
-          const badgeTip = ext === 'md' ? 'Markdown document' : ext === 'json' ? 'JSON data file' : ext + ' file';
-          return `<li class="mono" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
-            <a class="link" href="#/vaultfile/${encodeURIComponent(f)}">${DOMPurify.sanitize(f)}</a>
-            <div class="row">
-              <span class="pill ${badgeCls}" data-tooltip="${badgeTip}">${ext}</span>
-              <button class="btn secondary" style="padding:2px 8px;font-size:12px" data-copy="${f}" data-tooltip="Copy file path">copy</button>
-            </div>
-          </li>`;
-        }).join("")}</ul>` : emptyState(filterText ? "No matching files" : "Vault is empty", filterText ? "Try a different query" : "Mirror at C:\\ForgeOS\\vault", filterText ? "" : '<a class="btn secondary" href="#/capture">Capture a page</a>')}
+        ${vp.items.length ? `<div style="overflow-x:auto"><table class="tbl" id="vault-table" aria-label="Vault files table"><thead><tr>
+          <th class="v-col-file" data-tooltip="Vault file path" style="cursor:pointer" data-sort="file">File</th>
+          <th class="v-col-path" data-tooltip="Directory path">Path</th>
+          <th class="v-col-ext" data-tooltip="File extension">Extension</th>
+          <th class="v-col-type" data-tooltip="File type">Type</th>
+          <th class="v-col-actions" aria-label="Actions">Actions</th>
+        </tr></thead><tbody>${vp.items.map(f => {
+          const ext = (f.split('.').pop() || '').toLowerCase();
+          const name = f.split('/').pop() || f;
+          const dir = f.split('/').slice(0, -1).join('/') || '';
+          const typeLabel = ext === 'md' ? 'Markdown' : ext === 'json' ? 'JSON' : 'File';
+          const typeCls = ext === 'md' ? 'ok' : ext === 'json' ? 'warn' : '';
+          return `<tr>
+            <td class="mono v-col-file"><a class="link" href="#/vaultfile/${encodeURIComponent(f)}">${DOMPurify.sanitize(name)}</a></td>
+            <td class="muted v-col-path">${dir ? DOMPurify.sanitize(dir) : '<span class="muted">—</span>'}</td>
+            <td class="mono v-col-ext">.${ext}</td>
+            <td v-col-type><span class="pill ${typeCls}">${typeLabel}</span></td>
+            <td v-col-actions><button class="btn secondary" style="padding:2px 8px;font-size:12px" data-copy="${f}" data-tooltip="Copy file path" aria-label="Copy ${DOMPurify.sanitize(name)}">copy</button></td>
+          </tr>`;
+        }).join("")}</tbody></table></div>` : emptyState(filterText ? "No matching files" : "Vault is empty", filterText ? "Try a different query" : "Mirror at C:\\ForgeOS\\vault", filterText ? "" : '<a class="btn secondary" href="#/capture">Capture a page</a>')}
         ${paginationControls(vp)}
       </div>`;
   };
@@ -2307,7 +2322,7 @@ async function renderAudit() {
   $("main").innerHTML = `<h1>Audit Trail <span class="muted" data-tooltip="Immutable action history">Log</span></h1>
     <div class="card">
       <div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
-        <input id="a-search" placeholder="Search audit…" data-tooltip="Search by slug, type, or title" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
+        <input id="a-search" placeholder="Search audit…" data-tooltip="Search by slug, type, or title" aria-label="Search audit trail" style="flex:1;min-width:180px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/>
         <select id="a-type" data-tooltip="Filter by entry type">
           <option value="">all types</option>
           <option value="capture">capture</option>
@@ -4701,6 +4716,7 @@ const NAV = [
     ["MCP", tooltip("MCP", "Model Context Protocol tools"), "mcp"],
     ["Workflows", tooltip("Workflows", "Agent workflow management"), "workflows"],
     ["Monitoring", tooltip("Monitoring", "Live agent and PoolLeague status"), "monitoring"],
+    [tooltip("Delegation", "Delegate tasks to C-suite agents"), "delegation"],
   ]},
   { category: "Projects", items: [
     ["Projects", tooltip("Projects", "Project management and kanban"), "projects"],
@@ -4897,9 +4913,9 @@ function statTile(label, value, delta, deltaDir="up") {
 // =====================================================================
 
 // ---------- (5) 404 route ----------
-const KNOWN = new Set(["command","governance","dashboard","roles","org","timeline","ledger","search","capture","decisions","missions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page","projects","wizard","settings","workflows","marketplace","plugins","webhooks"]);
+const KNOWN = new Set(["command","governance","dashboard","roles","org","timeline","ledger","search","capture","decisions","missions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page","projects","wizard","settings","workflows","marketplace","plugins","webhooks","delegation"]);
 // ---------- (10) favicon/title per panel ----------
-const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", timeline:"Timeline", ledger:"Decision Ledger", search:"Search", capture:"Capture", decisions:"Decisions", missions:"Missions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page", projects:"Projects", wizard:"Setup Wizard", settings:"Settings", workflows:"Workflows", marketplace:"Marketplace", plugins:"Plugins" };
+const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", timeline:"Timeline", ledger:"Decision Ledger", search:"Search", capture:"Capture", decisions:"Decisions", missions:"Missions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page", projects:"Projects", wizard:"Setup Wizard", settings:"Settings", workflows:"Workflows", marketplace:"Marketplace", plugins:"Plugins", delegation:"Delegation" };
 
 // ---------- (11) restore last panel ----------
 function lastPanel() { return localStorage.getItem("forgeos-last") || "command"; }
@@ -5052,6 +5068,7 @@ const CMD_TIPS = {
   "marketplace": "Browse discoverable agents",
   "plugins": "Manage console plugins",
   "settings": "Console settings and configuration",
+  "delegation": "Delegate tasks to available C-suite agents",
 };
 const CMD_SHORTCUTS = {};
 SHORTCUTS.forEach(([k, action]) => {
@@ -5540,7 +5557,7 @@ function shell() {
     const cat = DOMPurify.sanitize(g.category);
     const items = g.items.map(([label, tip, p]) => `<a href="#/${p}" aria-label="${label}">${tip || label}</a>`).join("");
     return `<div class="nav-category">
-      <div class="nav-category-header" data-cat="${cat}">${cat}</div>
+      <nav class="nav-category-header" data-cat="${cat}" aria-expanded="false" role="button" tabindex="0" aria-label="Toggle ${cat} navigation">${cat}</nav>
       <div class="nav-category-items">${items}</div>
     </div>`;
   }).join("");
@@ -5594,13 +5611,14 @@ function shell() {
     const cat = header.dataset.cat;
     const el = header.parentElement;
     el.classList.toggle("collapsed");
+    header.setAttribute("aria-expanded", el.classList.contains("collapsed") ? "false" : "true");
     try { localStorage.setItem("forgeos-nav-" + cat.toLowerCase().replace(/[^a-z0-9]+/g, "-"), el.classList.contains("collapsed") ? "1" : "0"); } catch {}
   });
   // restore collapsed state
   document.querySelectorAll(".nav-category").forEach(el => {
     const title = el.querySelector(".nav-category-header");
     if (!title) return;
-    try { if (localStorage.getItem("forgeos-nav-" + title.dataset.cat.toLowerCase().replace(/[^a-z0-9]+/g, "-")) === "1") el.classList.add("collapsed"); } catch {}
+    try { if (localStorage.getItem("forgeos-nav-" + title.dataset.cat.toLowerCase().replace(/[^a-z0-9]+/g, "-")) === "1") { el.classList.add("collapsed"); title.setAttribute("aria-expanded", "false"); } } catch {}
   });
 
   // (2) boot self-check
