@@ -4,11 +4,35 @@ Autonomous-organization operating system. Governance, C-suite agent
 definitions, and a knowledge-universe brain (gbrain + gstack) fused into
 an isolated, local-first runtime.
 
+## Community Onboarding Funnel
+
+New to ForgeOS? Follow the 4-stage funnel to go from zero to active contributor:
+
+| Stage | Goal | Time |
+|-------|------|------|
+| **1. Install** | Clone, run, see the Brain Console | < 10 min |
+| **2. First Brain** | Seed roles, capture a page, search, decide | < 15 min |
+| **3. First App** | Run an app or publish a skill | < 20 min |
+| **4. Community** | Join Discord, open an RFC, contribute | Ongoing |
+
+Detailed guides:
+- `docs/onboarding/funnel.md` — overview and metrics
+- `docs/onboarding/stage-1-install.md` — clone, env, run
+- `docs/onboarding/stage-2-first-brain.md` — seed, capture, search, decide
+- `docs/onboarding/stage-3-first-app.md` — run an app or write a skill
+- `docs/onboarding/stage-4-community.md` — contribute, publish, grow
+
+External docs:
+- `docs/developers/` — agent authoring, API gateway, marketplace, Docker
+- `docs/tutorials/` — video scripts and step-by-step walkthroughs
+
+---
+
 ## Layout
 ```
 docs/                 governance docs (charter, ADRs)
 apps/                 runnable apps (brain-console, future lifeos)
-services/             shared services
+services/             shared services (api-gateway)
 agents/               agent role definitions
 profiles/             per-agent config profiles
 marketplace/          capability/agent marketplace
