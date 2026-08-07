@@ -692,19 +692,23 @@ async function renderSearch() {
   $("#q").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
 }
 
-// ---------- (24) capture w/ validation + preview + batch ----------
+// ---------- (24) capture w/ validation + preview + batch + tooltips ----------
 async function renderCapture() {
   crumb([["ForgeOS", "#/dashboard"], ["Capture"]]);
   $("#main").innerHTML = `<h1>Capture Page</h1>
     <div class="card" style="max-width:680px">
-      <div class="row"><label>slug</label><input id="slug" class="mono" value="decisions/demo" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      <div class="row"><label>slug</label><input id="slug" class="mono" value="decisions/demo" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/><button class="btn secondary" id="copy-slug" data-tooltip="Copy slug to clipboard">Copy</button></div>
       <div class="row" style="margin-top:8px"><label>type</label><input id="type" value="note" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
+      <div class="row" style="margin-top:8px"><label>template</label><select id="template" data-tooltip="Load a pre-built content template" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"><option value="">-- choose template --</option><option value="note">Note</option><option value="decision">Decision</option><option value="incident">Incident</option><option value="meeting">Meeting Notes</option><option value="action">Action Item</option></select></div>
+      <div class="row" style="margin-top:8px"><label>tags</label><input id="tags" placeholder="comma separated" data-tooltip="Comma-separated tags for categorization" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)"/></div>
       <textarea id="body" rows="8" style="width:100%;margin-top:8px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono)"># Demo
 Write something for the brain.</textarea>
       <div id="preview" class="json" style="margin-top:8px"></div>
+      <div id="draft-status" class="muted" style="margin-top:4px" data-tooltip="Last auto-saved to browser storage"></div>
       <div class="row" style="margin-top:8px">
         <button class="btn primary" id="cap">Capture</button>
         <button class="btn secondary" id="prev">Preview</button>
+        <button class="btn secondary" id="clear" data-tooltip="Clear all fields">Clear</button>
         <span id="slugmsg" class="muted"></span>
       </div>
     </div>`;
@@ -715,13 +719,53 @@ Write something for the brain.</textarea>
     $("#slugmsg").style.color = ok ? "" : "var(--danger)";
     return ok;
   };
+  try {
+    const draft = JSON.parse(localStorage.getItem('capture-draft') || '{}');
+    if (draft.slug) $("#slug").value = draft.slug;
+    if (draft.type) $("#type").value = draft.type;
+    if (draft.body) $("#body").value = draft.body;
+    if (draft.tags) $("#tags").value = draft.tags;
+    if (draft.template) $("#template").value = draft.template;
+    validate();
+  } catch {}
+  const saveDraft = () => {
+    try {
+      localStorage.setItem('capture-draft', JSON.stringify({slug: $("#slug").value.trim(), type: $("#type").value.trim(), body: $("#body").value, tags: $("#tags").value.trim(), template: $("#template").value}));
+      const ds = $("#draft-status");
+      if (ds) ds.textContent = "Draft saved " + new Date().toLocaleTimeString();
+    } catch {}
+  };
+  ["#slug", "#type", "#body", "#tags", "#template"].forEach(sel => { $(sel)?.addEventListener("input", saveDraft); });
+  $("#template")?.addEventListener("change", () => {
+    const t = $("#template").value;
+    const templates = {note: "# Note\n\n", decision: "# Decision\n\n## Context\n\n## Outcome\n\n", incident: "# Incident\n\n## Timeline\n\n## Resolution\n\n", meeting: "# Meeting Notes\n\n## Attendees\n\n## Agenda\n\n## Action Items\n\n", action: "# Action Item\n\n## Owner\n\n## Due Date\n\n## Status\n\n"};
+    if (t && templates[t]) { $("#body").value = templates[t]; saveDraft(); }
+  });
+  $("#copy-slug")?.addEventListener("click", () => {
+    navigator.clipboard?.writeText($("#slug").value.trim())
+      .then(() => toast("slug copied", "ok"), () => toast("copy failed", "err"));
+  });
+  $("#clear")?.addEventListener("click", () => {
+    $("#slug").value = "";
+    $("#type").value = "note";
+    $("#body").value = "# Demo\nWrite something for the brain.";
+    $("#tags").value = "";
+    $("#template").value = "";
+    $("#preview").textContent = "";
+    $("#slugmsg").textContent = "";
+    localStorage.removeItem("capture-draft");
+    const ds = $("#draft-status");
+    if (ds) ds.textContent = "";
+    validate();
+    toast("form cleared", "ok");
+  });
   $("#slug").addEventListener("input", validate);
   $("#prev").addEventListener("click", () => { $("#preview").textContent = $("#body").value; });
   $("#cap").addEventListener("click", () => withLoading($("#cap"), async () => {
     if (!validate()) return;
     const r = await safe(() => api.capture($("#slug").value.trim(), $("#type").value.trim(), $("#body").value));
     toast(r.err ? "capture failed: " + errMsg(r.err) : "captured " + $("#slug").value, r.err ? "err" : "ok");
-    if (!r.err) location.hash = "#/page/" + encodeURIComponent($("#slug").value.trim());
+    if (!r.err) { localStorage.removeItem("capture-draft"); location.hash = "#/page/" + encodeURIComponent($("#slug").value.trim()); }
   }));
 }
 
