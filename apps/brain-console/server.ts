@@ -15,6 +15,7 @@ import { agentMemoryCache } from "../agents/memory-cache";
 import { deadLetterQueue } from "../agents/dead-letter-queue";
 import { runbookSelector } from "../agents/runbook-selector";
 import { schemaValidator } from "../agents/schema-validator";
+import { recordCost, getCostByRole } from "../agents/cost-accounting";
 
 // ---- Batch D: Knowledge Universe enhancements (31-40) ----
 import { checkLinks, buildGraph } from "../knowledge-universe/link-checker.ts";
@@ -81,8 +82,34 @@ const ROLE_SLUGS = [
   "coo/coo", "cmo/cmo", "cfo/cfo",
 ];
 
+// Batch C: canary routing header support (10% canary)
+function isCanary(req: Request): boolean {
+  const header = (req.headers.get("x-forgeos-canary") || "").toLowerCase();
+  if (header === "true") return true;
+  if (header === "false" || header === "0") return false;
+  const token = req.headers.get("authorization") || req.headers.get("x-request-id") || String(Math.random());
+  const h = String(token).split("").reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0);
+  return (Math.abs(h) % 10) === 0;
+}
+
+// Batch C: graceful Ollama fallback response helper
+function ollamaFallbackPayload() {
+  return {
+    model: "forgeos-fallback",
+    choices: [{ text: "[Ollama offline] Local model runtime unavailable. Features using Ollama are degraded; embeddings/semantic features are unavailable.", finish_reason: "fallback" }],
+    usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+    degraded: true,
+    note: "fallback response because Ollama is offline",
+  };
+}
+
 async function runGbrain(args: string[], opts: { stdin?: string; timeoutMs?: number } = {}) {
-  return gbrainMutex(() => spawnGbrain(args, opts));
+  const start = Date.now();
+  const result = await gbrainMutex(() => spawnGbrain(args, opts));
+  const ms = Date.now() - start;
+  const role = args[0] || 'unknown';
+  recordCost({ role, tokensIn: Math.max(0, result.out?.length || 0), tokensOut: Math.max(0, result.err?.length || 0), cost: 0 });
+  return result;
 }
 let _chain: Promise<any> = Promise.resolve();
 function gbrainMutex<T>(fn: () => Promise<T>): Promise<T> {
@@ -398,8 +425,23 @@ const server = serve({
 
       if (p === "/api/search") {
         const q = url.searchParams.get("q") ?? "";
+        if (isCanary(req)) {
+          return json({ query: q, raw: "[canary] stubbed search response" });
+        }
         const r = await runGbrain(["search", q]);
         return json({ query: q, raw: r.out });
+      }
+
+      if (p === "/api/agents/cost" && req.method === "GET") {
+        const role = url.searchParams.get("role") || undefined;
+        return json(getCostByRole(role));
+      }
+
+      if (p === "/api/agents/fallback-demo" && req.method === "GET") {
+        if (await ollamaOk()) {
+          return json({ degraded: false, note: "Ollama is online" });
+        }
+        return json(ollamaFallbackPayload());
       }
 
       if (p === "/api/schema") {
