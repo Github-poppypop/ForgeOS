@@ -3538,24 +3538,97 @@ async function renderSacred() {
 // ---------- Process supervisor ----------
 async function renderProcesses() {
   crumb([["ForgeOS", "#/dashboard"], ["Processes"]]);
-  $("main").innerHTML = `<h1>Process Supervisor</h1>
-    <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <h2>Managed processes</h2>
-        <button class="btn primary" id="new-process">Add process</button>
+  let paused = false;
+  let intervalMs = 5000;
+  let intervalId = null;
+  const startTimer = () => {
+    if (intervalId) clearInterval(intervalId);
+    intervalId = setInterval(refresh, intervalMs);
+  };
+  const stopTimer = () => {
+    if (intervalId) { clearInterval(intervalId); intervalId = null; }
+  };
+  const fmtTime = (d) => d.toLocaleTimeString();
+
+  $("main").innerHTML = `
+    <h1>Process Supervisor</h1>
+    <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn secondary" id="proc-pause" data-tooltip="Pause live process polling">⏸ Pause</button>
+        <select id="proc-interval" data-tooltip="Polling interval">
+          <option value="2000">2s</option>
+          <option value="5000" selected>5s</option>
+          <option value="15000">15s</option>
+          <option value="30000">30s</option>
+        </select>
+        <button class="btn secondary" id="proc-export" data-tooltip="Export process list as JSON">Export</button>
       </div>
-      <pre id="processes-out" class="code json" style="margin-top:12px">loading...</pre>
+      <span id="proc-last" class="muted" data-tooltip="Last data refresh time">Updated —</span>
+    </div>
+    <div class="card" data-mon-section="processes">
+      <div class="row" style="justify-content:space-between;cursor:pointer" data-toggle="processes">
+        <h2>Managed processes</h2>
+        <span class="muted" data-toggle-icon="processes">▼</span>
+      </div>
+      <div data-mon-body="processes">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <button class="btn primary" id="new-process" data-tooltip="Add a new managed process">Add process</button>
+        </div>
+        <pre id="processes-out" class="code json" style="margin-top:12px">loading...</pre>
+      </div>
     </div>`;
   const refresh = async () => {
+    if (paused) return;
     try {
       const r = await safe(api.processes).catch(() => ({ processes: [] }));
       const out = document.querySelector("#processes-out");
       if (out) out.textContent = JSON.stringify(r, null, 2);
+      const lastEl = document.querySelector("#proc-last");
+      if (lastEl) lastEl.textContent = "Updated " + fmtTime(new Date());
     } catch (e) {
       toast('process supervisor error: ' + errMsg(e), 'err');
     }
   };
-  refresh();
+  const exportJSON = (filename, data) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast("Exported " + filename, "ok");
+  };
+  document.querySelector("#proc-pause")?.addEventListener("click", () => {
+    paused = !paused;
+    const btn = document.querySelector("#proc-pause");
+    if (btn) {
+      btn.innerHTML = paused ? "▶ Resume" : "⏸ Pause";
+      btn.setAttribute("data-tooltip", paused ? "Resume live process polling" : "Pause live process polling");
+    }
+    if (!paused) startTimer();
+    toast(paused ? "Process polling paused" : "Process polling resumed");
+  });
+  document.querySelector("#proc-interval")?.addEventListener("change", (e) => {
+    intervalMs = parseInt(e.target.value, 10);
+    if (!paused) startTimer();
+    toast("Refresh interval: " + (intervalMs / 1000) + "s");
+  });
+  document.querySelector("#proc-export")?.addEventListener("click", async () => {
+    const data = await safe(api.processes).catch(() => ({ processes: [] }));
+    exportJSON("processes.json", data);
+  });
+  $$("[data-toggle]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.getAttribute("data-toggle");
+      const body = document.querySelector("[data-mon-body='" + key + "']");
+      const icon = document.querySelector("[data-toggle-icon='" + key + "']");
+      if (!body) return;
+      const hidden = body.style.display === "none";
+      body.style.display = hidden ? "" : "none";
+      if (icon) icon.textContent = hidden ? "▼" : "▶";
+    });
+  });
   document.querySelector("#new-process")?.addEventListener("click", async () => {
     const cmd = prompt("Process command:");
     if (!cmd) return;
@@ -3563,6 +3636,8 @@ async function renderProcesses() {
     toast('process queued', 'ok');
     refresh();
   });
+  refresh();
+  startTimer();
 }
 
 // ---------- Port conflict prevention ----------
