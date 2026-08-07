@@ -70,14 +70,14 @@ const ROLE_NAME: Record<AgentRole, string> = {
 export function buildOwnerChain(agentId: AgentRole): string[] {
   const chain: string[] = [ROLE_NAME[agentId]];
   let cursor: string = REPORTS_TO[agentId] ?? "ceo";
-  const seen = new Set<string>([cursor]);
+  const seen = new Set<string>();
   while (cursor && cursor !== "charter" && !seen.has(cursor)) {
+    seen.add(cursor);
     const normalized = cursor.toLowerCase() as AgentRole;
     chain.push(ROLE_NAME[normalized] ?? cursor);
-    seen.add(cursor);
     cursor = REPORTS_TO[normalized] ?? cursor;
   }
-  if (cursor === "board" || cursor === "charter") {
+  if (cursor === "charter") {
     chain.push("Board");
   }
   return chain;

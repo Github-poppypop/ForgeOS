@@ -96,7 +96,7 @@ interface SeedRecord {
   detail: string;
 }
 
-async function ingestFile(root: string, rec: typeof SEED_FILES[0]): Promise<SeedRecord> {
+export async function ingestFile(root: string, rec: typeof SEED_FILES[0]): Promise<SeedRecord> {
   const src = join(root, rec.file);
   try {
     if (!existsSync(src)) {

@@ -3608,6 +3608,16 @@ async function renderMarketplace() {
       </div>
       <div id="market-grid" class="grid cols-2" style="margin-top:12px"></div>
       <pre id="market-out" class="code json" style="margin-top:12px;display:none"></pre>
+      <div style="margin-top:16px">
+        <h3 data-tooltip="ForgeOS marketplace pricing and budget model">Marketplace economics</h3>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+          <span class="pill" data-tooltip="External paid listing platform fee">External fee: 5%</span>
+          <span class="pill" data-tooltip="Internal org listing platform fee">Internal fee: 3%</span>
+          <span class="pill" data-tooltip="Minimum payout before release">Payout threshold: $50</span>
+          <span class="pill" data-tooltip="Maximum discount for 500+ seats">Max discount: custom</span>
+        </div>
+        <p class="muted" style="margin-top:8px">Pricing model: <span class="mono">flat | metered | free</span>. Payouts are monthly net-30. Missing usage events fall back to flat for the cycle. <span class="mono">/marketplace/economics.md</span> has the canonical doc.</p>
+      </div>
     </div>`;
   let packages = [];
   const renderGrid = () => {

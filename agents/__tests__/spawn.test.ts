@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { spawnAgent, terminateAgent, tailLog, loadProfile, listProfiles } from "../agents/spawn.ts";
+import { spawnAgent, terminateAgent, tailLog, loadProfile, listProfiles } from "../spawn";
 describe("agents/spawn", () => {
   it("loads a known profile", async () => {
     const profile = loadProfile("ceo");

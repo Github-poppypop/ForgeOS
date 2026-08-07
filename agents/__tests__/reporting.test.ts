@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { compileReport, buildOwnerChain, reports, latestForAgent, latestForCEO } from "../agents/reporting.ts";
+import { compileReport, buildOwnerChain, reports, latestForAgent, latestForCEO } from "../reporting";
 describe("agents/reporting", () => {
   it("builds owner chain from cto to board", async () => {
     const chain = buildOwnerChain("cto");
