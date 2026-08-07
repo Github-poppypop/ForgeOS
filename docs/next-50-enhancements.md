@@ -1,23 +1,15 @@
 # Next-50 Enhancements — ForgeOS Platform
 
-**Status:** Planned  
+**Status:** In Progress  
 **Target:** End-to-end mock-first implementation; real backends can be wired later.  
 **Batch strategy:** 10 enhancements per logical batch; each batch is a single commit.
 
 ---
 
-## Batch A — Mock Service Foundation (1–10)
-
-1. Add `services/mock-service-registry.ts`: in-memory registry for all mock endpoints.
-2. Add `services/mock-auth.ts`: fake login/registration/token refresh.
-3. Add `services/mock-billing.ts`: invoices, plans, usage events.
-4. Add `services/mock-notifications.ts`: in-app notifications feed.
-5. Add `services/mock-search.ts`: keyword + tag search over seeded content.
-6. Add `services/mock-ai.ts`: fake completion/embedding/rerank endpoints.
-7. Add `services/mock-storage.ts`: file upload/list/delete with size limits.
-8. Add `services/mock-webhooks.ts`: inbound webhook receiver + delivery log.
-9. Add `services/mock-telemetry.ts`: events + metrics stream.
-10. Add `services/mock-integrations.ts`: Slack/Notion/GitHub fake OAuth flows.
+## Batch A — Mock Service Foundation (1–10) ✅
+- Added `services/mock-service-registry.ts`
+- Added mock services: auth, billing, notifications, search, AI, storage, webhooks, telemetry, integrations
+- Added `services/__tests__/` coverage for mock services
 
 ## Batch B — Brain Console UX + Data Panels (11–20)
 

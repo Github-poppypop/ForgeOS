@@ -79,19 +79,31 @@ async function spawnGbrain(args: string[], opts: { stdin?: string; timeoutMs?: n
   const span = startSpan(`gbrain ${args[0] ?? 'run'}`, SpanKind.CLIENT);
   const traceId = span.spanContext().traceId;
   const procEnv = { ...GBRAIN_ENV, FORGEOS_TRACE_ID: traceId };
-  try {
+  const run = async (attempt: number): Promise<{ code: number; out: string; err: string }> => {
     const proc = Bun.spawn([GBRAIN_BIN, GBRAIN_CLI, ...args], {
       stdout: "pipe", stderr: "pipe", stdin: "pipe", env: procEnv, cwd: GBRAIN_CWD,
     });
     if (opts.stdin) { proc.stdin.write(opts.stdin); } proc.stdin.end();
     const t = setTimeout(() => proc.kill(), opts.timeoutMs ?? 60000);
-    const [out, err] = await Promise.all([proc.stdout.text(), proc.stderr.text()]);
-    clearTimeout(t); await proc.exited;
-    span.setStatus({ code: proc.exitCode === 0 ? SpanStatusCode.Unset : SpanStatusCode.Error, message: String(proc.exitCode) });
-    return { code: proc.exitCode ?? 0, out, err };
-  } catch (e: any) {
-    span.setStatus({ code: SpanStatusCode.Error, message: String(e?.message ?? e) });
-    throw e;
+    try {
+      const [out, err] = await Promise.all([proc.stdout.text(), proc.stderr.text()]);
+      await proc.exited;
+      clearTimeout(t);
+      const code = proc.exitCode ?? 0;
+      span.setStatus({ code: code === 0 ? SpanStatusCode.Unset : SpanStatusCode.Error, message: String(code) });
+      return { code, out, err };
+    } catch (e: any) {
+      clearTimeout(t);
+      span.setStatus({ code: SpanStatusCode.Error, message: String(e?.message ?? e) });
+      if (attempt < 3) {
+        await new Promise(r => setTimeout(r, 300 * attempt));
+        return run(attempt + 1);
+      }
+      throw e;
+    }
+  };
+  try {
+    return await run(1);
   } finally {
     span.end();
   }

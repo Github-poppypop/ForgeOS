@@ -212,6 +212,140 @@ function paginationControls(p) {
 // ---------- (15) empty state ----------
 const empty = (msg, cta) => emptyState(msg, '', cta);
 
+// ---------- Batch B: CSV export ----------
+function downloadCSV(filename, rows, columns) {
+  const header = columns.join(',');
+  const body = rows.map((row) => columns.map((c) => {
+    const value = (row[c] ?? '').toString().replace(/"/g, '""');
+    return `"${value}"`;
+  }).join(',')).join('\n');
+  const blob = new Blob([`${header}\n${body}\n`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`Exported ${filename}`, 'ok');
+}
+
+// ---------- Batch B: saved views ----------
+const SAVED_VIEWS_KEY = 'forgeos-saved-views';
+function getSavedViews() {
+  try { return JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '{}'); }
+  catch { return {}; }
+}
+function setSavedViews(views) {
+  try { localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views)); }
+  catch {}
+}
+function applySavedView(panel, viewName) {
+  const views = getSavedViews()[panel];
+  if (!viewName || !views || !views[viewName]) return;
+  const columns = views[viewName];
+  document.querySelectorAll(`#${panel} .col-toggle`).forEach((el) => {
+    const col = el.dataset.col;
+    if (!col) return;
+    el.checked = columns.includes(col);
+  });
+  toast(`Applied saved view: ${viewName}`, 'ok');
+}
+
+// ---------- Batch B: inline edit ----------
+function enableInlineEdit(selector, onSave) {
+  document.querySelectorAll(selector).forEach((el) => {
+    el.addEventListener('dblclick', () => {
+      const original = el.textContent || '';
+      const input = document.createElement('textarea');
+      input.value = original;
+      input.rows = 3;
+      el.replaceWith(input);
+      input.focus();
+      const finish = async () => {
+        const next = document.createElement('div');
+        next.contentEditable = 'true';
+        next.textContent = input.value || original;
+        input.replaceWith(next);
+        await onSave(next.textContent || original);
+      };
+      input.addEventListener('blur', finish);
+      input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); input.blur(); } });
+    });
+  });
+}
+
+// ---------- Batch B: time-travel diff ----------
+function renderDiffText(a, b) {
+  const aLines = a.split('\n');
+  const bLines = b.split('\n');
+  const max = Math.max(aLines.length, bLines.length);
+  const out = [];
+  for (let i = 0; i < max; i++) {
+    const left = aLines[i] || '';
+    const right = bLines[i] || '';
+    if (left === right) {
+      out.push(`<div class="diff-line"> ${DOMPurify.sanitize(left)}</div>`);
+    } else {
+      out.push(`<div class="diff-line diff-removed">- ${DOMPurify.sanitize(left)}</div>`);
+      out.push(`<div class="diff-line diff-added">+ ${DOMPurify.sanitize(right)}</div>`);
+    }
+  }
+  return out.join('');
+}
+
+// ---------- Batch B: context menu ----------
+function bindContextMenu(selector, menuItems) {
+  document.querySelectorAll(selector).forEach((row) => {
+    row.addEventListener('contextmenu', (ev) => {
+      ev.preventDefault();
+      const existing = document.querySelector('.ctx-menu');
+      if (existing) existing.remove();
+      const menu = document.createElement('div');
+      menu.className = 'ctx-menu';
+      menu.innerHTML = menuItems.map((item) => `<button class="btn secondary" data-action="${item.action}">${item.label}</button>`).join('');
+      menu.style.cssText = 'position:fixed;left:' + ev.clientX + 'px;top:' + ev.clientY + 'px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px;z-index:250;display:flex;flex-direction:column;gap:6px';
+      document.body.appendChild(menu);
+      const close = () => menu.remove();
+      menu.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const handler = menuItems.find((m) => m.action === action);
+        if (handler) handler.handler(row);
+        close();
+      });
+      document.addEventListener('click', close);
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); }, { once: true });
+    });
+  });
+}
+
+// ---------- Batch B: column reorder persistence ----------
+function persistColumnOrder(container) {
+  const key = 'forgeos-col-order-' + container;
+  const parent = document.querySelector(container);
+  if (!parent) return;
+  try {
+    const cols = Array.from(parent.querySelectorAll('th[data-col]')).map((th) => th.dataset.col);
+    localStorage.setItem(key, JSON.stringify(cols));
+  } catch {}
+}
+function restoreColumnOrder(container) {
+  const key = 'forgeos-col-order-' + container;
+  const saved = localStorage.getItem(key);
+  if (!saved) return;
+  try {
+    const order = JSON.parse(saved);
+    const parent = document.querySelector(container);
+    if (!parent) return;
+    const header = parent.querySelector('thead');
+    if (!header) return;
+    const map = new Map(Array.from(header.querySelectorAll('th[data-col]')).map((th) => [th.dataset.col, th]));
+    const next = order.map((col) => map.get(col)).filter(Boolean);
+    next.forEach((th) => header.appendChild(th));
+  } catch {}
+}
+
 // ---------- (6) API wrapper with retry on 503/lock ----------
 async function safe(fn, tries = 2) {
   let last;
