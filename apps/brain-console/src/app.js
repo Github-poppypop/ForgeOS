@@ -1727,15 +1727,27 @@ async function renderProjects() {
   crumb([["ForgeOS", "#/dashboard"], ["Projects"]]);
   document.querySelector("main").innerHTML = `<h1>Project Management</h1>
     <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <h2>Work Items</h2>
-        <button class="btn primary" id="new-work">New Work Item</button>
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <h2>Work Items</h2>
+          <select id="filter-assignee" data-tooltip="Filter items by assignee" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+            <option value="">All Assignees</option>
+          </select>
+          <select id="filter-priority" data-tooltip="Filter items by priority" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+            <option value="">All Priorities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <button class="btn secondary" id="clear-done" data-tooltip="Move all completed items out of the board">Clear Done</button>
+        </div>
+        <button class="btn primary" id="new-work" data-tooltip="Create a new work item">New Work Item</button>
       </div>
       <div id="project-stats"></div>
       <div id="project-board" class="grid cols-4" style="margin-top:12px">
         ${["todo","in-progress","review","done"].map(status => `
           <div class="card">
-            <h3>${DOMPurify.sanitize(status.replace("-"," "))}</h3>
+            <h3 data-tooltip="${status==="todo"?"Items waiting to be started":status==="in-progress"?"Items currently being worked on":status==="review"?"Items awaiting review":"Completed items"}">${DOMPurify.sanitize(status.replace("-"," "))} <span id="count-${status}" class="pill" style="margin-left:6px">0</span></h3>
             <div id="col-${status}" class="project-col" data-status="${status}"></div>
           </div>
         `).join("")}
@@ -1767,29 +1779,51 @@ async function renderProjects() {
   const load = () => JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
   const save = (items) => localStorage.setItem(STORE_KEY, JSON.stringify(items));
 
-  const renderBoard = () => {
+  const getFilteredItems = () => {
     const items = load();
+    const assignee = document.querySelector("#filter-assignee")?.value || "";
+    const priority = document.querySelector("#filter-priority")?.value || "";
+    return items.filter(i => {
+      if (assignee && i.assignee !== assignee) return false;
+      if (priority && i.priority !== priority) return false;
+      return true;
+    });
+  };
+
+  const renderBoard = () => {
+    const items = getFilteredItems();
     ["todo","in-progress","review","done"].forEach(status => {
       const col = document.querySelector(`#col-${status}`);
       if (!col) return;
       const list = items.filter(i => i.status === status);
+      const countEl = document.querySelector(`#count-${status}`);
+      if (countEl) countEl.textContent = list.length;
       col.innerHTML = list.map(i => `
         <div class="card" data-id="${DOMPurify.sanitize(i.id)}">
           <div class="row" style="justify-content:space-between">
-            <strong>${DOMPurify.sanitize(i.title)}</strong>
-            <span class="pill ${i.priority==="high"?"warn":""}">${DOMPurify.sanitize(i.priority)}</span>
+            <strong data-tooltip="Double-click to edit title">${DOMPurify.sanitize(i.title)}</strong>
+            <span class="pill ${i.priority==="high"?"warn":""}" data-tooltip="${i.priority==="high"?"Needs immediate attention":i.priority==="medium"?"Normal priority":i.priority==="low"?"Low priority":"No priority set"}">${DOMPurify.sanitize(i.priority)}</span>
           </div>
           <p class="muted mono">${DOMPurify.sanitize(i.assignee || "unassigned")}</p>
           <div class="row" style="margin-top:8px;gap:6px">
-            ${status !== "todo" ? `<button class="btn secondary" data-move="${DOMPurify.sanitize(i.id)}" data-to="todo">←</button>` : ""}
-            ${status !== "done" ? `<button class="btn secondary" data-move="${DOMPurify.sanitize(i.id)}" data-to="${status==="todo"?"in-progress":status==="in-progress"?"review":"done"}">→</button>` : ""}
-            <button class="btn secondary" data-delete="${DOMPurify.sanitize(i.id)}">×</button>
+            ${status !== "todo" ? `<button class="btn secondary" data-move="${DOMPurify.sanitize(i.id)}" data-to="todo" data-tooltip="Move to To Do">←</button>` : ""}
+            ${status !== "done" ? `<button class="btn secondary" data-move="${DOMPurify.sanitize(i.id)}" data-to="${status==="todo"?"in-progress":status==="in-progress"?"review":"done"}" data-tooltip="Move to ${status==="todo"?"In Progress":status==="in-progress"?"Review":"Done"}">→</button>` : ""}
+            <button class="btn secondary" data-delete="${DOMPurify.sanitize(i.id)}" data-tooltip="Delete this work item">×</button>
           </div>
         </div>`
       ).join("") || `<p class="muted" style="text-align:center;padding:12px">no items - <a class="link" href="#/capture">+ capture</a></p>`;
     });
   };
 
+  const populateAssigneeFilter = () => {
+    const items = load();
+    const assignees = Array.from(new Set(items.map(i => i.assignee).filter(Boolean))).sort();
+    const sel = document.querySelector("#filter-assignee");
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = `<option value="">All Assignees</option>` + assignees.map(a => `<option value="${DOMPurify.sanitize(a)}">${DOMPurify.sanitize(a)}</option>`).join("");
+    if (current && Array.from(sel.options).some(o => o.value === current)) sel.value = current;
+  };
 
   // ---------- Phase 11: burndown + velocity ----------
   const renderStats = () => {
@@ -1824,6 +1858,8 @@ async function renderProjects() {
 
 
   renderBoard();
+  populateAssigneeFilter();
+
   document.querySelector("#new-work").addEventListener("click", () => {
     document.querySelector("#project-modal").style.display = "block";
     document.querySelector("#p-title").value = "";
@@ -1837,6 +1873,7 @@ async function renderProjects() {
     items.push({ id: String(Date.now()), title, status: "todo", priority: document.querySelector("#p-priority").value, assignee: document.querySelector("#p-assignee").value.trim() || "unassigned" });
     save(items);
     document.querySelector("#project-modal").style.display = "none";
+    populateAssigneeFilter();
     renderBoard();
     toast("work item created", "ok");
   });
@@ -1852,6 +1889,50 @@ async function renderProjects() {
       const items = load().filter(i => i.id !== delBtn.dataset.delete);
       save(items); renderBoard();
     }
+  });
+
+  document.querySelector("#filter-assignee")?.addEventListener("change", renderBoard);
+  document.querySelector("#filter-priority")?.addEventListener("change", renderBoard);
+
+  document.querySelector("#clear-done")?.addEventListener("click", async () => {
+    const items = load();
+    const doneCount = items.filter(i => i.status === "done").length;
+    if (!doneCount) { toast("no done items to clear", "warn"); return; }
+    const ok = await confirmAction("Clear done items?", `Remove ${doneCount} completed item(s) from the board? This action cannot be undone.`);
+    if (ok) {
+      save(items.filter(i => i.status !== "done"));
+      populateAssigneeFilter();
+      renderBoard();
+      toast("cleared done items", "ok");
+    }
+  });
+
+  document.querySelector("#project-board")?.addEventListener("dblclick", (e) => {
+    const titleEl = e.target.closest("strong[data-tooltip]");
+    if (!titleEl) return;
+    const card = titleEl.closest(".card");
+    if (!card) return;
+    const id = card.dataset.id;
+    const current = titleEl.textContent;
+    const input = document.createElement("input");
+    input.className = "mono";
+    input.value = current;
+    input.style.cssText = "flex:1;padding:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text)";
+    titleEl.replaceWith(input);
+    input.focus();
+    input.select();
+    const commit = () => {
+      const val = input.value.trim();
+      if (val) {
+        const items = load();
+        const item = items.find(i => i.id === id);
+        if (item) { item.title = val; save(items); renderBoard(); toast("title updated", "ok"); }
+      } else {
+        renderBoard();
+      }
+    };
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); input.blur(); } });
   });
 }
 
