@@ -10,6 +10,21 @@
  */
 import { serve } from "bun";
 import { trace, SpanKind, context, SpanStatusCode } from "@opentelemetry/api";
+import { gbrainCircuitBreaker } from "./circuit-breaker";
+import { agentMemoryCache } from "../agents/memory-cache";
+import { deadLetterQueue } from "../agents/dead-letter-queue";
+import { runbookSelector } from "../agents/runbook-selector";
+import { schemaValidator } from "../agents/schema-validator";
+
+// ---- Batch D: Knowledge Universe enhancements (31-40) ----
+import { checkLinks, buildGraph } from "../knowledge-universe/link-checker.ts";
+import { findDuplicates } from "../knowledge-universe/duplicates.ts";
+import { trackView, getAnalytics } from "../knowledge-universe/analytics.ts";
+import { loadACLs, checkAccess, setACL, bulkMove } from "../knowledge-universe/acl.ts";
+import { appendAudit, getAudit } from "../knowledge-universe/audit.ts";
+import { startWatch, stopWatch, isWatching } from "../knowledge-universe/sync.ts";
+import { addBookmark, getBookmarks, removeBookmark } from "../knowledge-universe/bookmarks.ts";
+import { normalizeFrontmatter } from "../knowledge-universe/frontmatter.ts";
 
 const TRACER = trace.getTracer("forgeos-brain-console");
 
@@ -341,6 +356,16 @@ const server = serve({
             "/api/import": { post: { summary: "Import items" } },
             "/api/export/{slug}": { get: { summary: "Export brain page" } },
             "/api/health/stream": { get: { summary: "SSE live health" } },
+            "/api/knowledge/links": { get: { summary: "Link-health checker" }, get: { summary: "Knowledge graph", parameters: [{ name: "action", in: "query", schema: { type: "string", enum: ["check", "graph"] } }] } },
+            "/api/knowledge/duplicates": { get: { summary: "Duplicate-page detection" } },
+            "/api/knowledge/analytics": { get: { summary: "Page-level analytics" }, post: { summary: "Track page view" } },
+            "/api/knowledge/acl": { get: { summary: "ACL lookup" }, post: { summary: "Set ACL" } },
+            "/api/knowledge/audit": { get: { summary: "Audit trail viewer" }, post: { summary: "Append audit entry" } },
+            "/api/knowledge/bookmarks": { get: { summary: "List bookmarks" }, post: { summary: "Add bookmark" } },
+            "/api/knowledge/sync/start": { post: { summary: "Start incremental sync watcher" } },
+            "/api/knowledge/sync/stop": { post: { summary: "Stop sync watcher" } },
+            "/api/knowledge/move": { post: { summary: "Bulk page mover" } },
+            "/api/knowledge/frontmatter": { post: { summary: "Frontmatter normalization" } },
           },
         });
       }
@@ -386,6 +411,124 @@ const server = serve({
       if (p === "/api/audit") {
         const r = await runGbrain(["list", "--json"]).catch(() => ({ out: "" }));
         return json({ raw: r.out });
+      }
+
+      // ---- Batch D: Knowledge Universe routes (31-40) ----
+      if (p === "/api/knowledge/links") {
+        const url = new URL(req.url, "http://localhost");
+        const action = url.searchParams.get("action") || "check";
+        if (action === "graph") {
+          return json(buildGraph());
+        }
+        return json({ broken: checkLinks() });
+      }
+
+      if (p === "/api/knowledge/duplicates") {
+        return json({ groups: findDuplicates() });
+      }
+
+      if (p === "/api/knowledge/analytics") {
+        const url = new URL(req.url, "http://localhost");
+        if (req.method === "POST") {
+          const body = await req.json().catch(() => ({}));
+          const slug = String(body.slug || "").trim();
+          if (!slug) return json({ error: "slug required" }, 400);
+          await trackView(slug);
+          return json({ ok: true });
+        }
+        const slug = url.searchParams.get("slug") || undefined;
+        return json(await getAnalytics(slug));
+      }
+
+      if (p === "/api/knowledge/acl") {
+        const url = new URL(req.url, "http://localhost");
+        if (req.method === "POST") {
+          const body = await req.json().catch(() => ({}));
+          const slug = String(body.slug || "").trim();
+          const role = String(body.role || "").trim();
+          const allow = Boolean(body.allow);
+          if (!slug || !role) return json({ error: "slug and role required" }, 400);
+          await setACL(slug, role, allow);
+          return json({ ok: true });
+        }
+        const slug = url.searchParams.get("slug") || undefined;
+        if (!slug) return json({ error: "slug query param required" }, 400);
+        const store = await loadACLs();
+        const roles = store[slug] || {};
+        return json({ slug, roles });
+      }
+
+      if (p === "/api/knowledge/audit") {
+        const url = new URL(req.url, "http://localhost");
+        if (req.method === "POST") {
+          const body = await req.json().catch(() => ({}));
+          const entry = {
+            slug: String(body.slug || "").trim(),
+            action: String(body.action || "update"),
+            user: body.user ? String(body.user) : undefined,
+            details: body.details ? String(body.details) : undefined,
+          };
+          if (!entry.slug) return json({ error: "slug required" }, 400);
+          await appendAudit(entry);
+          return json({ ok: true });
+        }
+        const slug = url.searchParams.get("slug") || undefined;
+        const limit = Number(url.searchParams.get("limit") || 100);
+        return json(await getAudit(slug, limit));
+      }
+
+      if (p === "/api/knowledge/bookmarks") {
+        const url = new URL(req.url, "http://localhost");
+        if (req.method === "POST") {
+          const body = await req.json().catch(() => ({}));
+          const slug = String(body.slug || "").trim();
+          const tags = Array.isArray(body.tags) ? body.tags.map(String) : [];
+          const user = body.user ? String(body.user) : undefined;
+          if (!slug) return json({ error: "slug required" }, 400);
+          await addBookmark(slug, tags, user);
+          return json({ ok: true });
+        }
+        const tags = url.searchParams.get("tags") ? url.searchParams.get("tags")!.split(",").map(String) : undefined;
+        return json(await getBookmarks(tags));
+      }
+
+      if (p === "/api/knowledge/sync/start") {
+        const body = await req.json().catch(() => ({}));
+        const dir = String(body.dir || import.meta.dir).trim();
+        const unsub = startWatch(dir, async (filePath) => {
+          try {
+            // Auto-ingest on change: capture to gbrain if possible
+            await runGbrain(["capture", "--file", filePath, "--stdin"], {
+              stdin: "",
+              timeoutMs: 15000,
+            }).catch(() => {});
+          } catch {}
+        });
+        return json({ ok: true, watching: dir });
+      }
+
+      if (p === "/api/knowledge/sync/stop") {
+        stopWatch();
+        return json({ ok: true });
+      }
+
+      if (p === "/api/knowledge/move") {
+        if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
+        const body = await req.json().catch(() => ({}));
+        const slugs = Array.isArray(body.slugs) ? body.slugs.map(String) : [];
+        const targetDir = String(body.targetDir || "").trim();
+        const sourceDir = String(body.sourceDir || import.meta.dir).trim();
+        if (!slugs.length || !targetDir) return json({ error: "slugs[] and targetDir required" }, 400);
+        const result = await bulkMove(slugs, sourceDir, targetDir);
+        return json(result);
+      }
+
+      if (p === "/api/knowledge/frontmatter") {
+        if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
+        const body = await req.json().catch(() => ({}));
+        const content = String(body.content || "");
+        if (!content) return json({ error: "content required" }, 400);
+        return json({ normalized: normalizeFrontmatter(content) });
       }
 
       if (p === "/api/diff") {
@@ -439,6 +582,150 @@ const server = serve({
         const name = String(body.name || "").trim();
         if (!name) return json({ error: "name required" }, 400);
         return json({ ok: true, queued: name });
+      }
+
+      if (p === "/api/marketplace/approvals" && req.method === "GET") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/marketplace/approval.ts");
+          const url = new URL(req.url, "http://localhost");
+          const status = url.searchParams.get("status") as any;
+          const data = mod.listSubmissions(status ? { status } : {});
+          return json({ ok: true, submissions: data });
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/marketplace/approvals" && req.method === "POST") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/marketplace/approval.ts");
+          const body = await req.json().catch(() => ({}));
+          const result = mod.submitPackage(String(body.name || ""), String(body.version || "0.1.0"), String(body.author || "anonymous"));
+          return json(result);
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/marketplace/compat" && req.method === "POST") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/marketplace/compat.ts");
+          const body = await req.json().catch(() => ({}));
+          const manifest = { name: String(body.name || ""), version: String(body.version || "0.0.0"), forgeosMin: body.forgeosMin, forgeosMax: body.forgeosMax };
+          if (!manifest.name) return json({ error: "name required" }, 400);
+          const report = mod.checkCompatibility(manifest);
+          return json(report);
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/marketplace/analytics" && req.method === "POST") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/marketplace/analytics.ts");
+          const body = await req.json().catch(() => ({}));
+          const event = mod.trackEvent(String(body.publisher || ""), String(body.packageName || ""), String(body.eventType || "view"), body.metadata);
+          return json({ ok: true, event });
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/marketplace/analytics" && req.method === "GET") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/marketplace/analytics.ts");
+          const url = new URL(req.url, "http://localhost");
+          const publisher = url.searchParams.get("publisher") || "";
+          const stats = publisher ? mod.getPublisherStats(publisher) : mod.getTopPublishers(20);
+          return json({ ok: true, stats });
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/marketplace/publish" && req.method === "POST") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/marketplace/sdk.ts");
+          const body = await req.json().catch(() => ({}));
+          const validation = mod.validatePublishRequest(body);
+          if (!validation.valid) return json({ ok: false, errors: validation.errors }, 400);
+          const manifest = mod.buildPackageManifest(body as any);
+          const script = mod.generatePublishScript(manifest);
+          return json({ ok: true, manifest, script });
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/onboarding/wizards" && req.method === "GET") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/onboarding/wizards.ts");
+          return json({ ok: true, wizards: mod.getWizards() });
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/onboarding/checklist" && req.method === "GET") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/onboarding/checklist.ts");
+          const url = new URL(req.url, "http://localhost");
+          const id = url.searchParams.get("id") || "onboarding-default";
+          const list = mod.getChecklist(id);
+          return json({ ok: true, checklist: list });
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/onboarding/checklist" && req.method === "POST") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/onboarding/checklist.ts");
+          const body = await req.json().catch(() => ({}));
+          const id = String(body.id || "onboarding-default");
+          const itemId = String(body.itemId || "");
+          let ok = false;
+          if (itemId) ok = mod.toggleChecklistItem(id, itemId);
+          else ok = mod.completeChecklist(id);
+          return json({ ok });
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/onboarding/demo" && req.method === "GET") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/onboarding/demo.ts");
+          const data = mod.seedDemoData();
+          return json({ ok: true, ...data });
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/feature-flags" && req.method === "GET") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/feature-flags.ts");
+          const url = new URL(req.url, "http://localhost");
+          const env = (url.searchParams.get("env") || "all") as any;
+          const flags = mod.listFeatureFlags(env);
+          return json({ ok: true, flags });
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/feature-flags" && req.method === "POST") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/feature-flags.ts");
+          const body = await req.json().catch(() => ({}));
+          const key = String(body.key || "");
+          if (!key) return json({ error: "key required" }, 400);
+          const ok = mod.setFeatureFlag(key, !!body.enabled, body.environment);
+          return json({ ok });
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
+      }
+      if (p === "/api/release-notes" && req.method === "GET") {
+        try {
+          const mod = await import("file:///C:/Projects/ForgeOS/release-notes.ts");
+          const url = new URL(req.url, "http://localhost");
+          const limit = Number(url.searchParams.get("limit") || 5);
+          const notes = mod.getLatestReleaseNotes(limit);
+          return json({ ok: true, notes });
+        } catch (e) {
+          return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
+        }
       }
 
       if (p === "/api/request-log" && req.method === "GET") {

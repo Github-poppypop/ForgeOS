@@ -4932,7 +4932,7 @@ const _rawRoutes = {
   command: renderCommand, governance: renderGovernance, dashboard: renderDashboard, roles: renderRoles, org: renderOrg, timeline: renderTimeline, ledger: renderLedger,
   search: renderSearch, capture: renderCapture, decisions: renderDecisions, missions: renderMissions, mcp: renderMCP, vault: renderVault, vaultfile: renderVaultFile,
   embed: renderEmbed, federation: renderFederation, audit: renderAudit, schema: renderSchema, config: renderConfig,
-  projects: renderProjects, wizard: renderWizard, monitoring: renderMonitoring, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins, webhooks: renderWebhooks, heartbeat: renderAgentHeartbeat, memory: renderMemoryPool, amendments: renderAmendments, sacred: renderSacred, processes: renderProcesses, portConflicts: renderPortConflicts, reload: renderReload, pluginManifest: renderPluginManifest, poolleague: renderPoolLeague,
+  projects: renderProjects, wizard: renderWizard, monitoring: renderMonitoring, settings: renderSettings, workflows: renderWorkflows, marketplace: renderMarketplace, plugins: renderPlugins, webhooks: renderWebhooks, heartbeat: renderAgentHeartbeat, memory: renderMemoryPool, amendments: renderAmendments, sacred: renderSacred, processes: renderProcesses, portConflicts: renderPortConflicts, reload: renderReload, pluginManifest: renderPluginManifest, poolleague: renderPoolLeague, batchE: renderBatchE,
 };
 const routes = {};
 for (const [name, fn] of Object.entries(_rawRoutes)) {
@@ -5111,9 +5111,9 @@ function statTile(label, value, delta, deltaDir="up") {
 // =====================================================================
 
 // ---------- (5) 404 route ----------
-const KNOWN = new Set(["command","governance","dashboard","roles","org","timeline","ledger","search","capture","decisions","missions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page","projects","wizard","settings","workflows","marketplace","plugins","webhooks","delegation"]);
+const KNOWN = new Set(["command","governance","dashboard","roles","org","timeline","ledger","search","capture","decisions","missions","mcp","vault","vaultfile","embed","federation","audit","schema","config","page","projects","wizard","settings","workflows","marketplace","plugins","webhooks","delegation","batchE"]);
 // ---------- (10) favicon/title per panel ----------
-const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", timeline:"Timeline", ledger:"Decision Ledger", search:"Search", capture:"Capture", decisions:"Decisions", missions:"Missions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page", projects:"Projects", wizard:"Setup Wizard", settings:"Settings", workflows:"Workflows", marketplace:"Marketplace", plugins:"Plugins", delegation:"Delegation" };
+const TITLES = { command:"Command Center", governance:"Governance", dashboard:"Console", roles:"Roles", org:"Org", timeline:"Timeline", ledger:"Decision Ledger", search:"Search", capture:"Capture", decisions:"Decisions", missions:"Missions", mcp:"MCP", vault:"Vault", vaultfile:"Vault", embed:"Embeddings", federation:"Federation", audit:"Audit", schema:"Schema", config:"Config", page:"Page", projects:"Projects", wizard:"Setup Wizard", settings:"Settings", workflows:"Workflows", marketplace:"Marketplace", plugins:"Plugins", delegation:"Delegation", batchE:"Batch E" };
 
 // ---------- (11) restore last panel ----------
 function lastPanel() { return localStorage.getItem("forgeos-last") || "command"; }
@@ -5966,6 +5966,105 @@ function bulkActions(containerId, rowSelector) {
 }
 
 // ---------- Confirmation modal helper ----------
+
+// ---------- Batch E: marketplace/onboarding/feature flags/release notes ----------
+async function renderBatchE() {
+  crumb([["ForgeOS", "#/dashboard"], ["Batch E"]]);
+  $("main").innerHTML = `<h1 data-tooltip="Enhancements 41-50">Batch E Enhancements</h1>
+    <div class="grid cols-2">
+      <div class="card">
+        <h2>Marketplace Approvals</h2>
+        <p class="muted">Review and approve marketplace submissions.</p>
+        <pre id="batch-e-approvals" class="code json">loading...</pre>
+      </div>
+      <div class="card">
+        <h2>Compatibility Checker</h2>
+        <p class="muted">Validate packages against ForgeOS version requirements.</p>
+        <input id="batch-e-compat-name" placeholder="Package name" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:100%" />
+        <input id="batch-e-compat-version" placeholder="Version (1.0.0)" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:100%;margin-top:6px" />
+        <button class="btn primary" id="batch-e-compat-btn" style="margin-top:8px">Check Compatibility</button>
+        <pre id="batch-e-compat-result" class="code json">ready</pre>
+      </div>
+      <div class="card">
+        <h2>Publisher Analytics</h2>
+        <p class="muted">Track downloads, installs, and views per publisher.</p>
+        <pre id="batch-e-analytics" class="code json">loading...</pre>
+      </div>
+      <div class="card">
+        <h2>SDK Publish Helper</h2>
+        <p class="muted">Validate and generate publish scripts for marketplace packages.</p>
+        <input id="batch-e-publish-name" placeholder="Package name" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:100%" />
+        <input id="batch-e-publish-version" placeholder="Version" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:100%;margin-top:6px" />
+        <button class="btn primary" id="batch-e-publish-btn" style="margin-top:8px">Generate Script</button>
+        <pre id="batch-e-publish-result" class="code json">ready</pre>
+      </div>
+      <div class="card">
+        <h2>Role Wizards</h2>
+        <p class="muted">Quickstart guides for CTO, Engineering, Product roles.</p>
+        <pre id="batch-e-wizards" class="code json">loading...</pre>
+      </div>
+      <div class="card">
+        <h2>Onboarding Checklist</h2>
+        <p class="muted">Step-by-step onboarding for new users.</p>
+        <pre id="batch-e-checklist" class="code json">loading...</pre>
+      </div>
+      <div class="card">
+        <h2>Feature Flags</h2>
+        <p class="muted">Toggle features per environment.</p>
+        <pre id="batch-e-flags" class="code json">loading...</pre>
+      </div>
+      <div class="card">
+        <h2>Release Notes</h2>
+        <p class="muted">Auto-generate release notes from git commits.</p>
+        <pre id="batch-e-release-notes" class="code json">loading...</pre>
+      </div>
+    </div>`;
+
+  safe(() => api.status()).then(() => {
+    safe(() => fetch('/api/marketplace/approvals').then(r => r.json()).catch(() => ({ submissions: [] }))).then(data => {
+      const out = document.querySelector("#batch-e-approvals");
+      if (out) out.textContent = JSON.stringify(data, null, 2);
+    });
+    safe(() => fetch('/api/marketplace/analytics').then(r => r.json()).catch(() => ({ stats: [] }))).then(data => {
+      const out = document.querySelector("#batch-e-analytics");
+      if (out) out.textContent = JSON.stringify(data, null, 2);
+    });
+    safe(() => fetch('/api/onboarding/wizards').then(r => r.json()).catch(() => ({ wizards: [] }))).then(data => {
+      const out = document.querySelector("#batch-e-wizards");
+      if (out) out.textContent = JSON.stringify(data, null, 2);
+    });
+    safe(() => fetch('/api/onboarding/checklist').then(r => r.json()).catch(() => ({ checklist: null }))).then(data => {
+      const out = document.querySelector("#batch-e-checklist");
+      if (out) out.textContent = JSON.stringify(data, null, 2);
+    });
+    safe(() => fetch('/api/feature-flags').then(r => r.json()).catch(() => ({ flags: [] }))).then(data => {
+      const out = document.querySelector("#batch-e-flags");
+      if (out) out.textContent = JSON.stringify(data, null, 2);
+    });
+    safe(() => fetch('/api/release-notes?limit=3').then(r => r.json()).catch(() => ({ notes: [] }))).then(data => {
+      const out = document.querySelector("#batch-e-release-notes");
+      if (out) out.textContent = JSON.stringify(data, null, 2);
+    });
+  }).catch(() => {});
+
+  document.querySelector("#batch-e-compat-btn")?.addEventListener("click", async () => {
+    const name = document.querySelector("#batch-e-compat-name")?.value || "";
+    const version = document.querySelector("#batch-e-compat-version")?.value || "0.0.0";
+    const out = document.querySelector("#batch-e-compat-result");
+    if (out) out.textContent = "checking...";
+    const data = await safe(() => fetch('/api/marketplace/compat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, version }) }).then(r => r.json())).catch(() => ({ error: 'compat check failed' }));
+    if (out) out.textContent = JSON.stringify(data, null, 2);
+  });
+
+  document.querySelector("#batch-e-publish-btn")?.addEventListener("click", async () => {
+    const name = document.querySelector("#batch-e-publish-name")?.value || "";
+    const version = document.querySelector("#batch-e-publish-version")?.value || "0.1.0";
+    const out = document.querySelector("#batch-e-publish-result");
+    if (out) out.textContent = "generating...";
+    const data = await safe(() => fetch('/api/marketplace/publish', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, version, source: 'local' }) }).then(r => r.json())).catch(() => ({ error: 'publish failed' }));
+    if (out) out.textContent = JSON.stringify(data, null, 2);
+  });
+}
 
 // ---------- Column visibility toggles ----------
 }

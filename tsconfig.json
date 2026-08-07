@@ -14,7 +14,11 @@
     "knowledge-universe/**/*",
     "agents/**/*",
     "scripts/**/*",
-    "packages/**/*"
+    "packages/**/*",
+    "marketplace/**/*",
+    "onboarding/**/*",
+    "feature-flags.ts",
+    "release-notes.ts"
   ],
   "exclude": [
     "node_modules",
