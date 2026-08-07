@@ -3655,19 +3655,74 @@ async function renderAmendments() {
 async function renderSacred() {
   crumb([["ForgeOS", "#/governance"], ["Sacred Lock"]]);
   $("main").innerHTML = `<h1>Sacred Folder Lock</h1>
-    <div class="card">
-      <h2>Protected paths</h2>
-      <pre id="sacred-out" class="code json" style="margin-top:12px">loading...</pre>
+    <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn secondary" id="sacred-refresh" data-tooltip="Reload sacred lock data">Refresh</button>
+        <button class="btn secondary" id="sacred-copy" data-tooltip="Copy sacred lock JSON to clipboard">Copy</button>
+        <button class="btn secondary" id="sacred-export" data-tooltip="Download sacred lock data as JSON">Export</button>
+      </div>
+      <span id="sacred-last" class="muted" data-tooltip="Time of last successful data fetch">Updated —</span>
+    </div>
+    <div class="card" data-mon-section="sacred">
+      <div class="row" style="justify-content:space-between;cursor:pointer" data-toggle="sacred">
+        <h2>Protected paths</h2>
+        <span class="muted" data-toggle-icon="sacred">▼</span>
+      </div>
+      <div data-mon-body="sacred">
+        <pre id="sacred-out" class="code json" style="margin-top:12px">loading...</pre>
+      </div>
     </div>`;
+  let sacredData = null;
   const refresh = async () => {
     try {
       const r = await safe(api.sacred).catch(() => ({ locked: true, paths: [] }));
+      sacredData = r;
       const out = document.querySelector("#sacred-out");
       if (out) out.textContent = JSON.stringify(r, null, 2);
+      const lastEl = document.querySelector("#sacred-last");
+      if (lastEl) lastEl.textContent = "Updated " + new Date().toLocaleTimeString();
     } catch (e) {
       toast('sacred lock error: ' + errMsg(e), 'err');
     }
   };
+  document.querySelector("#sacred-refresh")?.addEventListener("click", () => {
+    withLoading(document.querySelector("#sacred-refresh"), refresh);
+  });
+  document.querySelector("#sacred-copy")?.addEventListener("click", async () => {
+    if (!sacredData) { toast('no data loaded yet', 'err'); return; }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(sacredData, null, 2));
+      toast('copied sacred lock JSON', 'ok');
+    } catch (e) {
+      toast('copy failed: ' + errMsg(e), 'err');
+    }
+  });
+  document.querySelector("#sacred-export")?.addEventListener("click", async () => {
+    if (!sacredData) { toast('no data loaded yet', 'err'); return; }
+    try {
+      const blob = new Blob([JSON.stringify(sacredData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "sacred-lock.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("Exported sacred-lock.json", "ok");
+    } catch (e) {
+      toast("export failed: " + errMsg(e), "err");
+    }
+  });
+  $$("[data-toggle]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.getAttribute("data-toggle");
+      const body = document.querySelector("[data-mon-body='" + key + "']");
+      const icon = document.querySelector("[data-toggle-icon='" + key + "']");
+      if (!body) return;
+      const hidden = body.style.display === "none";
+      body.style.display = hidden ? "" : "none";
+      if (icon) icon.textContent = hidden ? "▼" : "▶";
+    });
+  });
   refresh();
 }
 
