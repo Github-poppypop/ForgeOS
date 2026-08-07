@@ -9,6 +9,27 @@
  * metadata (45).
  */
 import { serve } from "bun";
+import { trace, SpanKind, context, SpanStatusCode } from "@opentelemetry/api";
+
+const TRACER = trace.getTracer("forgeos-brain-console");
+
+function extractTraceparent(header: string | null): { traceId: string; spanId: string } | null {
+  if (!header) return null;
+  const m = header.match(/^([0-9a-f]{32})-([0-9a-f]{16})-(01)$/);
+  if (!m) return null;
+  return { traceId: m[1], spanId: m[2] };
+}
+
+function injectTraceparent(res: Response, span: { spanContext(): { traceId: string; spanId: string } }) {
+  try {
+    const { traceId, spanId } = span.spanContext();
+    res.headers.set("traceparent", `00-${traceId}-${spanId}-01`);
+  } catch {}
+}
+
+function startSpan(name: string, kind = SpanKind.INTERNAL) {
+  return TRACER.startSpan(name, { kind });
+}
 
 const ROOT = import.meta.dir;
 const PUBLIC = `${ROOT}/public`;
@@ -55,14 +76,25 @@ function gbrainMutex<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 async function spawnGbrain(args: string[], opts: { stdin?: string; timeoutMs?: number } = {}) {
-  const proc = Bun.spawn([GBRAIN_BIN, GBRAIN_CLI, ...args], {
-    stdout: "pipe", stderr: "pipe", stdin: "pipe", env: GBRAIN_ENV, cwd: GBRAIN_CWD,
-  });
-  if (opts.stdin) { proc.stdin.write(opts.stdin); } proc.stdin.end();
-  const t = setTimeout(() => proc.kill(), opts.timeoutMs ?? 60000);
-  const [out, err] = await Promise.all([proc.stdout.text(), proc.stderr.text()]);
-  clearTimeout(t); await proc.exited;
-  return { code: proc.exitCode ?? 0, out, err };
+  const span = startSpan(`gbrain ${args[0] ?? 'run'}`, SpanKind.CLIENT);
+  const traceId = span.spanContext().traceId;
+  const procEnv = { ...GBRAIN_ENV, FORGEOS_TRACE_ID: traceId };
+  try {
+    const proc = Bun.spawn([GBRAIN_BIN, GBRAIN_CLI, ...args], {
+      stdout: "pipe", stderr: "pipe", stdin: "pipe", env: procEnv, cwd: GBRAIN_CWD,
+    });
+    if (opts.stdin) { proc.stdin.write(opts.stdin); } proc.stdin.end();
+    const t = setTimeout(() => proc.kill(), opts.timeoutMs ?? 60000);
+    const [out, err] = await Promise.all([proc.stdout.text(), proc.stderr.text()]);
+    clearTimeout(t); await proc.exited;
+    span.setStatus({ code: proc.exitCode === 0 ? SpanStatusCode.Unset : SpanStatusCode.Error, message: String(proc.exitCode) });
+    return { code: proc.exitCode ?? 0, out, err };
+  } catch (e: any) {
+    span.setStatus({ code: SpanStatusCode.Error, message: String(e?.message ?? e) });
+    throw e;
+  } finally {
+    span.end();
+  }
 }
 
 // ---------- (42) rate limit + logging ----------
@@ -110,7 +142,12 @@ function rateHeaders(ip: string) {
 }
 
 function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
-  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...extraHeaders } });
+  const res = new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...extraHeaders } });
+  try {
+    const activeSpan = trace.getActiveSpan();
+    if (activeSpan) injectTraceparent(res, activeSpan);
+  } catch {}
+  return res;
 }
 // ---------- (41) auth gate ----------
 function authed(req: Request): boolean {
@@ -121,21 +158,28 @@ function authed(req: Request): boolean {
 
 // ---- static ----
 async function serveStatic(pathname: string) {
-  if (pathname === "/") return new Response(Bun.file(`${DIST}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } });
+  const withTrace = (res: Response) => {
+    try {
+      const activeSpan = trace.getActiveSpan();
+      if (activeSpan) injectTraceparent(res, activeSpan);
+    } catch {}
+    return res;
+  };
+  if (pathname === "/") return withTrace(new Response(Bun.file(`${DIST}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } }));
   const distFile = Bun.file(`${DIST}${pathname}`);
   if (await distFile.exists()) {
     const ext = pathname.split(".").pop() ?? "";
     const ct: Record<string, string> = { ts: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", json: "application/json; charset=utf-8", svg: "image/svg+xml" };
-    return new Response(distFile, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "strict-transport-security": "max-age=31536000; includeSubDomains", "referrer-policy": "no-referrer", "permissions-policy": "geolocation=(), microphone=(), camera=()" } });
+    return withTrace(new Response(distFile, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "strict-transport-security": "max-age=31536000; includeSubDomains", "referrer-policy": "no-referrer", "permissions-policy": "geolocation=(), microphone=(), camera=()" } }));
   }
   let file = pathname.startsWith("/src/") ? `${ROOT}${pathname}` : `${PUBLIC}${pathname}`;
   const f = Bun.file(file);
   if (await f.exists()) {
     const ext = pathname.split(".").pop() ?? "";
     const ct: Record<string, string> = { ts: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", json: "application/json; charset=utf-8", svg: "image/svg+xml" };
-    return new Response(f, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "strict-transport-security": "max-age=31536000; includeSubDomains", "referrer-policy": "no-referrer", "permissions-policy": "geolocation=(), microphone=(), camera=()" } });
+    return withTrace(new Response(f, { headers: { "content-type": ct[ext] ?? "application/octet-stream", "cache-control": "no-cache", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "strict-transport-security": "max-age=31536000; includeSubDomains", "referrer-policy": "no-referrer", "permissions-policy": "geolocation=(), microphone=(), camera=()" } }));
   }
-  return new Response(Bun.file(`${DIST}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } });
+  return withTrace(new Response(Bun.file(`${DIST}/index.html`), { headers: { "x-content-type-options": "nosniff", "x-frame-options": "DENY" } }));
 }
 
 async function ollamaOk() {
@@ -159,6 +203,19 @@ const server = serve({
     const url = new URL(req.url);
     const p = url.pathname;
     const ip = req.headers.get("x-forwarded-for") || "local";
+    const incomingTrace = extractTraceparent(req.headers.get("traceparent"));
+
+    const span = startSpan(`http ${req.method} ${p}`, SpanKind.SERVER);
+    if (incomingTrace) {
+      try {
+        trace.wrapSpanContext({
+          traceId: incomingTrace.traceId,
+          spanId: incomingTrace.spanId,
+          traceFlags: 1,
+          isRemote: true,
+        });
+      } catch {}
+    }
 
     // (41) auth on API + SSE
     if (p.startsWith("/api/") && !authed(req)) { log(req, Date.now() - t0, 401); return json({ error: "unauthorized" }, 401); }

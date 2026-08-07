@@ -83,7 +83,16 @@ async function req(path, opts = {}) {
       const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
       const r = await fetch(path, {
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...(function () {
+            try {
+              const header = document.querySelector('meta[name="traceparent"]')?.getAttribute('content');
+              if (header) return { traceparent: header };
+            } catch {}
+            return {};
+          })(),
+        },
         signal: controller.signal,
         ...opts,
       });
