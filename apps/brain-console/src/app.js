@@ -5418,42 +5418,6 @@ function showShortcuts() {
 }
 
 // =====================================================================
-// BOOT DIAGNOSTICS & BLACK SCREEN FIX (1)
-// =====================================================================
-(function bootDiagnostics() {
-  try {
-    const t0 = performance.now();
-    const appRoot = document.getElementById('app');
-    const bootLog = [];
-    bootLog.push('[BOOT] start app=' + !!appRoot + ' title=' + document.title);
-    console.log('[BOOT] start app=' + !!appRoot + ' title=' + document.title);
-    const origShell = window.shell;
-    if (typeof origShell !== 'function') {
-      throw new Error('shell() is not defined before route()');
-    }
-    origShell();
-    const after = document.getElementById('app');
-    const dt = Math.round(performance.now() - t0);
-    bootLog.push('[BOOT] shell completed in ' + dt + 'ms children=' + (after ? after.children.length : 'null'));
-    console.log('[BOOT] shell completed in ' + dt + 'ms children=' + (after ? after.children.length : 'null'));
-    if (after && after.children.length === 0) {
-      after.style.background = '#10131b';
-      after.innerHTML = '<div style="padding:16px;color:#adc6ff;font-family:monospace">[BOOT] shell ran but #app is still empty. Check console.</div>';
-      bootLog.push('[BOOT] fallback injected');
-      console.warn('[BOOT] fallback injected');
-    }
-    safe(() => fetch('/api/health', { headers: { 'x-boot-log': encodeURIComponent(bootLog.join('\n')) } })).catch(() => {});
-  } catch (e) {
-    console.error('[BOOT] fatal:', e);
-    const appRoot = document.getElementById('app');
-    if (appRoot) {
-      appRoot.style.background = '#10131b';
-      appRoot.innerHTML = '<div style="padding:16px;color:#ffb4ab;font-family:monospace">Boot error: ' + DOMPurify.sanitize(e && e.message ? e.message : String(e)) + '</div>';
-    }
-  }
-})();
-
-// =====================================================================
 // SYSTEM PREFERENCE SYNC (4)
 // =====================================================================
 (function syncSystemTheme() {
@@ -5573,10 +5537,10 @@ function detectPort(port) {
 // =====================================================================
 // SOURCE-MAP-FRIENDLY BOOT LOGS (24)
 // =====================================================================
-function bootStack(message) {
+function bootLog(message) {
   const err = new Error(message);
-  if (err.stack) console.log('[BOOT][' + message + '] ' + err.stack.split('\n').slice(1, 3).join('\n'));
-  else console.log('[BOOT][' + message + ']');
+  if (err.stack) console.log('[boot][' + message + '] ' + err.stack.split('\n').slice(1, 3).join('\n'));
+  else console.log('[boot][' + message + ']');
 }
 
 // =====================================================================
@@ -5831,81 +5795,10 @@ function shell() {
   safe(() => api.status()).then(s => tickStatusBar(s || {})).catch(() => tickStatusBar({}));
   setInterval(async () => { tickStatusBar(await safe(() => api.status()).catch(() => ({}))); }, 1000);
 }
-try { shell(); } catch (e) { console.error('[BOOT] shell failed', e); const main = document.querySelector('main'); if (main) main.innerHTML = '<div class="card"><h1>Boot error</h1><pre>' + DOMPurify.sanitize(String(e)) + '</pre></div>'; }
+try { shell(); } catch (e) { console.error("[boot] shell failed"', e); const main = document.querySelector('main'); if (main) main.innerHTML = '<div class="card"><h1>Boot error</h1><pre>' + DOMPurify.sanitize(String(e)) + '</pre></div>'; }
 
 // ---------- Keyboard shortcuts cheatsheet ----------
-const SHORTCUTS = [
-  { cat: "Navigation", items: [
-    ["?", "Show shortcuts"],
-    ["1-9", "Jump to nav item"],
-    ["G then 1-9", "Quick goto panel"],
-    ["Ctrl+K", "Command palette"],
-    ["Esc", "Close dialogs"],
-  ]},
-  { cat: "Panels", items: [
-    ["D", "Dashboard"],
-    ["G", "Governance"],
-    ["M", "Missions"],
-    ["L", "Decision Ledger"],
-    ["S", "Settings"],
-  ]},
-  { cat: "System", items: [
-    ["Ctrl+Shift+R", "Hard reload"],
-    ["Ctrl+Shift+I", "DevTools"],
-  ]},
-];
-function showShortcuts() {
-  const modal = document.createElement("div");
-  modal.className = "modal-backdrop open";
-  modal.innerHTML = `<div class="modal" style="max-width:520px">
-    <h2>Keyboard Shortcuts</h2>
-    <div class="grid cols-2">
-      ${SHORTCUTS.map(g => `<div style="margin-bottom:12px"><b>${g.cat}</b><ul style="margin:4px 0;padding-left:18px">${g.items.map(([k,desc]) => `<li><span class="kbd">${k}</span> ${desc}</li>`).join("")}</ul></div>`).join("")}
-    </div>
-    <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" id="shortcuts-close">Close</button></div>
-  </div>`;
-  document.body.appendChild(modal);
-  modal.querySelector("#shortcuts-close").addEventListener("click", () => modal.remove());
-  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
-}
 
-function renderShortcuts() {
-  const el = document.createElement('div');
-  el.id = 'shortcuts-overlay';
-  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:200;';
-  const groups = SHORTCUTS.map(g => `<div class="card" style="margin-bottom:8px;">
-    <h3 style="margin:0 0 6px;font-size:13px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em">${DOMPurify.sanitize(g.cat)}</h3>
-    <table class="table" style="width:100%">
-      ${g.items.map(([k,v]) => `<tr><td class="mono" style="width:140px">${DOMPurify.sanitize(k)}</td><td>${DOMPurify.sanitize(v)}</td></tr>`).join("")}
-    </table>
-  </div>`).join("");
-  el.innerHTML = `
-    <div class="card" style="max-width:560px;width:92%;max-height:82vh;overflow:auto;">
-      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <h2 style="margin:0">Keyboard Shortcuts</h2>
-        <input id="shortcuts-filter" placeholder="Filter…" style="padding:6px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:160px;" />
-      </div>
-      <div id="shortcuts-body">${groups}</div>
-      <div style="margin-top:10px;text-align:right;"><button class="btn secondary" id="close-shortcuts">Close</button></div>
-    </div>`;
-  document.body.appendChild(el);
-  const close = () => el.remove();
-  el.addEventListener('click', (e) => { if (e.target === el || e.target.id === 'close-shortcuts') close(); });
-  const filter = document.getElementById('shortcuts-filter');
-  if (filter) {
-    filter.addEventListener('input', (e) => {
-      const q = e.target.value.trim().toLowerCase();
-      document.querySelectorAll('#shortcuts-body .card').forEach(card => {
-        const text = card.textContent.toLowerCase();
-        card.style.display = text.includes(q) ? '' : 'none';
-      });
-    });
-    setTimeout(() => filter.focus(), 0);
-  }
-}
-document.addEventListener('keydown', (e) => {
-  if (e.key === '?' && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); renderShortcuts(); }
-});
 
 // ---------- Column visibility toggles ----------
 function columnToggle(headerEl, tableEl) {

@@ -54,7 +54,7 @@ const CONSOLE_PORT = Number(process.env.PORT ?? 7777);
 const GBRAIN_BIN = process.env.GBRAIN_BIN ?? process.execPath;
 const GBRAIN_CLI = process.env.GBRAIN_CLI ?? "../node_modules/gbrain/src/cli.ts";
 const GBRAIN_CWD = process.env.GBRAIN_CWD ?? "..";
-const GBRAIN_HOME = "C:\\ForgeOS";
+const GBRAIN_HOME = "C:\\Projects\\ForgeOS";
 const CONSOLE_TOKEN = process.env.CONSOLE_TOKEN || ""; // (41) set to enable auth
 const RATE = Number(process.env.RATE_PER_MIN ?? 120);  // (42)
 
