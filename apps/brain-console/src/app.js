@@ -5795,7 +5795,7 @@ function shell() {
   safe(() => api.status()).then(s => tickStatusBar(s || {})).catch(() => tickStatusBar({}));
   setInterval(async () => { tickStatusBar(await safe(() => api.status()).catch(() => ({}))); }, 1000);
 }
-try { shell(); } catch (e) { console.error("[boot] shell failed"', e); const main = document.querySelector('main'); if (main) main.innerHTML = '<div class="card"><h1>Boot error</h1><pre>' + DOMPurify.sanitize(String(e)) + '</pre></div>'; }
+try { shell(); } catch (e) { console.error("[boot] shell failed", e); const main = document.querySelector('main'); if (main) main.innerHTML = '<div class="card"><h1>Boot error</h1><pre>' + DOMPurify.sanitize(String(e)) + '</pre></div>'; }
 
 // ---------- Keyboard shortcuts cheatsheet ----------
 

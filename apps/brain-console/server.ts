@@ -281,8 +281,9 @@ setInterval(() => {
   healthClients.forEach(w => { try { w.write(payload); } catch { healthClients.delete(w); } });
 }, 5000);
 
-const server = serve({
-  port: CONSOLE_PORT,
+try {
+  const server = serve({
+    port: CONSOLE_PORT,
   idleTimeout: 120,
   async fetch(req) {
     const t0 = Date.now();
