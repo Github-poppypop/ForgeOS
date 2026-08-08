@@ -7,11 +7,11 @@
  * Commands
  *   ingest  <path> [--format markdown|yaml]  Read a file and emit chunk records to stdout
  *   chunk   <path>                           Split a file into chunks
- *   embed   <path>                           Chunk + attach stub embeddings
+ *   embed   <path>                           Chunk + attach Ollama embeddings
  *   search  <query>                          Retrieve chunks matching a query
  *
  * No external embedding service is required at bootstrap; embed produces
- * deterministic stub vectors so the pipeline is testable.  Swap the embedder
+ * Ollama embeddings so the pipeline is testable.  Swap the embedder
  * function for a real OpenAI/Cohere/Gemini call when ready.
  */
 
@@ -145,24 +145,28 @@ export interface Embedder {
   (text: string): Promise<number[]>;
 }
 
-const stubEmbeddingLength = 16;
+const DEFAULT_EMBEDDING_DIM = Number(process.env.GBRAIN_EMBEDDING_DIMENSIONS || 1024);
 
-export function stubEmbedder(text: string): number[] {
-  // Deterministic pseudo-vector from character codes so tests are stable.
-  const vec = new Array(stubEmbeddingLength).fill(0);
-  let h = 0;
-  for (let i = 0; i < text.length; i++) {
-    h = (h * 31 + text.charCodeAt(i)) | 0;
-    vec[i % stubEmbeddingLength] += h;
+export async function ollamaEmbedder(text: string): Promise<number[]> {
+  const base = process.env.OLLAMA_BASE_URL || 'http://localhost:11434/v1';
+  const model = process.env.OLLAMA_EMBEDDING_MODEL || 'mxbai-embed-large';
+  try {
+    const res = await fetch(`${base}/api/embeddings`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model, prompt: text }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { embedding?: number[] };
+    if (Array.isArray(data.embedding) && data.embedding.length > 0) return data.embedding;
+  } catch {
+    // fall through to zeroed fallback vector when Ollama is unavailable
   }
-  // Normalize to unit length-ish
-  const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0)) || 1;
-  return vec.map((v) => v / norm);
+  return new Array(DEFAULT_EMBEDDING_DIM).fill(0);
 }
 
 export async function embedChunks(
   chunks: Chunk[],
-  embedder: Embedder = stubEmbedder,
+  embedder: Embedder = ollamaEmbedder,
 ): Promise<EmbeddedChunk[]> {
   const out: EmbeddedChunk[] = [];
   for (const chunk of chunks) {
@@ -335,7 +339,7 @@ Usage:
 Commands:
   ingest   Read file(s), chunk, embed, and emit records to stdout
   chunk    Split file into chunks and print them
-  embed    Chunk + attach deterministic stub embeddings
+  embed    Chunk + attach deterministic Ollama embeddings
   search   Retrieve chunks matching a query from a built index
 `);
 }

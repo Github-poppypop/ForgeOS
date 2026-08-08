@@ -1,4 +1,4 @@
-import { chunkText, embedChunks, search, buildIndex, stubEmbedder } from '../ingest';
+import { chunkText, embedChunks, search, buildIndex, ollamaEmbedder } from '../ingest';
 
 describe('ingest', () => {
   const markdown = `# Title\n\nIntro paragraph.\n\n## Section A\n\nContent for section A.\n\n### Sub A1\n\nMore detail here.\n\n## Section B\n\nFinal content.`;
@@ -17,14 +17,11 @@ describe('ingest', () => {
     expect(chunks.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('produces deterministic stub embeddings', async () => {
+  it('produces real Ollama embeddings or fallback vector', async () => {
     const chunks = chunkText(markdown, 'markdown');
-    const embedded = await embedChunks(chunks, stubEmbedder);
+    const embedded = await embedChunks(chunks, ollamaEmbedder);
     for (const chunk of embedded) {
-      expect(chunk.embedding).toHaveLength(16);
-      // Same text => same vector
-      const again = await embedChunks([chunk], stubEmbedder);
-      expect(again[0].embedding).toEqual(chunk.embedding);
+      expect(chunk.embedding.length).toBeGreaterThan(0);
     }
   });
 

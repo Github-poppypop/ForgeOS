@@ -27,7 +27,7 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  // API requests: network-first, fall back to cache, then offline stub
+  // API requests: network-first, fall back to cache, then offline response
   if (url.pathname.startsWith("/api/")) {
     e.respondWith(
       fetch(e.request)

@@ -425,11 +425,12 @@ const server = serve({
 
       if (p === "/api/search") {
         const q = url.searchParams.get("q") ?? "";
-        if (isCanary(req)) {
-          return json({ query: q, raw: "[canary] stubbed search response" });
-        }
         const r = await runGbrain(["search", q]);
-        return json({ query: q, raw: r.out });
+        const payload = { query: q, raw: r.out };
+        if (isCanary(req)) {
+          return json({ ...payload, canary: true });
+        }
+        return json(payload);
       }
 
       if (p === "/api/agents/cost" && req.method === "GET") {
@@ -1170,9 +1171,9 @@ function matchAdditional(p: string, req: Request): Response | null {
   }
   const paramMatch = p.match(/^\/api\/export\/(.+)$/);
   if (paramMatch) {
-    const fakeUrl = new URL(req.url);
-    fakeUrl.pathname = p;
-    return additionalRoutes["/api/export/:slug"].handler(req, fakeUrl);
+    const paramUrl = new URL(req.url);
+    paramUrl.pathname = p;
+    return additionalRoutes["/api/export/:slug"].handler(req, paramUrl);
   }
   return null;
 }
