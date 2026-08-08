@@ -11,21 +11,21 @@
 import { serve } from "bun";
 import { trace, SpanKind, context, SpanStatusCode } from "@opentelemetry/api";
 import { gbrainCircuitBreaker } from "./circuit-breaker";
-import { agentMemoryCache } from "../agents/memory-cache";
-import { deadLetterQueue } from "../agents/dead-letter-queue";
-import { runbookSelector } from "../agents/runbook-selector";
-import { schemaValidator } from "../agents/schema-validator";
-import { recordCost, getCostByRole } from "../agents/cost-accounting";
+import { agentMemoryCache } from "../../agents/memory-cache";
+import { deadLetterQueue } from "../../agents/dead-letter-queue";
+import { runbookSelector } from "../../agents/runbook-selector";
+import { schemaValidator } from "../../agents/schema-validator";
+import { recordCost, getCostByRole } from "../../agents/cost-accounting";
 
 // ---- Batch D: Knowledge Universe enhancements (31-40) ----
-import { checkLinks, buildGraph } from "../knowledge-universe/link-checker.ts";
-import { findDuplicates } from "../knowledge-universe/duplicates.ts";
-import { trackView, getAnalytics } from "../knowledge-universe/analytics.ts";
-import { loadACLs, checkAccess, setACL, bulkMove } from "../knowledge-universe/acl.ts";
-import { appendAudit, getAudit } from "../knowledge-universe/audit.ts";
-import { startWatch, stopWatch, isWatching } from "../knowledge-universe/sync.ts";
-import { addBookmark, getBookmarks, removeBookmark } from "../knowledge-universe/bookmarks.ts";
-import { normalizeFrontmatter } from "../knowledge-universe/frontmatter.ts";
+import { checkLinks, buildGraph } from "../../knowledge-universe/link-checker.ts";
+import { findDuplicates } from "../../knowledge-universe/duplicates.ts";
+import { trackView, getAnalytics } from "../../knowledge-universe/analytics.ts";
+import { loadACLs, checkAccess, setACL, bulkMove } from "../../knowledge-universe/acl.ts";
+import { appendAudit, getAudit } from "../../knowledge-universe/audit.ts";
+import { startWatch, stopWatch, isWatching } from "../../knowledge-universe/sync.ts";
+import { addBookmark, getBookmarks, removeBookmark } from "../../knowledge-universe/bookmarks.ts";
+import { normalizeFrontmatter } from "../../knowledge-universe/frontmatter.ts";
 
 const TRACER = trace.getTracer("forgeos-brain-console");
 
@@ -49,11 +49,11 @@ function startSpan(name: string, kind = SpanKind.INTERNAL) {
 
 const ROOT = import.meta.dir;
 const PUBLIC = `${ROOT}/public`;
-const DIST = `${ROOT}/src-client/dist`;
+const DIST = `${ROOT}/public`;
 const CONSOLE_PORT = Number(process.env.PORT ?? 7777);
-const GBRAIN_BIN = process.env.GBRAIN_BIN ?? "/root/.bun/bin/bun";
-const GBRAIN_CLI = process.env.GBRAIN_CLI ?? "/tmp/forge-gbrain-local/node_modules/gbrain/src/cli.ts";
-const GBRAIN_CWD = process.env.GBRAIN_CWD ?? "/tmp/forge-gbrain-local";
+const GBRAIN_BIN = process.env.GBRAIN_BIN ?? process.execPath;
+const GBRAIN_CLI = process.env.GBRAIN_CLI ?? "../node_modules/gbrain/src/cli.ts";
+const GBRAIN_CWD = process.env.GBRAIN_CWD ?? "..";
 const GBRAIN_HOME = "C:\\ForgeOS";
 const CONSOLE_TOKEN = process.env.CONSOLE_TOKEN || ""; // (41) set to enable auth
 const RATE = Number(process.env.RATE_PER_MIN ?? 120);  // (42)

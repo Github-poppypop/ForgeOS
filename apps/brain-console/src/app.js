@@ -114,7 +114,7 @@ async function logClientError(err, extra = {}) {
       body: JSON.stringify(payload),
       keepalive: true,
     });
-  } catch { /* swallow audit failures */ }
+  } catch (_err) { /* swallow audit failures */ }
 }
 window.addEventListener("error", (e) => {
   const err = e.error instanceof Error ? e.error : new Error(e.message);
@@ -233,11 +233,11 @@ function downloadCSV(filename, rows, columns) {
 const SAVED_VIEWS_KEY = 'forgeos-saved-views';
 function getSavedViews() {
   try { return JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '{}'); }
-  catch { return {}; }
+  catch (_err) { return {}; }
 }
 function setSavedViews(views) {
   try { localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views)); }
-  catch {}
+  catch (_err) {}
 }
 function applySavedView(panel, viewName) {
   const views = getSavedViews()[panel];
@@ -328,7 +328,7 @@ function persistColumnOrder(container) {
   try {
     const cols = Array.from(parent.querySelectorAll('th[data-col]')).map((th) => th.dataset.col);
     localStorage.setItem(key, JSON.stringify(cols));
-  } catch {}
+  } catch (_err) {}
 }
 function restoreColumnOrder(container) {
   const key = 'forgeos-col-order-' + container;
@@ -343,7 +343,7 @@ function restoreColumnOrder(container) {
     const map = new Map(Array.from(header.querySelectorAll('th[data-col]')).map((th) => [th.dataset.col, th]));
     const next = order.map((col) => map.get(col)).filter(Boolean);
     next.forEach((th) => header.appendChild(th));
-  } catch {}
+  } catch (_err) {}
 }
 
 // ---------- (6) API wrapper with retry on 503/lock ----------
@@ -432,7 +432,7 @@ async function renderDashboard() {
           if (live) {
             live.innerHTML = `live: ws ok @ ${new Date(d.ts).toLocaleTimeString()} <span id="last-refreshed" data-tooltip="Time of last successful data fetch">(refreshed ${new Date().toLocaleTimeString()})</span>`;
           }
-        } catch {}
+        } catch (_err) {}
       };
       ws.onerror = () => {
         const live = $("live");
@@ -456,7 +456,8 @@ async function renderDashboard() {
         live.innerHTML = `live: (polling unavailable) <span id="last-refreshed" data-tooltip="Time of last successful data fetch">(refreshed ${new Date().toLocaleTimeString()})</span>`;
       }
     };
-  } catch {}
+    }
+    } catch (_err) {}
   const refreshHealth = async () => {
     const card = $("#health-card");
     if (!card) return;
@@ -470,7 +471,7 @@ async function renderDashboard() {
         ${recent.length ? `<pre class="code json">${DOMPurify.sanitize(JSON.stringify(recent, null, 2))}</pre>` : "<p class='muted'>no recent errors</p>"}`;
       const lr = $("#last-refreshed");
       if (lr) lr.textContent = "(refreshed " + new Date().toLocaleTimeString() + ")";
-    } catch {
+    } catch (_err) {
       card.innerHTML = "<h2>Health</h2><p class='muted'>error loading health</p>";
     }
   };
@@ -893,13 +894,13 @@ Write something for the brain.</textarea>
     if (draft.tags) $("#tags").value = draft.tags;
     if (draft.template) $("#template").value = draft.template;
     validate();
-  } catch {}
+  } catch (_err) {}
   const saveDraft = () => {
     try {
       localStorage.setItem('capture-draft', JSON.stringify({slug: $("#slug").value.trim(), type: $("#type").value.trim(), body: $("#body").value, tags: $("#tags").value.trim(), template: $("#template").value}));
       const ds = $("#draft-status");
       if (ds) ds.textContent = "Draft saved " + new Date().toLocaleTimeString();
-    } catch {}
+    } catch (_err) {}
   };
   ["#slug", "#type", "#body", "#tags", "#template"].forEach(sel => { $(sel)?.addEventListener("input", saveDraft); });
   $("#template")?.addEventListener("change", () => {
@@ -2247,7 +2248,7 @@ async function renderEmbed() {
         embEl.textContent = "0";
         pctEl.textContent = "0%";
       }
-    } catch {}
+    } catch (_err) {}
   };
   loadStats();
 
@@ -3222,7 +3223,7 @@ async function renderWizard() {
       try {
         await safe(() => api.capture("missions/" + Date.now(), "mission", "# " + title));
         toast("Created first mission", "ok");
-      } catch {}
+      } catch (_err) {}
     }
     location.hash = "#/projects";
   };
@@ -3516,7 +3517,7 @@ async function renderSettings() {
         ["Embedding model", s.embedding_model || "—"],
       ].map(([k,v]) => `<div><span class="muted">${k}:</span> <span>${DOMPurify.sanitize(v)}</span></div>`).join("");
     }
-  } catch {}
+  } catch (_err) {}
   const saved = localStorage.getItem("forgeos-theme") || "system";
   const themeSel = document.querySelector("#s-theme");
   if (themeSel) themeSel.value = saved;
@@ -5131,7 +5132,7 @@ function getCurrentPanel() {
 function savePanelScroll(panel) {
   const main = $("#main");
   if (!main) return;
-  try { localStorage.setItem(SCROLL_PREFIX + panel, String(main.scrollTop)); } catch {}
+  try { localStorage.setItem(SCROLL_PREFIX + panel, String(main.scrollTop)); } catch (_err) {}
 }
 
 function restorePanelScroll(panel) {
@@ -5719,7 +5720,7 @@ function tickStatusBar(s) {
   try {
     const now = new Date();
     clock.textContent = "EST " + now.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  } catch {}
+  } catch (_err) {}
   const ok = !!(s && s.gbrain_health && s.gbrain_health.status === "ok");
   brain.textContent = "brain: " + (ok ? "ok" : "down");
   brain.className = "pill " + (ok ? "ok" : "err");
@@ -5814,13 +5815,13 @@ function shell() {
     const el = header.parentElement;
     el.classList.toggle("collapsed");
     header.setAttribute("aria-expanded", el.classList.contains("collapsed") ? "false" : "true");
-    try { localStorage.setItem("forgeos-nav-" + cat.toLowerCase().replace(/[^a-z0-9]+/g, "-"), el.classList.contains("collapsed") ? "1" : "0"); } catch {}
+    try { localStorage.setItem("forgeos-nav-" + cat.toLowerCase().replace(/[^a-z0-9]+/g, "-"), el.classList.contains("collapsed") ? "1" : "0"); } catch (_err) {}
   });
   // restore collapsed state
   document.querySelectorAll(".nav-category").forEach(el => {
     const title = el.querySelector(".nav-category-header");
     if (!title) return;
-    try { if (localStorage.getItem("forgeos-nav-" + title.dataset.cat.toLowerCase().replace(/[^a-z0-9]+/g, "-")) === "1") { el.classList.add("collapsed"); title.setAttribute("aria-expanded", "false"); } } catch {}
+    try { if (localStorage.getItem("forgeos-nav-" + title.dataset.cat.toLowerCase().replace(/[^a-z0-9]+/g, "-")) === "1") { el.classList.add("collapsed"); title.setAttribute("aria-expanded", "false"); } } catch (_err) {}
   });
 
   // (2) boot self-check
@@ -5867,18 +5868,7 @@ function showShortcuts() {
   modal.querySelector("#shortcuts-close").addEventListener("click", () => modal.remove());
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
 }
-    ["Cmd/Ctrl + K", "Command palette"],
-  ]},
-  { cat: "Editing", items: [
-    ["Esc", "Close modal / palette"],
-    ["Cmd/Ctrl + /", "Focus search"],
-    ["Ctrl+S / Cmd+S", "Save current editor"],
-  ]},
-  { cat: "View", items: [
-    ["Click category", "Collapse / expand nav group"],
-    ["?", "Toggle shortcuts"],
-  ]},
-];
+
 function renderShortcuts() {
   const el = document.createElement('div');
   el.id = 'shortcuts-overlay';
