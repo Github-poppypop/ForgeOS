@@ -114,7 +114,7 @@ async function logClientError(err, extra = {}) {
       body: JSON.stringify(payload),
       keepalive: true,
     });
-  } catch { /* swallow audit failures */ }
+  } catch (_err) { /* swallow audit failures */ }
 }
 window.addEventListener("error", (e) => {
   const err = e.error instanceof Error ? e.error : new Error(e.message);
@@ -233,11 +233,11 @@ function downloadCSV(filename, rows, columns) {
 const SAVED_VIEWS_KEY = 'forgeos-saved-views';
 function getSavedViews() {
   try { return JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '{}'); }
-  catch { return {}; }
+  catch (_err) { return {}; }
 }
 function setSavedViews(views) {
   try { localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views)); }
-  catch {}
+  catch (_err) {}
 }
 function applySavedView(panel, viewName) {
   const views = getSavedViews()[panel];
@@ -328,7 +328,7 @@ function persistColumnOrder(container) {
   try {
     const cols = Array.from(parent.querySelectorAll('th[data-col]')).map((th) => th.dataset.col);
     localStorage.setItem(key, JSON.stringify(cols));
-  } catch {}
+  } catch (_err) {}
 }
 function restoreColumnOrder(container) {
   const key = 'forgeos-col-order-' + container;
@@ -343,7 +343,7 @@ function restoreColumnOrder(container) {
     const map = new Map(Array.from(header.querySelectorAll('th[data-col]')).map((th) => [th.dataset.col, th]));
     const next = order.map((col) => map.get(col)).filter(Boolean);
     next.forEach((th) => header.appendChild(th));
-  } catch {}
+  } catch (_err) {}
 }
 
 // ---------- (6) API wrapper with retry on 503/lock ----------
@@ -432,7 +432,7 @@ async function renderDashboard() {
           if (live) {
             live.innerHTML = `live: ws ok @ ${new Date(d.ts).toLocaleTimeString()} <span id="last-refreshed" data-tooltip="Time of last successful data fetch">(refreshed ${new Date().toLocaleTimeString()})</span>`;
           }
-        } catch {}
+        } catch (_err) {}
       };
       ws.onerror = () => {
         const live = $("live");
@@ -456,7 +456,8 @@ async function renderDashboard() {
         live.innerHTML = `live: (polling unavailable) <span id="last-refreshed" data-tooltip="Time of last successful data fetch">(refreshed ${new Date().toLocaleTimeString()})</span>`;
       }
     };
-  } catch {}
+    }
+    } catch (_err) {}
   const refreshHealth = async () => {
     const card = $("#health-card");
     if (!card) return;
@@ -470,7 +471,7 @@ async function renderDashboard() {
         ${recent.length ? `<pre class="code json">${DOMPurify.sanitize(JSON.stringify(recent, null, 2))}</pre>` : "<p class='muted'>no recent errors</p>"}`;
       const lr = $("#last-refreshed");
       if (lr) lr.textContent = "(refreshed " + new Date().toLocaleTimeString() + ")";
-    } catch {
+    } catch (_err) {
       card.innerHTML = "<h2>Health</h2><p class='muted'>error loading health</p>";
     }
   };
@@ -893,13 +894,13 @@ Write something for the brain.</textarea>
     if (draft.tags) $("#tags").value = draft.tags;
     if (draft.template) $("#template").value = draft.template;
     validate();
-  } catch {}
+  } catch (_err) {}
   const saveDraft = () => {
     try {
       localStorage.setItem('capture-draft', JSON.stringify({slug: $("#slug").value.trim(), type: $("#type").value.trim(), body: $("#body").value, tags: $("#tags").value.trim(), template: $("#template").value}));
       const ds = $("#draft-status");
       if (ds) ds.textContent = "Draft saved " + new Date().toLocaleTimeString();
-    } catch {}
+    } catch (_err) {}
   };
   ["#slug", "#type", "#body", "#tags", "#template"].forEach(sel => { $(sel)?.addEventListener("input", saveDraft); });
   $("#template")?.addEventListener("change", () => {
@@ -2247,7 +2248,7 @@ async function renderEmbed() {
         embEl.textContent = "0";
         pctEl.textContent = "0%";
       }
-    } catch {}
+    } catch (_err) {}
   };
   loadStats();
 
@@ -3222,7 +3223,7 @@ async function renderWizard() {
       try {
         await safe(() => api.capture("missions/" + Date.now(), "mission", "# " + title));
         toast("Created first mission", "ok");
-      } catch {}
+      } catch (_err) {}
     }
     location.hash = "#/projects";
   };
@@ -3516,7 +3517,7 @@ async function renderSettings() {
         ["Embedding model", s.embedding_model || "—"],
       ].map(([k,v]) => `<div><span class="muted">${k}:</span> <span>${DOMPurify.sanitize(v)}</span></div>`).join("");
     }
-  } catch {}
+  } catch (_err) {}
   const saved = localStorage.getItem("forgeos-theme") || "system";
   const themeSel = document.querySelector("#s-theme");
   if (themeSel) themeSel.value = saved;
@@ -5131,7 +5132,7 @@ function getCurrentPanel() {
 function savePanelScroll(panel) {
   const main = $("#main");
   if (!main) return;
-  try { localStorage.setItem(SCROLL_PREFIX + panel, String(main.scrollTop)); } catch {}
+  try { localStorage.setItem(SCROLL_PREFIX + panel, String(main.scrollTop)); } catch (_err) {}
 }
 
 function restorePanelScroll(panel) {
@@ -5417,42 +5418,6 @@ function showShortcuts() {
 }
 
 // =====================================================================
-// BOOT DIAGNOSTICS & BLACK SCREEN FIX (1)
-// =====================================================================
-(function bootDiagnostics() {
-  try {
-    const t0 = performance.now();
-    const appRoot = document.getElementById('app');
-    const bootLog = [];
-    bootLog.push('[BOOT] start app=' + !!appRoot + ' title=' + document.title);
-    console.log('[BOOT] start app=' + !!appRoot + ' title=' + document.title);
-    const origShell = window.shell;
-    if (typeof origShell !== 'function') {
-      throw new Error('shell() is not defined before route()');
-    }
-    origShell();
-    const after = document.getElementById('app');
-    const dt = Math.round(performance.now() - t0);
-    bootLog.push('[BOOT] shell completed in ' + dt + 'ms children=' + (after ? after.children.length : 'null'));
-    console.log('[BOOT] shell completed in ' + dt + 'ms children=' + (after ? after.children.length : 'null'));
-    if (after && after.children.length === 0) {
-      after.style.background = '#10131b';
-      after.innerHTML = '<div style="padding:16px;color:#adc6ff;font-family:monospace">[BOOT] shell ran but #app is still empty. Check console.</div>';
-      bootLog.push('[BOOT] fallback injected');
-      console.warn('[BOOT] fallback injected');
-    }
-    safe(() => fetch('/api/health', { headers: { 'x-boot-log': encodeURIComponent(bootLog.join('\n')) } })).catch(() => {});
-  } catch (e) {
-    console.error('[BOOT] fatal:', e);
-    const appRoot = document.getElementById('app');
-    if (appRoot) {
-      appRoot.style.background = '#10131b';
-      appRoot.innerHTML = '<div style="padding:16px;color:#ffb4ab;font-family:monospace">Boot error: ' + DOMPurify.sanitize(e && e.message ? e.message : String(e)) + '</div>';
-    }
-  }
-})();
-
-// =====================================================================
 // SYSTEM PREFERENCE SYNC (4)
 // =====================================================================
 (function syncSystemTheme() {
@@ -5572,10 +5537,10 @@ function detectPort(port) {
 // =====================================================================
 // SOURCE-MAP-FRIENDLY BOOT LOGS (24)
 // =====================================================================
-function bootStack(message) {
+function bootLog(message) {
   const err = new Error(message);
-  if (err.stack) console.log('[BOOT][' + message + '] ' + err.stack.split('\n').slice(1, 3).join('\n'));
-  else console.log('[BOOT][' + message + ']');
+  if (err.stack) console.log('[boot][' + message + '] ' + err.stack.split('\n').slice(1, 3).join('\n'));
+  else console.log('[boot][' + message + ']');
 }
 
 // =====================================================================
@@ -5719,7 +5684,7 @@ function tickStatusBar(s) {
   try {
     const now = new Date();
     clock.textContent = "EST " + now.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  } catch {}
+  } catch (_err) {}
   const ok = !!(s && s.gbrain_health && s.gbrain_health.status === "ok");
   brain.textContent = "brain: " + (ok ? "ok" : "down");
   brain.className = "pill " + (ok ? "ok" : "err");
@@ -5814,13 +5779,13 @@ function shell() {
     const el = header.parentElement;
     el.classList.toggle("collapsed");
     header.setAttribute("aria-expanded", el.classList.contains("collapsed") ? "false" : "true");
-    try { localStorage.setItem("forgeos-nav-" + cat.toLowerCase().replace(/[^a-z0-9]+/g, "-"), el.classList.contains("collapsed") ? "1" : "0"); } catch {}
+    try { localStorage.setItem("forgeos-nav-" + cat.toLowerCase().replace(/[^a-z0-9]+/g, "-"), el.classList.contains("collapsed") ? "1" : "0"); } catch (_err) {}
   });
   // restore collapsed state
   document.querySelectorAll(".nav-category").forEach(el => {
     const title = el.querySelector(".nav-category-header");
     if (!title) return;
-    try { if (localStorage.getItem("forgeos-nav-" + title.dataset.cat.toLowerCase().replace(/[^a-z0-9]+/g, "-")) === "1") { el.classList.add("collapsed"); title.setAttribute("aria-expanded", "false"); } } catch {}
+    try { if (localStorage.getItem("forgeos-nav-" + title.dataset.cat.toLowerCase().replace(/[^a-z0-9]+/g, "-")) === "1") { el.classList.add("collapsed"); title.setAttribute("aria-expanded", "false"); } } catch (_err) {}
   });
 
   // (2) boot self-check
@@ -5830,92 +5795,10 @@ function shell() {
   safe(() => api.status()).then(s => tickStatusBar(s || {})).catch(() => tickStatusBar({}));
   setInterval(async () => { tickStatusBar(await safe(() => api.status()).catch(() => ({}))); }, 1000);
 }
-try { shell(); } catch (e) { console.error('[BOOT] shell failed', e); const main = document.querySelector('main'); if (main) main.innerHTML = '<div class="card"><h1>Boot error</h1><pre>' + DOMPurify.sanitize(String(e)) + '</pre></div>'; }
+try { shell(); } catch (e) { console.error("[boot] shell failed"', e); const main = document.querySelector('main'); if (main) main.innerHTML = '<div class="card"><h1>Boot error</h1><pre>' + DOMPurify.sanitize(String(e)) + '</pre></div>'; }
 
 // ---------- Keyboard shortcuts cheatsheet ----------
-const SHORTCUTS = [
-  { cat: "Navigation", items: [
-    ["?", "Show shortcuts"],
-    ["1-9", "Jump to nav item"],
-    ["G then 1-9", "Quick goto panel"],
-    ["Ctrl+K", "Command palette"],
-    ["Esc", "Close dialogs"],
-  ]},
-  { cat: "Panels", items: [
-    ["D", "Dashboard"],
-    ["G", "Governance"],
-    ["M", "Missions"],
-    ["L", "Decision Ledger"],
-    ["S", "Settings"],
-  ]},
-  { cat: "System", items: [
-    ["Ctrl+Shift+R", "Hard reload"],
-    ["Ctrl+Shift+I", "DevTools"],
-  ]},
-];
-function showShortcuts() {
-  const modal = document.createElement("div");
-  modal.className = "modal-backdrop open";
-  modal.innerHTML = `<div class="modal" style="max-width:520px">
-    <h2>Keyboard Shortcuts</h2>
-    <div class="grid cols-2">
-      ${SHORTCUTS.map(g => `<div style="margin-bottom:12px"><b>${g.cat}</b><ul style="margin:4px 0;padding-left:18px">${g.items.map(([k,desc]) => `<li><span class="kbd">${k}</span> ${desc}</li>`).join("")}</ul></div>`).join("")}
-    </div>
-    <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" id="shortcuts-close">Close</button></div>
-  </div>`;
-  document.body.appendChild(modal);
-  modal.querySelector("#shortcuts-close").addEventListener("click", () => modal.remove());
-  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
-}
-    ["Cmd/Ctrl + K", "Command palette"],
-  ]},
-  { cat: "Editing", items: [
-    ["Esc", "Close modal / palette"],
-    ["Cmd/Ctrl + /", "Focus search"],
-    ["Ctrl+S / Cmd+S", "Save current editor"],
-  ]},
-  { cat: "View", items: [
-    ["Click category", "Collapse / expand nav group"],
-    ["?", "Toggle shortcuts"],
-  ]},
-];
-function renderShortcuts() {
-  const el = document.createElement('div');
-  el.id = 'shortcuts-overlay';
-  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:200;';
-  const groups = SHORTCUTS.map(g => `<div class="card" style="margin-bottom:8px;">
-    <h3 style="margin:0 0 6px;font-size:13px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em">${DOMPurify.sanitize(g.cat)}</h3>
-    <table class="table" style="width:100%">
-      ${g.items.map(([k,v]) => `<tr><td class="mono" style="width:140px">${DOMPurify.sanitize(k)}</td><td>${DOMPurify.sanitize(v)}</td></tr>`).join("")}
-    </table>
-  </div>`).join("");
-  el.innerHTML = `
-    <div class="card" style="max-width:560px;width:92%;max-height:82vh;overflow:auto;">
-      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <h2 style="margin:0">Keyboard Shortcuts</h2>
-        <input id="shortcuts-filter" placeholder="Filter…" style="padding:6px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);width:160px;" />
-      </div>
-      <div id="shortcuts-body">${groups}</div>
-      <div style="margin-top:10px;text-align:right;"><button class="btn secondary" id="close-shortcuts">Close</button></div>
-    </div>`;
-  document.body.appendChild(el);
-  const close = () => el.remove();
-  el.addEventListener('click', (e) => { if (e.target === el || e.target.id === 'close-shortcuts') close(); });
-  const filter = document.getElementById('shortcuts-filter');
-  if (filter) {
-    filter.addEventListener('input', (e) => {
-      const q = e.target.value.trim().toLowerCase();
-      document.querySelectorAll('#shortcuts-body .card').forEach(card => {
-        const text = card.textContent.toLowerCase();
-        card.style.display = text.includes(q) ? '' : 'none';
-      });
-    });
-    setTimeout(() => filter.focus(), 0);
-  }
-}
-document.addEventListener('keydown', (e) => {
-  if (e.key === '?' && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); renderShortcuts(); }
-});
+
 
 // ---------- Column visibility toggles ----------
 function columnToggle(headerEl, tableEl) {
