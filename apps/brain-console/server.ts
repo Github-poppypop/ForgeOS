@@ -281,9 +281,8 @@ setInterval(() => {
   healthClients.forEach(w => { try { w.write(payload); } catch { healthClients.delete(w); } });
 }, 5000);
 
-try {
-  const server = serve({
-    port: CONSOLE_PORT,
+const server = serve({
+  port: CONSOLE_PORT,
   idleTimeout: 120,
   async fetch(req) {
     const t0 = Date.now();
@@ -337,14 +336,14 @@ try {
         let schema = { out: "unavailable", err: "" };
         try { schema = await runGbrain(["schema", "active"]); } catch {}
         const oll = await ollamaOk();
-        return json({ console_port: CONSOLE_PORT, gbrain_health: { status: schema.out ? "ok" : "degraded", engine: "pglite", owned_by: "console" }, schema: schema.out, ollama: oll, embedding_model: "ollama:mxbai-embed-large (1024d, local)", isolation: "C:\\ForgeOS (separate from personal vaults & app brains)", auth: !!CONSOLE_TOKEN });
+        return json({ console_port: CONSOLE_PORT, gbrain_health: { status: schema.out ? "ok" : "degraded", engine: "pglite", owned_by: "console" }, schema: schema.out, ollama: oll, embedding_model: "ollama:mxbai-embed-large (1024d, local)", isolation: "C:\\Projects\\ForgeOS (separate from personal vaults & app brains)", auth: !!CONSOLE_TOKEN });
       }
 
       if (p === "/api/brains") { // (45) multi-brain metadata
         return json({
           current: "forgeos",
           brains: [
-            { id: "forgeos", home: "C:\\ForgeOS", role: "root", isolated: true },
+            { id: "forgeos", home: "C:\\Projects\\ForgeOS", role: "root", isolated: true },
             { id: "lifeos", home: "C:\\Projects\\ForgeOS\\apps\\lifeos\\.gbrain", role: "app-child", isolated: true },
           ],
           note: "Switch GBRAIN_HOME + restart console to mount a different isolated brain.",
@@ -448,7 +447,7 @@ try {
 
       if (p === "/api/schema") {
         const active = await runGbrain(["schema", "active"]);
-        const types = await runGbrain(["schema", "types"]).catch(() => ({ out: "see C:\\ForgeOS\\.gbrain\\schema-packs\\forgeos\\pack.yaml" }));
+        const types = await runGbrain(["schema", "types"]).catch(() => ({ out: "see C:\\Projects\\ForgeOS\\.gbrain\\schema-packs\\forgeos\\pack.yaml" }));
         return json({ active: active.out, types: types.out });
       }
 
@@ -583,7 +582,7 @@ try {
       }
 
       if (p === "/api/federation") {
-        return json({ root: "ForgeOS (C:\\ForgeOS\\.gbrain)", model: "federated: read-down only, write-up governance only, no lateral mingle", children: ["apps/lifeos (isolated child brain)"], see: "knowledge-universe/BRAIN-FEDERATION.md" });
+        return json({ root: "ForgeOS (C:\\Projects\\ForgeOS\\.gbrain)", model: "federated: read-down only, write-up governance only, no lateral mingle", children: ["apps/lifeos (isolated child brain)"], see: "knowledge-universe/BRAIN-FEDERATION.md" });
       }
 
       // ---- (RFC-0000) sacred /governance source of truth ----
@@ -601,7 +600,7 @@ try {
       }
 
       if (p === "/api/vault") {
-        return json({ base: "C:\\ForgeOS\\vault", files: listVault("C:\\ForgeOS\\vault"), git: "branch master (untracked role pages)" });
+        return json({ base: "C:\\Projects\\ForgeOS\\vault", files: listVault("C:\\Projects\\ForgeOS\\vault"), git: "branch master (untracked role pages)" });
       }
 
       if (p === "/api/webhooks") {
@@ -866,7 +865,7 @@ try {
       if (p === "/api/backup" && req.method === "POST") {
         const fs = await import("node:fs");
         const path = await import("node:path");
-        const base = "C:\\ForgeOS\\.gbrain\\brain.pglite";
+        const base = "C:\\Projects\\ForgeOS\\.gbrain\\brain.pglite";
         const entries = [];
         const walk = (dir) => {
           for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -1208,7 +1207,7 @@ function listVault(base: string): string[] {
   return out.sort();
 }
 
-console.log(`[forgeos-console] on http://127.0.0.1:${CONSOLE_PORT}  (owns PGLite at C:\\ForgeOS)${CONSOLE_TOKEN ? " [auth ON]" : " [auth OPEN]"}`);
+console.log(`[forgeos-console] on http://127.0.0.1:${CONSOLE_PORT}  (owns PGLite at C:\\Projects\\ForgeOS)${CONSOLE_TOKEN ? " [auth ON]" : " [auth OPEN]"}`);
 
 // Graceful cleanup: terminate child processes and SSE clients on exit signals.
 async function cleanup(why) {
