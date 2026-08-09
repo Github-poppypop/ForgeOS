@@ -185,7 +185,7 @@ app.get('/api/vault', (_req, res) => {
 });
 
 // Fallback: serve React index.html for SPA routes
-app.use((_req, res) => {
+app.get('*', (_req, res) => {
   const candidate = path.join(CLIENT_DIST, 'index.html');
   if (fs.existsSync(candidate)) return res.sendFile(candidate);
   res.status(404).json({ error: 'not found' });

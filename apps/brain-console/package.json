@@ -4,15 +4,25 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
-  },
-  "description": "ForgeOS Brain Console — web UI over the isolated gbrain (C:\\ForgeOS). The SPA (src/app.js) is served directly by server.ts with NO build step (bun build EPERMs on C:\\ in this environment). Edit src/app.js (or src/app.ts, kept in sync) directly; index.html loads /src/app.js as an ES module.",
-  "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "dev:client": "cd src/client && npm install && npm run dev",
+    "build:client": "cd src/client && npm install && npm run build",
+    "dev:server": "npx tsx watch server.ts",
+    "start": "npm run build:client && npx tsx server.ts",
+    "test": "npx tsx --test"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
-    "express": "^5.2.1"
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "express": "^5.2.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "vite": "^8.2.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "tsx": "^4.23.11",
+    "typescript": "^5.9.3"
   }
 }
