@@ -376,7 +376,7 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
       </div>
 
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Isolation" value="C:\Projects\ForgeOS" subtitle="Separate from personal vaults & app brains" accent />
+        <StatCard title="Isolation" value={status?.isolation || '—'} subtitle="PGLite brain ownership" />
         <StatCard title="Roles seeded" value={`${seeded}/7`} subtitle="C-suite roles" />
         <StatCard title="Console port" value={status?.console_port || '—'} subtitle="Public API surface" />
         <StatCard title="Health" value={brainOk ? 'Healthy' : 'Degraded'} subtitle={brainOk ? 'All systems nominal' : 'Check dependencies'} accent={!brainOk} danger={!brainOk} />
@@ -466,6 +466,284 @@ function Roles({ roles }: { roles: any }) {
   );
 }
 
+function Search({ data }: { data: any }) {
+  const [q, setQ] = useState('');
+  const lines = String(data?.raw || '').split('\n').filter(Boolean);
+  return (
+    <div className="fadein">
+      <h1>Semantic Search</h1>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <input
+            className="input"
+            style={{ flex: 1 }}
+            placeholder="Search..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <button className="btn primary" onClick={() => { window.location.hash = `#/search?q=${encodeURIComponent(q)}`; }}>Search</button>
+        </div>
+      </div>
+      {!lines.length ? <div className="empty">No results yet. Try capturing a page first.</div> : (
+        <div className="stack">
+          {lines.map((l: string, i: number) => {
+            const m = l.match(/^\[([\d.]+)\]\s+(\S+)\s*--\s*(.*)$/s);
+            const score = m ? m[1] : '';
+            const slug = m ? m[2] : l;
+            const body = m ? m[3] : '';
+            return (
+              <div key={i} className="card">
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <a className="link mono" href={`#/page/${encodeURIComponent(slug)}`}>{slug}</a>
+                  <span className="pill">{score}</span>
+                </div>
+                <p className="muted" style={{ marginTop: 6 }}>{body.slice(0, 200)}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Capture() {
+  const [slug, setSlug] = useState('decisions/demo');
+  const [type, setType] = useState('note');
+  const [body, setBody] = useState('# Demo\nWrite something for the brain.');
+  const [preview, setPreview] = useState('');
+  const [loading, setLoading] = useState(false);
+  const validate = () => /^[\w\-/]+$/.test(slug) && slug.includes('/');
+  const templates: Record<string, string> = {
+    note: '# Note\n\n',
+    decision: '# Decision\n\n## Context\n\n## Outcome\n\n',
+    incident: '# Incident\n\n## Timeline\n\n## Resolution\n\n',
+    meeting: '# Meeting Notes\n\n## Attendees\n\n## Agenda\n\n## Action Items\n\n',
+    action: '# Action Item\n\n## Owner\n\n## Due Date\n\n## Status\n\n',
+  };
+  return (
+    <div className="fadein">
+      <h1>Capture Page</h1>
+      <div className="card" style={{ maxWidth: 680 }}>
+        <div className="row"><label>slug</label><input className="mono" value={slug} onChange={(e) => setSlug(e.target.value)} style={{ flex: 1 }} /><button className="btn secondary" onClick={() => navigator.clipboard.writeText(slug)}>Copy</button></div>
+        <div className="row" style={{ marginTop: 8 }}><label>type</label><input value={type} onChange={(e) => setType(e.target.value)} /></div>
+        <div className="row" style={{ marginTop: 8 }}>
+          <label>template</label>
+          <select value="" onChange={(e) => { if (e.target.value) setBody(templates[e.target.value]); }} className="select">
+            <option value="">-- choose template --</option>
+            {Object.keys(templates).map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} style={{ width: '100%', marginTop: 8, fontFamily: 'var(--mono)' }} />
+        {preview ? <pre className="code json" style={{ marginTop: 8 }}>{preview}</pre> : null}
+        <div className="row" style={{ marginTop: 8, gap: 8 }}>
+          <button className="btn primary" disabled={!validate() || loading} onClick={async () => {
+            setLoading(true);
+            try {
+              await api('/api/capture', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slug, type, body }) });
+              window.location.hash = `#/page/${encodeURIComponent(slug)}`;
+            } finally { setLoading(false); }
+          }}>{loading ? 'Saving…' : 'Capture'}</button>
+          <button className="btn secondary" onClick={() => setPreview(body)}>Preview</button>
+          <button className="btn secondary" onClick={() => { setSlug('decisions/demo'); setType('note'); setBody('# Demo\nWrite something for the brain.'); setPreview(''); }}>Clear</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Page({ slug }: { slug: string }) {
+  const { data } = useApi<any>(`/api/page/${encodeURIComponent(slug)}`);
+  const [editing, setEditing] = useState(false);
+  const [editBody, setEditBody] = useState('');
+  const startEdit = () => { setEditBody(data?.body || ''); setEditing(true); };
+  const save = async () => {
+    await api('/api/capture', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slug, type: 'note', body: editBody }) });
+    setEditing(false);
+    window.location.reload();
+  };
+  return (
+    <div className="fadein">
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <h1 className="mono">{slug}</h1>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn secondary" onClick={() => navigator.clipboard.writeText(window.location.href)}>Copy link</button>
+          {!editing ? <button className="btn secondary" onClick={startEdit}>Edit</button> : <button className="btn primary" onClick={save}>Save</button>}
+        </div>
+      </div>
+      {editing ? (
+        <textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={16} style={{ width: '100%', marginTop: 12, fontFamily: 'var(--mono)' }} />
+      ) : (
+        <pre className="code json" style={{ marginTop: 12 }}>{data?.body || 'Not found'}</pre>
+      )}
+    </div>
+  );
+}
+
+function Decisions() {
+  const { data } = useApi<any>('/api/ledger?from=2000-01-01');
+  const [q, setQ] = useState('');
+  const entries = (data?.ledger || []) as any[];
+  const filtered = entries.filter((e) => !q || (e.title || '').toLowerCase().includes(q.toLowerCase()) || (e.mission || '').toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div className="fadein">
+      <h1>Decisions & Incidents</h1>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          <span className="pill">{entries.length} total</span>
+          <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="Search decisions..." value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="tbl">
+            <thead><tr><th>Date</th><th>Title</th><th>Type</th><th>Mission</th><th>Outcome</th></tr></thead>
+            <tbody>
+              {filtered.map((e) => (
+                <tr key={e.id}>
+                  <td className="mono">{e.date}</td>
+                  <td>{e.title}</td>
+                  <td><span className="pill">{e.type}</span></td>
+                  <td className="mono">{e.mission}</td>
+                  <td><span className={`pill ${e.outcome === 'approved' ? 'ok' : e.outcome === 'pending' ? 'warn' : 'bad'}`}>{e.outcome}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimelinePanel() {
+  const { data } = useApi<any>('/api/timeline');
+  const [q, setQ] = useState('');
+  const items = (data?.timeline || []) as any[];
+  const filtered = items.filter((i) => !q || (i.title || '').toLowerCase().includes(q.toLowerCase()) || (i.owner || '').toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div className="fadein">
+      <h1>Timeline Engine</h1>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <input className="input" style={{ flex: 1 }} placeholder="Search milestones..." value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+      </div>
+      <div className="timeline">
+        {filtered.map((item: any) => (
+          <div key={item.id} className={`tl-item ${item.status}`}>
+            <div className="tl-time">{item.date}</div>
+            <div className="tl-title">{item.title}</div>
+            <div className="tl-meta">{item.owner} · <span className={`pill ${item.status === 'done' ? 'ok' : item.status === 'in-progress' ? 'warn' : ''}`}>{item.status}</span></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LedgerPanel() {
+  const { data } = useApi<any>('/api/ledger?from=2000-01-01');
+  const entries = (data?.ledger || []) as any[];
+  return (
+    <div className="fadein">
+      <h1>Decision Ledger</h1>
+      <div className="card">
+        <div style={{ overflowX: 'auto' }}>
+          <table className="tbl">
+            <thead><tr><th>Date</th><th>Title</th><th>Type</th><th>Mission</th><th>Outcome</th></tr></thead>
+            <tbody>
+              {entries.map((e) => (
+                <tr key={e.id}>
+                  <td className="mono">{e.date}</td>
+                  <td>{e.title}</td>
+                  <td><span className="pill">{e.type}</span></td>
+                  <td className="mono">{e.mission}</td>
+                  <td><span className={`pill ${e.outcome === 'approved' ? 'ok' : e.outcome === 'pending' ? 'warn' : 'bad'}`}>{e.outcome}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MissionsPanel() {
+  const { data } = useApi<any>('/api/missions');
+  const missions = (data?.missions || []) as any[];
+  return (
+    <div className="fadein">
+      <h1>Missions</h1>
+      <div className="stack">
+        {missions.map((m: any) => (
+          <div key={m.id} className="card">
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <div>
+                <h3>{m.title}</h3>
+                <p className="muted mono">{m.id} • {m.phase} • {m.owner}</p>
+              </div>
+              <span className={`pill ${m.status === 'done' ? 'ok' : m.status === 'proposed' ? 'warn' : 'bad'}`}>{m.status}</span>
+            </div>
+            <div className="progress" style={{ marginTop: 10 }}><i style={{ width: `${m.progress ?? 0}%` }} /></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CompliancePanel() {
+  const { data } = useApi<any>('/api/compliance');
+  const policies = (data?.policies || []) as any[];
+  return (
+    <div className="fadein">
+      <h1>Compliance</h1>
+      <div className="stack">
+        {policies.map((p: any) => (
+          <div key={p.id} className="card">
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <div>
+                <h3>{p.name}</h3>
+                <p className="muted mono">{p.id}</p>
+              </div>
+              <span className={`tag ${p.status === 'active' ? 'success' : 'danger'}`}>{p.status}</span>
+            </div>
+            {p.lastCheck ? <p className="muted" style={{ marginTop: 8 }}>lastCheck: {p.lastCheck}</p> : null}
+            {'limit' in p ? <p className="muted mono">limit: {p.limit}/min</p> : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FederationPanel() {
+  const { data } = useApi<any>('/api/federation');
+  return (
+    <div className="fadein">
+      <h1>Federation</h1>
+      <div className="card">
+        <h3>Topology</h3>
+        <p className="mono">{data?.root}</p>
+        <p className="muted">{data?.model}</p>
+        <div className="tags" style={{ marginTop: 8 }}>
+          {(data?.children || []).map((c: string, i: number) => <span key={i} className="tag info">{c}</span>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WebhooksPanel() {
+  const { data } = useApi<any>('/api/webhooks');
+  return (
+    <div className="fadein">
+      <h1>Webhooks</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
 function NotFound() {
   return (
     <div className="fadein">
@@ -483,11 +761,13 @@ export default function App() {
   const { showShortcuts, setShowShortcuts } = useShortcuts();
   const statusApi = useApi('/api/status');
   const rolesApi = useApi('/api/roles');
+  const searchApi = useApi(`/api/search?q=${encodeURIComponent((new URLSearchParams(window.location.hash.split('?')[1] || '')).get('q') || '')}`);
   const missionsApi = useApi('/api/missions');
   const timelineApi = useApi('/api/timeline');
   const complianceApi = useApi('/api/compliance');
   const federationApi = useApi('/api/federation');
   const webhooksApi = useApi('/api/webhooks');
+  const ledgerApi = useApi('/api/ledger?from=2000-01-01');
 
   const navigate = (r: string) => {
     window.location.hash = r;
@@ -499,82 +779,24 @@ export default function App() {
         return <Dashboard status={statusApi.data} roles={rolesApi.data} />;
       case '#/roles':
         return <Roles roles={rolesApi.data} />;
-      case '#/missions':
-        return (
-          <div className="fadein">
-            <h1>Missions</h1>
-            <div className="stack">
-              {(missionsApi.data?.missions || []).map((m: any) => (
-                <div key={m.id} className="card">
-                  <div className="row" style={{ justifyContent: 'space-between' }}>
-                    <div>
-                      <h3>{m.title}</h3>
-                      <p className="muted mono">{m.id} • {m.phase} • {m.owner}</p>
-                    </div>
-                    <span className={`pill ${m.status === 'done' ? 'ok' : m.status === 'proposed' ? 'warn' : 'bad'}`}>{m.status}</span>
-                  </div>
-                  <div className="progress" style={{ marginTop: 10 }}><i style={{ width: `${m.progress ?? 0}%` }} /></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
+      case '#/search':
+        return <Search data={searchApi.data} />;
+      case '#/capture':
+        return <Capture />;
+      case '#/decisions':
+        return <Decisions />;
       case '#/timeline':
-        return (
-          <div className="fadein">
-            <h1>Timeline</h1>
-            <div className="timeline">
-              {(timelineApi.data?.timeline || []).map((item: any) => (
-                <div key={item.id} className={`tl-item ${item.status}`}>
-                  <div className="tl-title">{item.title}</div>
-                  <div className="tl-meta">{item.date} • {item.owner}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
+        return <TimelinePanel />;
+      case '#/ledger':
+        return <LedgerPanel />;
+      case '#/missions':
+        return <MissionsPanel />;
       case '#/compliance':
-        return (
-          <div className="fadein">
-            <h1>Compliance</h1>
-            <div className="stack">
-              {(complianceApi.data?.policies || []).map((p: any) => (
-                <div key={p.id} className="card">
-                  <div className="row" style={{ justifyContent: 'space-between' }}>
-                    <div>
-                      <h3>{p.name}</h3>
-                      <p className="muted mono">{p.id}</p>
-                    </div>
-                    <span className={`tag ${p.status === 'active' ? 'success' : 'danger'}`}>{p.status}</span>
-                  </div>
-                  {p.lastCheck ? <p className="muted" style={{ marginTop: 8 }}>lastCheck: {p.lastCheck}</p> : null}
-                  {'limit' in p ? <p className="muted mono">limit: {p.limit}/min</p> : null}
-                </div>
-              ))}
-            </div>
-          </div>
-        );
+        return <CompliancePanel />;
       case '#/federation':
-        return (
-          <div className="fadein">
-            <h1>Federation</h1>
-            <div className="card">
-              <h3>Topology</h3>
-              <p className="mono">{federationApi.data?.root}</p>
-              <p className="muted">{federationApi.data?.model}</p>
-              <div className="tags" style={{ marginTop: 8 }}>
-                {(federationApi.data?.children || []).map((c: string, i: number) => <span key={i} className="tag info">{c}</span>)}
-              </div>
-            </div>
-          </div>
-        );
+        return <FederationPanel />;
       case '#/webhooks':
-        return (
-          <div className="fadein">
-            <h1>Webhooks</h1>
-            <pre className="code json">{JSON.stringify(webhooksApi.data, null, 2)}</pre>
-          </div>
-        );
+        return <WebhooksPanel />;
       default:
         return <NotFound />;
     }
