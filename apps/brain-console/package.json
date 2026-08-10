@@ -8,6 +8,8 @@
     "build:client": "cd src/client && npm install && npm run build",
     "dev:server": "npx tsx watch server.ts",
     "start": "npm run build:client && npx tsx server.ts",
+    "dev": "bun run --watch server.ts",
+    "serve": "bun run server.ts",
     "test": "npx tsx --test"
   },
   "dependencies": {
