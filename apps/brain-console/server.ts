@@ -4,7 +4,8 @@ import fs from "node:fs";
 import net from "node:net";
 
 const PORT = Number(process.env.PORT ?? 7777);
-const ROOT = import.meta.dir;
+import { fileURLToPath } from "node:url";
+const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC = path.join(ROOT, "public");
 const DIST = path.join(ROOT, "dist");
 const GBRAIN_HOME = "C:\\Projects\\ForgeOS";
