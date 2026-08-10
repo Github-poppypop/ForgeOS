@@ -114,8 +114,8 @@ function matchRoute(hash: string): string {
   return found || hash;
 }
 
-async function api<T>(path: string): Promise<T> {
-  const res = await fetch(path, { headers: { accept: 'application/json' } });
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, { headers: { accept: 'application/json' }, ...init });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -190,14 +190,6 @@ function useTheme() {
   }, []);
 
   return { theme, setTheme, contrast, setContrast, apply };
-}
-
-function Toast({ message, kind, onDone }: { message: string; kind: string; onDone: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDone, 3500);
-    return () => clearTimeout(t);
-  }, [onDone]);
-  return <div className={`toast ${kind}`}>{message}</div>;
 }
 
 function StatusPill({ label, ok, title }: { label: string; ok: boolean; title?: string }) {
@@ -307,9 +299,8 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
   );
 }
 
-function Navbar({ route, onNavigate, theme, setTheme, contrast, setContrast, onShortcuts }: {
+function Navbar({ route, theme, setTheme, contrast, setContrast, onShortcuts }: {
   route: string;
-  onNavigate: (r: string) => void;
   theme: string;
   setTheme: (t: string) => void;
   contrast: string;
@@ -338,7 +329,7 @@ function Navbar({ route, onNavigate, theme, setTheme, contrast, setContrast, onS
   );
 }
 
-function StatusBar({ status }: { status: { console_port?: number; gbrain_health?: { status?: string }; ollama?: { status?: string } } | null }) {
+function StatusBar({ status }: { status: any }) {
   const brainOk = !!status?.gbrain_health?.status && status.gbrain_health.status !== 'degraded';
   const ollamaOk = !!status?.ollama?.status && status.ollama.status !== 'offline';
   return (
@@ -552,7 +543,7 @@ function Capture() {
   );
 }
 
-function Page({ slug }: { slug: string }) {
+function PagePanel({ slug }: { slug: string }) {
   const { data } = useApi<any>(`/api/page/${encodeURIComponent(slug)}`);
   const [editing, setEditing] = useState(false);
   const [editBody, setEditBody] = useState('');
@@ -744,6 +735,166 @@ function WebhooksPanel() {
   );
 }
 
+function McpPanel() {
+  const { data } = useApi<any>('/api/mcp');
+  return (
+    <div className="fadein">
+      <h1>MCP</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function VaultPanel() {
+  const { data } = useApi<any>('/api/vault');
+  return (
+    <div className="fadein">
+      <h1>Vault</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function EmbedPanel() {
+  const { data } = useApi<any>('/api/embed');
+  return (
+    <div className="fadein">
+      <h1>Embed</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function AuditPanel() {
+  const { data } = useApi<any>('/api/audit');
+  return (
+    <div className="fadein">
+      <h1>Audit</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function ConfigPanel() {
+  const { data } = useApi<any>('/api/config');
+  return (
+    <div className="fadein">
+      <h1>Config</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function CommandPanel() {
+  const [cmd, setCmd] = useState('');
+  const [res, setRes] = useState<any>(null);
+  const run = async () => {
+    setRes(null);
+    const data = await api<any>(`/api/command?cmd=${encodeURIComponent(cmd)}`);
+    setRes(data);
+  };
+  return (
+    <div className="fadein">
+      <h1>Command</h1>
+      <div className="row" style={{ gap: 8 }}>
+        <input className="input" style={{ flex: 1 }} value={cmd} onChange={(e) => setCmd(e.target.value)} placeholder="command" />
+        <button className="btn primary" onClick={run}>Run</button>
+      </div>
+      {res ? <pre className="code json" style={{ marginTop: 12 }}>{JSON.stringify(res, null, 2)}</pre> : null}
+    </div>
+  );
+}
+
+function GovernancePanel() {
+  const { data } = useApi<any>('/api/governance');
+  return (
+    <div className="fadein">
+      <h1>Governance</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function SchemaPanel() {
+  const { data } = useApi<any>('/api/schema');
+  return (
+    <div className="fadein">
+      <h1>Schema</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function MonitoringPanel() {
+  const { data } = useApi<any>('/api/monitoring');
+  return (
+    <div className="fadein">
+      <h1>Monitoring</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function WorkflowsPanel() {
+  const { data } = useApi<any>('/api/workflows');
+  return (
+    <div className="fadein">
+      <h1>Workflows</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function MarketplacePanel() {
+  const { data } = useApi<any>('/api/marketplace');
+  return (
+    <div className="fadein">
+      <h1>Marketplace</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function PluginsPanel() {
+  const { data } = useApi<any>('/api/plugins');
+  return (
+    <div className="fadein">
+      <h1>Plugins</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function ProjectsPanel() {
+  const { data } = useApi<any>('/api/projects');
+  return (
+    <div className="fadein">
+      <h1>Projects</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function SettingsPanel() {
+  const { data } = useApi<any>('/api/settings');
+  return (
+    <div className="fadein">
+      <h1>Settings</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
+function PoolLeaguePanel() {
+  const { data } = useApi<any>('/api/poolleague');
+  return (
+    <div className="fadein">
+      <h1>PoolLeague</h1>
+      <pre className="code json">{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
+
 function NotFound() {
   return (
     <div className="fadein">
@@ -768,12 +919,17 @@ export default function App() {
   const federationApi = useApi('/api/federation');
   const webhooksApi = useApi('/api/webhooks');
   const ledgerApi = useApi('/api/ledger?from=2000-01-01');
+  void [missionsApi, timelineApi, complianceApi, federationApi, webhooksApi, ledgerApi];
 
   const navigate = (r: string) => {
     window.location.hash = r;
   };
 
   const renderPanel = () => {
+    if (route.startsWith('#/page/')) {
+      const slug = route.slice('#/page/'.length);
+      return <PagePanel slug={slug} />;
+    }
     switch (route) {
       case '#/dashboard':
         return <Dashboard status={statusApi.data} roles={rolesApi.data} />;
@@ -797,6 +953,36 @@ export default function App() {
         return <FederationPanel />;
       case '#/webhooks':
         return <WebhooksPanel />;
+      case '#/mcp':
+        return <McpPanel />;
+      case '#/vault':
+        return <VaultPanel />;
+      case '#/embed':
+        return <EmbedPanel />;
+      case '#/audit':
+        return <AuditPanel />;
+      case '#/schema':
+        return <SchemaPanel />;
+      case '#/config':
+        return <ConfigPanel />;
+      case '#/command':
+        return <CommandPanel />;
+      case '#/governance':
+        return <GovernancePanel />;
+      case '#/monitoring':
+        return <MonitoringPanel />;
+      case '#/workflows':
+        return <WorkflowsPanel />;
+      case '#/marketplace':
+        return <MarketplacePanel />;
+      case '#/plugins':
+        return <PluginsPanel />;
+      case '#/projects':
+        return <ProjectsPanel />;
+      case '#/settings':
+        return <SettingsPanel />;
+      case '#/poolleague':
+        return <PoolLeaguePanel />;
       default:
         return <NotFound />;
     }
@@ -806,7 +992,6 @@ export default function App() {
     <div id="app">
       <Navbar
         route={route}
-        onNavigate={navigate}
         theme={theme}
         setTheme={setTheme}
         contrast={contrast}

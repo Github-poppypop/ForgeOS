@@ -125,14 +125,20 @@ async function main() {
     res.json({ slug: body.slug, out: "", err: "" });
   });
 
-  app.get('/api/page/:slug', (req, res) => {
-    const slug = decodeURIComponent(req.params.slug);
-    res.json({ slug, body: "sample body" });
+  app.get('/api/capture', (req, res) => {
+    res.json({ slug: "", out: "", err: "" });
   });
 
-  app.delete('/api/page/:slug', (req, res) => {
-    const slug = decodeURIComponent(req.params.slug);
-    res.json({ slug, out: "deleted", err: "" });
+  app.get('/api/page/*slug', (req, res) => {
+    const raw = String(req.params.slug || 'page/sample');
+    const slug = decodeURIComponent(raw.replace(/\//g, '%2F').replace(/\+/g, '%2B'));
+    res.json({ slug, body: 'sample body' });
+  });
+
+  app.delete('/api/page/*slug', (req, res) => {
+    const raw = String(req.params.slug || 'page/sample');
+    const slug = decodeURIComponent(raw.replace(/\//g, '%2F').replace(/\+/g, '%2B'));
+    res.json({ slug, out: 'deleted', err: '' });
   });
 
   app.get('/api/schema', (req, res) => {
@@ -173,6 +179,63 @@ async function main() {
       openapi: "3.0.0",
       info: { title: "ForgeOS Brain Console API", version: "1.0.0" },
     });
+  });
+
+  app.get('/api/mcp', (req, res) => {
+    res.json({ tools: [], transports: [] });
+  });
+
+  app.get('/api/vault', (req, res) => {
+    res.json({ items: [], encrypted: true });
+  });
+
+  app.get('/api/embed', (req, res) => {
+    res.json({ queued: 0, model: "ollama:mxbai-embed-large" });
+  });
+
+  app.get('/api/audit', (req, res) => {
+    res.json({ events: [] });
+  });
+
+  app.get('/api/config', (req, res) => {
+    res.json({ ollama: "http://localhost:11434/v1", dimensions: 1024, isolation: GBRAIN_HOME });
+  });
+
+  app.get('/api/command', (req, res) => {
+    const cmd = (req.query.cmd as string) || "";
+    res.json({ cmd, out: "", err: "" });
+  });
+
+  app.get('/api/governance', (req, res) => {
+    res.json({ root: GBRAIN_HOME, rules: [] });
+  });
+
+  app.get('/api/monitoring', (req, res) => {
+    res.json({ cpu: 0, memory: 0, uptime: 0 });
+  });
+
+  app.get('/api/workflows', (req, res) => {
+    res.json({ workflows: [] });
+  });
+
+  app.get('/api/marketplace', (req, res) => {
+    res.json({ packs: [] });
+  });
+
+  app.get('/api/plugins', (req, res) => {
+    res.json({ plugins: [] });
+  });
+
+  app.get('/api/projects', (req, res) => {
+    res.json({ projects: [] });
+  });
+
+  app.get('/api/settings', (req, res) => {
+    res.json({ auth: false, telemetry: false });
+  });
+
+  app.get('/api/poolleague', (req, res) => {
+    res.json({ tables: [], players: [] });
   });
 
   app.use((req, res, next) => {

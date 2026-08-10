@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
 import { gbrainCircuitBreaker, CircuitBreaker } from '../circuit-breaker';
 
 describe('apps/brain-console/circuit-breaker', () => {
@@ -7,6 +8,6 @@ describe('apps/brain-console/circuit-breaker', () => {
     await cb.execute(async () => { throw new Error('fail'); }).catch(() => {});
     await cb.execute(async () => { throw new Error('fail'); }).catch(() => {});
     const state = (gbrainCircuitBreaker as any).state;
-    expect(state).toBeDefined();
+    assert.ok(state);
   });
 });
