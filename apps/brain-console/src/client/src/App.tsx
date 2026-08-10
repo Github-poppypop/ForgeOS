@@ -291,7 +291,7 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
       {CATEGORIES.map((cat) => (
         <div key={cat.title} className={`nav-category ${collapsed[cat.title] ? 'collapsed' : ''}`}>
           <div className="nav-category-header" onClick={() => toggle(cat.title)}>{cat.title}</div>
-          <div className="nav-category-items" style={{ maxHeight: collapsed[cat.title] ? '0px' : '200px' }}>
+          <div className="nav-category-items" style={{ maxHeight: collapsed[cat.title] ? '0px' : '240px' }}>
             {cat.items.map((r) => {
               const label = r.replace('#/', '').charAt(0).toUpperCase() + r.replace('#/', '').slice(1);
               return (
@@ -351,12 +351,12 @@ function StatusBar({ status }: { status: { console_port?: number; gbrain_health?
   );
 }
 
-function StatCard({ title, value, subtitle, accent }: { title: string; value: string | number; subtitle?: string; accent?: boolean }) {
+function StatCard({ title, value, subtitle, accent, danger }: { title: string; value: string | number; subtitle?: string; accent?: boolean; danger?: boolean }) {
   return (
-    <div className={`stat ${accent ? 'hl' : ''}`}>
+    <div className={`stat ${accent ? 'hl' : ''} ${danger ? 'danger' : ''}`}>
       <div className="h3">{title}</div>
       <div className="value">{value}</div>
-      {subtitle ? <div className="muted caption">{subtitle}</div> : null}
+      {subtitle ? <div className="caption">{subtitle}</div> : null}
     </div>
   );
 }
@@ -376,15 +376,15 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
       </div>
 
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Isolation" value={status?.isolation || '—'} subtitle="PGLite brain ownership" />
-        <StatCard title="Roles seeded" value={`${seeded}/7`} subtitle="C-suite roles" accent />
+        <StatCard title="Isolation" value="C:\Projects\ForgeOS" subtitle="Separate from personal vaults & app brains" accent />
+        <StatCard title="Roles seeded" value={`${seeded}/7`} subtitle="C-suite roles" />
         <StatCard title="Console port" value={status?.console_port || '—'} subtitle="Public API surface" />
-        <StatCard title="Health" value={brainOk ? 'Healthy' : 'Degraded'} subtitle={brainOk ? 'All systems nominal' : 'Check dependencies'} accent={!brainOk} />
+        <StatCard title="Health" value={brainOk ? 'Healthy' : 'Degraded'} subtitle={brainOk ? 'All systems nominal' : 'Check dependencies'} accent={!brainOk} danger={!brainOk} />
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
         <h2>Quick actions</h2>
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row" style={{ gap: 8, marginTop: 10 }}>
           <a className="btn primary" href="#/roles" onClick={(e) => { e.preventDefault(); window.location.hash = '#/roles'; }}>Roles</a>
           <button className="btn secondary" data-tooltip="Reload dashboard data" onClick={() => window.location.reload()}>Refresh</button>
           <a className="btn secondary" href="#/search" data-tooltip="Search across all brains" onClick={(e) => { e.preventDefault(); window.location.hash = '#/search'; }}>Search</a>
@@ -410,7 +410,10 @@ function Roles({ roles }: { roles: any }) {
   });
   return (
     <div className="fadein">
-      <h1>C-Suite Roles</h1>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h1 style={{ margin: 0 }}>C-Suite Roles</h1>
+        <span className="badge">{filtered.length}</span>
+      </div>
       <div className="card">
         <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -435,11 +438,14 @@ function Roles({ roles }: { roles: any }) {
               <option value="missing">Missing</option>
             </select>
           </div>
-          <span className="pill" data-tooltip="Total C-suite roles">{filtered.length} roles</span>
+          <div className="row" style={{ gap: 8 }}>
+            <span className="pill" data-tooltip="Total C-suite roles">{filtered.length} roles</span>
+            <button className="btn secondary sm" data-tooltip="Reload roles" onClick={() => window.location.reload()}>Refresh</button>
+          </div>
         </div>
         <div className="grid cols-2" style={{ marginTop: 12 }}>
           {filtered.map((r) => (
-            <div key={r.slug} className="card">
+            <div key={r.slug} className="card elevated">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <div>
                   <h3>{r.role || r.slug}</h3>
@@ -447,7 +453,11 @@ function Roles({ roles }: { roles: any }) {
                 </div>
                 <span className={`tag ${r.exists ? 'success' : 'danger'}`}>{r.exists ? 'seeded' : 'missing'}</span>
               </div>
-              <p className="muted" style={{ marginTop: 6 }}>reports_to: {r.reports_to || '—'}</p>
+              <div className="divider" style={{ margin: '10px 0' }} />
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="caption">reports_to</span>
+                <span className="mono">{r.reports_to || '—'}</span>
+              </div>
             </div>
           ))}
         </div>
