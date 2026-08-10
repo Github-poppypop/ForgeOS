@@ -170,6 +170,15 @@ function startServer(port: number) {
         return Response.json({ webhooks: [], deadLetter: [] });
       }
 
+      if (p === "/api/ledger") {
+        const ledger = [
+          { id: "1", date: "2026-08-10", title: "Use Bun for brain-console runtime", type: "approval", mission: "platform-stability", role: "cto", outcome: "approved" },
+          { id: "2", date: "2026-08-09", title: "Port React UI from app.js", type: "proposal", mission: "forgeos-v2", role: "cfo", outcome: "pending" },
+          { id: "3", date: "2026-08-08", title: "Memory leak in federation route", type: "incident", mission: "platform-stability", role: "cto", outcome: "approved" },
+        ];
+        return Response.json({ ledger });
+      }
+
       if (p === "/api/openapi") {
         return Response.json({
           openapi: "3.0.0",
