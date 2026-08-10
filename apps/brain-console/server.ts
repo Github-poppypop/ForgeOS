@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC = path.join(ROOT, "public");
 const DIST = path.join(ROOT, "dist");
-const GBRAIN_HOME = "C:\\Projects\\ForgeOS";
+const GBRAIN_HOME = "C:\Projects\ForgeOS";
 
 function content_type(p: string): string | null {
   const ext = path.extname(p).toLowerCase();
