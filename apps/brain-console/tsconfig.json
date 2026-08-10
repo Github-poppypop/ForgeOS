@@ -5,6 +5,6 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
-    "types": ["bun-types"]
+    "types": ["node"]
   }
 }

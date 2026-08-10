@@ -6,10 +6,9 @@
   "scripts": {
     "dev:client": "cd src/client && npm install && npm run dev",
     "build:client": "cd src/client && npm install && npm run build",
-    "dev:server": "npx tsx watch server.ts",
+    "dev": "npx tsx watch server.ts",
     "start": "npm run build:client && npx tsx server.ts",
-    "dev": "bun run --watch server.ts",
-    "serve": "bun run server.ts",
+    "serve": "npx tsx server.ts",
     "test": "npx tsx --test"
   },
   "dependencies": {
@@ -24,6 +23,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
+    "@types/express": "^5.0.6",
     "tsx": "^4.23.11",
     "typescript": "^5.9.3"
   }

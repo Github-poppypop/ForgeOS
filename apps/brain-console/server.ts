@@ -1,14 +1,14 @@
-import { serve } from "bun";
+import express from "express";
 import path from "node:path";
 import fs from "node:fs";
 import net from "node:net";
+import { fileURLToPath } from "node:url";
 
 const PORT = Number(process.env.PORT ?? 7777);
-import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC = path.join(ROOT, "public");
 const DIST = path.join(ROOT, "dist");
-const GBRAIN_HOME = "C:\Projects\ForgeOS";
+const GBRAIN_HOME = "C:\\Projects\\ForgeOS";
 
 function content_type(p: string): string | null {
   const ext = path.extname(p).toLowerCase();
@@ -76,127 +76,134 @@ async function ensureFreePort(port: number): Promise<number> {
   return port;
 }
 
-function startServer(port: number) {
-  return serve({
-    port,
-    development: false,
-    error(error) {
-      console.error(`[server] ${error?.message ?? error}`);
-    },
-    async fetch(req) {
-      const url = new URL(req.url);
-      const p = url.pathname;
+async function main() {
+  const port = await ensureFreePort(PORT);
+  const app = express();
 
-      if (!p.startsWith("/api/")) {
-        const asset = resolveAsset(p);
-        if (asset.path) {
-          return new Response(fs.readFileSync(asset.path), { headers: asset.headers });
-        }
+  app.use(express.json());
 
-        const indexAsset = resolveAsset('/index.html');
-        if (indexAsset.path) {
-          return new Response(fs.readFileSync(indexAsset.path), { headers: indexAsset.headers });
-        }
+  app.use((req, res, next) => {
+    console.log(`[react-express] ${req.method} ${req.path}`);
+    next();
+  });
 
-        return new Response("not found", { status: 404 });
-      }
+  app.get('/api/health', (req, res) => {
+    res.json({ ok: true, ts: Date.now() });
+  });
 
-      if (p === "/api/health") return Response.json({ ok: true, ts: Date.now() });
-      if (p === "/api/status") {
-        return Response.json({
-          console_port: port,
-          gbrain_health: { status: "degraded", engine: "pglite", owned_by: "console" },
-          schema: "forgeos",
-          ollama: { status: "offline" },
-          embedding_model: "ollama:mxbai-embed-large (1024d, local)",
-          isolation: `${GBRAIN_HOME} (separate from personal vaults & app brains)`,
-          auth: false,
-        });
-      }
+  app.get('/api/status', (req, res) => {
+    res.json({
+      console_port: port,
+      gbrain_health: { status: "degraded", engine: "pglite", owned_by: "console" },
+      schema: "forgeos",
+      ollama: { status: "offline" },
+      embedding_model: "ollama:mxbai-embed-large (1024d, local)",
+      isolation: `${GBRAIN_HOME} (separate from personal vaults & app brains)`,
+      auth: false,
+    });
+  });
 
-      if (p === "/api/roles") {
-        const roles = [
-          { slug: "exec/ceo", role: "ceo", reports_to: "board", exists: false },
-          { slug: "board/board", role: "board", reports_to: "charter", exists: true },
-          { slug: "cto/cto", role: "cto", reports_to: "ceo", exists: true },
-          { slug: "coo/coo", role: "coo", reports_to: "ceo", exists: true },
-          { slug: "cfo/cfo", role: "cfo", reports_to: "ceo", exists: true },
-          { slug: "cmo/cmo", role: "cmo", reports_to: "ceo", exists: true },
-        ];
-        return Response.json({ roles });
-      }
+  app.get('/api/roles', (req, res) => {
+    const roles = [
+      { slug: "exec/ceo", role: "ceo", reports_to: "board", exists: false },
+      { slug: "board/board", role: "board", reports_to: "charter", exists: true },
+      { slug: "cto/cto", role: "cto", reports_to: "ceo", exists: true },
+      { slug: "coo/coo", role: "coo", reports_to: "ceo", exists: true },
+      { slug: "cfo/cfo", role: "cfo", reports_to: "ceo", exists: true },
+      { slug: "cmo/cmo", role: "cmo", reports_to: "ceo", exists: true },
+    ];
+    res.json({ roles });
+  });
 
-      if (p === "/api/search") {
-        const q = url.searchParams.get("q") ?? "";
-        return Response.json({ query: q, raw: "" });
-      }
+  app.get('/api/search', (req, res) => {
+    const q = (req.query.q as string) ?? "";
+    res.json({ query: q, raw: "" });
+  });
 
-      if (p === "/api/capture" && req.method === "POST") {
-        const body = await req.json().catch(() => ({}));
-        return Response.json({ slug: body.slug, out: "", err: "" });
-      }
+  app.post('/api/capture', (req, res) => {
+    const body = req.body ?? {};
+    res.json({ slug: body.slug, out: "", err: "" });
+  });
 
-      if (p.startsWith("/api/page/") && req.method === "GET") {
-        const slug = decodeURIComponent(p.slice("/api/page/".length));
-        return Response.json({ slug, body: "sample body" });
-      }
+  app.get('/api/page/:slug', (req, res) => {
+    const slug = decodeURIComponent(req.params.slug);
+    res.json({ slug, body: "sample body" });
+  });
 
-      if (p.startsWith("/api/page/") && req.method === "DELETE") {
-        const slug = decodeURIComponent(p.slice("/api/page/".length));
-        return Response.json({ slug, out: "deleted", err: "" });
-      }
+  app.delete('/api/page/:slug', (req, res) => {
+    const slug = decodeURIComponent(req.params.slug);
+    res.json({ slug, out: "deleted", err: "" });
+  });
 
-      if (p === "/api/schema") {
-        return Response.json({ active: "forgeos", types: {} });
-      }
+  app.get('/api/schema', (req, res) => {
+    res.json({ active: "forgeos", types: {} });
+  });
 
-      if (p === "/api/timeline") {
-        return Response.json({ timeline: [] });
-      }
+  app.get('/api/timeline', (req, res) => {
+    res.json({ timeline: [] });
+  });
 
-      if (p === "/api/compliance") {
-        return Response.json({ policies: [] });
-      }
+  app.get('/api/compliance', (req, res) => {
+    res.json({ policies: [] });
+  });
 
-      if (p === "/api/missions") {
-        return Response.json({ missions: [] });
-      }
+  app.get('/api/missions', (req, res) => {
+    res.json({ missions: [] });
+  });
 
-      if (p === "/api/federation") {
-        return Response.json({ root: "ForgeOS", model: "read-down", children: [] });
-      }
+  app.get('/api/federation', (req, res) => {
+    res.json({ root: "ForgeOS", model: "read-down", children: [] });
+  });
 
-      if (p === "/api/webhooks") {
-        return Response.json({ webhooks: [], deadLetter: [] });
-      }
+  app.get('/api/webhooks', (req, res) => {
+    res.json({ webhooks: [], deadLetter: [] });
+  });
 
-      if (p === "/api/ledger") {
-        const ledger = [
-          { id: "1", date: "2026-08-10", title: "Use Bun for brain-console runtime", type: "approval", mission: "platform-stability", role: "cto", outcome: "approved" },
-          { id: "2", date: "2026-08-09", title: "Port React UI from app.js", type: "proposal", mission: "forgeos-v2", role: "cfo", outcome: "pending" },
-          { id: "3", date: "2026-08-08", title: "Memory leak in federation route", type: "incident", mission: "platform-stability", role: "cto", outcome: "approved" },
-        ];
-        return Response.json({ ledger });
-      }
+  app.get('/api/ledger', (req, res) => {
+    const ledger = [
+      { id: "1", date: "2026-08-10", title: "Use Bun for brain-console runtime", type: "approval", mission: "platform-stability", role: "cto", outcome: "approved" },
+      { id: "2", date: "2026-08-09", title: "Port React UI from app.js", type: "proposal", mission: "forgeos-v2", role: "cfo", outcome: "pending" },
+      { id: "3", date: "2026-08-08", title: "Memory leak in federation route", type: "incident", mission: "platform-stability", role: "cto", outcome: "approved" },
+    ];
+    res.json({ ledger });
+  });
 
-      if (p === "/api/openapi") {
-        return Response.json({
-          openapi: "3.0.0",
-          info: { title: "ForgeOS Brain Console API", version: "1.0.0" },
-        });
-      }
+  app.get('/api/openapi', (req, res) => {
+    res.json({
+      openapi: "3.0.0",
+      info: { title: "ForgeOS Brain Console API", version: "1.0.0" },
+    });
+  });
 
-      return new Response("not found", { status: 404 });
-    },
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'not found' });
+    }
+    next();
+  });
+
+  app.use((req, res, next) => {
+    const asset = resolveAsset(req.path);
+    if (asset.path) {
+      return res.sendFile(asset.path, { headers: asset.headers });
+    }
+    next();
+  });
+
+  app.get('/', (req, res) => {
+    const indexAsset = resolveAsset('/index.html');
+    if (indexAsset.path) {
+      return res.sendFile(indexAsset.path, { headers: indexAsset.headers });
+    }
+    return res.status(404).send('not found');
+  });
+
+  app.listen(port, '127.0.0.1', () => {
+    console.log(`[react-express] on http://127.0.0.1:${port}`);
   });
 }
 
-const port = await ensureFreePort(PORT);
-
-try {
-  const server = startServer(port);
-  console.log(`[react-express] on http://127.0.0.1:${port}`);
-} catch (e: any) {
-  console.error(`[react-express] ${e?.message ?? e}`);
+main().catch((err) => {
+  console.error(`[react-express] ${err?.message ?? err}`);
   process.exit(1);
-}
+});
