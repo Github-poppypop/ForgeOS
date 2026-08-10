@@ -29,6 +29,20 @@ function content_type(p: string): string | null {
   return map[ext] ?? null;
 }
 
+function resolveAsset(p: string): { path?: string; headers?: Record<string, string> } {
+  const safe = path.normalize(p).replace(/^(\.\.(\/)?)+/, '');
+  for (const root of [DIST, PUBLIC]) {
+    const full = path.join(root, safe);
+    const rel = path.relative(root, full);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) continue;
+    if (fs.existsSync(full) && fs.statSync(full).isFile()) {
+      const ct = content_type(full) ?? 'application/octet-stream';
+      return { path: full, headers: { 'content-type': ct, 'x-content-type-options': 'nosniff' } };
+    }
+  }
+  return {};
+}
+
 async function killPort(port: number): Promise<boolean> {
   try {
     const { execSync } = await import("node:child_process");
@@ -39,6 +53,26 @@ async function killPort(port: number): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function ensureFreePort(port: number): Promise<number> {
+  const tryConnect = () => new Promise<boolean>((resolve) => {
+    const socket = net.connect(port, '127.0.0.1', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on('error', () => resolve(false));
+    socket.setTimeout(500, () => {
+      socket.destroy();
+      resolve(false);
+    });
+  });
+
+  if (await tryConnect()) {
+    await killPort(port);
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return port;
 }
 
 function startServer(port: number) {
@@ -53,21 +87,14 @@ function startServer(port: number) {
       const p = url.pathname;
 
       if (!p.startsWith("/api/")) {
-        const asset = path.join(DIST, p);
-        if (fs.existsSync(asset) && fs.statSync(asset).isFile()) {
-          return new Response(fs.readFileSync(asset), {
-            headers: { "content-type": contentType(p) || "application/octet-stream", "x-content-type-options": "nosniff" },
-          });
+        const asset = resolveAsset(p);
+        if (asset.path) {
+          return new Response(fs.readFileSync(asset.path), { headers: asset.headers });
         }
 
-        const index = path.join(DIST, "index.html");
-        if (fs.existsSync(index)) {
-          return new Response(fs.readFileSync(index), { headers: { "content-type": "text/html; charset=utf-8", "x-content-type-options": "nosniff" } });
-        }
-
-        const publicIndex = path.join(PUBLIC, "index.html");
-        if (fs.existsSync(publicIndex)) {
-          return new Response(fs.readFileSync(publicIndex), { headers: { "content-type": "text/html; charset=utf-8", "x-content-type-options": "nosniff" } });
+        const indexAsset = resolveAsset('/index.html');
+        if (indexAsset.path) {
+          return new Response(fs.readFileSync(indexAsset.path), { headers: indexAsset.headers });
         }
 
         return new Response("not found", { status: 404 });
@@ -152,26 +179,6 @@ function startServer(port: number) {
       return new Response("not found", { status: 404 });
     },
   });
-}
-
-async function ensureFreePort(port: number): Promise<number> {
-  const tryConnect = () => new Promise<boolean>((resolve) => {
-    const socket = net.connect(port, '127.0.0.1', () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.on('error', () => resolve(false));
-    socket.setTimeout(500, () => {
-      socket.destroy();
-      resolve(false);
-    });
-  });
-
-  if (await tryConnect()) {
-    await killPort(port);
-    await new Promise((r) => setTimeout(r, 1500));
-  }
-  return port;
 }
 
 const port = await ensureFreePort(PORT);
