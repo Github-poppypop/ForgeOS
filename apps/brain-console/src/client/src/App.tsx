@@ -288,75 +288,21 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
 
   return (
     <nav className="sidebar" aria-label="primary">
-      <div className="nav-category">
-        <div className="nav-category-header" onClick={() => toggle('Core')}>Core</div>
-        <div className="nav-category-items" style={{ maxHeight: collapsed['Core'] ? '0px' : '160px' }}>
-          {CATEGORIES[0].items.map((r) => (
-            <a key={r} href={r} className={route === r ? 'active' : ''} onClick={(e) => { e.preventDefault(); onNavigate(r); }}>{
-              r === '#/dashboard' ? 'Dashboard' :
-              r === '#/roles' ? 'Roles' :
-              r === '#/search' ? 'Search' :
-              'Capture'
-            }</a>
-          ))}
+      {CATEGORIES.map((cat) => (
+        <div key={cat.title} className={`nav-category ${collapsed[cat.title] ? 'collapsed' : ''}`}>
+          <div className="nav-category-header" onClick={() => toggle(cat.title)}>{cat.title}</div>
+          <div className="nav-category-items" style={{ maxHeight: collapsed[cat.title] ? '0px' : '200px' }}>
+            {cat.items.map((r) => {
+              const label = r.replace('#/', '').charAt(0).toUpperCase() + r.replace('#/', '').slice(1);
+              return (
+                <a key={r} href={r} className={route === r ? 'active' : ''} onClick={(e) => { e.preventDefault(); onNavigate(r); }}>
+                  {label}
+                </a>
+              );
+            })}
+          </div>
         </div>
-      </div>
-      <div className="nav-category">
-        <div className="nav-category-header" onClick={() => toggle('Knowledge')}>Knowledge</div>
-        <div className="nav-category-items" style={{ maxHeight: collapsed['Knowledge'] ? '0px' : '160px' }}>
-          {CATEGORIES[1].items.map((r) => (
-            <a key={r} href={r} className={route === r ? 'active' : ''} onClick={(e) => { e.preventDefault(); onNavigate(r); }}>{
-              r === '#/decisions' ? 'Decisions' :
-              r === '#/timeline' ? 'Timeline' :
-              r === '#/ledger' ? 'Ledger' :
-              'Vault'
-            }</a>
-          ))}
-        </div>
-      </div>
-      <div className="nav-category">
-        <div className="nav-category-header" onClick={() => toggle('Governance')}>Governance</div>
-        <div className="nav-category-items" style={{ maxHeight: collapsed['Governance'] ? '0px' : '220px' }}>
-          {CATEGORIES[2].items.map((r) => (
-            <a key={r} href={r} className={route === r ? 'active' : ''} onClick={(e) => { e.preventDefault(); onNavigate(r); }}>{
-              r === '#/missions' ? 'Missions' :
-              r === '#/federation' ? 'Federation' :
-              r === '#/audit' ? 'Audit' :
-              r === '#/schema' ? 'Schema' :
-              'Governance'
-            }</a>
-          ))}
-        </div>
-      </div>
-      <div className="nav-category">
-        <div className="nav-category-header" onClick={() => toggle('Platform')}>Platform</div>
-        <div className="nav-category-items" style={{ maxHeight: collapsed['Platform'] ? '0px' : '200px' }}>
-          {CATEGORIES[3].items.map((r) => (
-            <a key={r} href={r} className={route === r ? 'active' : ''} onClick={(e) => { e.preventDefault(); onNavigate(r); }}>{
-              r === '#/mcp' ? 'MCP' :
-              r === '#/plugins' ? 'Plugins' :
-              r === '#/marketplace' ? 'Marketplace' :
-              r === '#/workflows' ? 'Workflows' :
-              'Monitoring'
-            }</a>
-          ))}
-        </div>
-      </div>
-      <div className="nav-category">
-        <div className="nav-category-header" onClick={() => toggle('System')}>System</div>
-        <div className="nav-category-items" style={{ maxHeight: collapsed['System'] ? '0px' : '240px' }}>
-          {CATEGORIES[4].items.map((r) => (
-            <a key={r} href={r} className={route === r ? 'active' : ''} onClick={(e) => { e.preventDefault(); onNavigate(r); }}>{
-              r === '#/config' ? 'Config' :
-              r === '#/command' ? 'Command' :
-              r === '#/settings' ? 'Settings' :
-              r === '#/projects' ? 'Projects' :
-              r === '#/poolleague' ? 'PoolLeague' :
-              'Webhooks'
-            }</a>
-          ))}
-        </div>
-      </div>
+      ))}
     </nav>
   );
 }
@@ -370,17 +316,20 @@ function Navbar({ route, onNavigate, theme, setTheme, contrast, setContrast, onS
   setContrast: (t: string) => void;
   onShortcuts: () => void;
 }) {
+  const label = route ? route.replace('#/', '').charAt(0).toUpperCase() + route.replace('#/', '').slice(1) : 'Console';
   return (
     <header className="navbar">
       <button className="btn icon sm" aria-label="Menu" onClick={() => document.querySelector('.sidebar')?.classList.toggle('open')}>☰</button>
       <div className="wordmark">ForgeOS <span className="os">Console</span></div>
       <div className="spacer" />
+      <span className="caption" style={{ marginRight: 8 }}>{label}</span>
       <ThemeSwatches value={theme} onChange={setTheme} />
       <select
         data-tooltip="Contrast mode"
         value={contrast}
         onChange={(e) => setContrast(e.target.value)}
-        style={{ padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+        className="select"
+        style={{ width: 140 }}
       >
         {CONTRASTS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
       </select>
@@ -390,12 +339,24 @@ function Navbar({ route, onNavigate, theme, setTheme, contrast, setContrast, onS
 }
 
 function StatusBar({ status }: { status: { console_port?: number; gbrain_health?: { status?: string }; ollama?: { status?: string } } | null }) {
+  const brainOk = !!status?.gbrain_health?.status && status.gbrain_health.status !== 'degraded';
+  const ollamaOk = !!status?.ollama?.status && status.ollama.status !== 'offline';
   return (
     <div className="status-bar">
-      <StatusPill label={status?.gbrain_health?.status === 'ok' ? 'brain ok' : 'brain down'} ok={!!status?.gbrain_health?.status && status.gbrain_health.status !== 'degraded'} title="Core brain service" />
-      <StatusPill label={status?.ollama?.status === 'online' ? 'ollama' : 'ollama off'} ok={!!status?.ollama?.status && status.ollama.status !== 'offline'} title="Local LLM runtime" />
+      <StatusPill label={brainOk ? 'brain ok' : 'brain down'} ok={brainOk} title="Core brain service" />
+      <StatusPill label={ollamaOk ? 'ollama' : 'ollama off'} ok={ollamaOk} title="Local LLM runtime" />
       <span className="pill" data-tooltip="Console port">{status?.console_port ?? 7777}</span>
       <span className="muted" style={{ marginLeft: 'auto' }}>ForgeOS Brain Console • React/Express</span>
+    </div>
+  );
+}
+
+function StatCard({ title, value, subtitle, accent }: { title: string; value: string | number; subtitle?: string; accent?: boolean }) {
+  return (
+    <div className={`stat ${accent ? 'hl' : ''}`}>
+      <div className="h3">{title}</div>
+      <div className="value">{value}</div>
+      {subtitle ? <div className="muted caption">{subtitle}</div> : null}
     </div>
   );
 }
@@ -406,22 +367,24 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
   const ollamaOk = status?.ollama?.status === 'online' || status?.ollama?.status === 'up';
   return (
     <div className="fadein">
-      <div className="row" style={{ marginBottom: 24 }}>
+      <div className="row" style={{ marginBottom: 24, gap: 10 }}>
         <StatusPill label={brainOk ? 'brain ok' : 'brain down'} ok={brainOk} title="Core brain service is healthy" />
         <StatusPill label={ollamaOk ? 'ollama' : 'ollama off'} ok={ollamaOk} title="Local LLM runtime available" />
         <span className="pill" data-tooltip="Embedding model for semantic search"><span className="dot" /> {status?.embedding_model || '—'}</span>
         <span className="pill" data-tooltip="Loaded knowledge pack">pack {(status?.schema || '').match(/forgeos/) ? 'forgeos' : '—'}</span>
         {status?.auth ? <span className="pill warn" data-tooltip="Authentication system is enabled"><span className="dot" /> auth on</span> : null}
       </div>
-      <div className="grid cols-3">
-        <div className="card"><h2>Isolation</h2><p className="muted mono">{status?.isolation || '—'}</p></div>
-        <div className="card"><h2>Roles seeded</h2><p style={{ fontSize: 32, fontWeight: 800 }}>{seeded}/7</p></div>
-        <div className="card"><h2>Console port</h2><p className="mono">{status?.console_port || '—'}</p><p className="muted">owns PGLite at C:\\Projects\\ForgeOS</p></div>
-        <div className="card" id="health-card"><h2>Health</h2><p className="muted">loading…</p></div>
+
+      <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <StatCard title="Isolation" value={status?.isolation || '—'} subtitle="PGLite brain ownership" />
+        <StatCard title="Roles seeded" value={`${seeded}/7`} subtitle="C-suite roles" accent />
+        <StatCard title="Console port" value={status?.console_port || '—'} subtitle="Public API surface" />
+        <StatCard title="Health" value={brainOk ? 'Healthy' : 'Degraded'} subtitle={brainOk ? 'All systems nominal' : 'Check dependencies'} accent={!brainOk} />
       </div>
+
       <div className="card" style={{ marginTop: 16 }}>
         <h2>Quick actions</h2>
-        <div className="row">
+        <div className="row" style={{ gap: 8 }}>
           <a className="btn primary" href="#/roles" onClick={(e) => { e.preventDefault(); window.location.hash = '#/roles'; }}>Roles</a>
           <button className="btn secondary" data-tooltip="Reload dashboard data" onClick={() => window.location.reload()}>Refresh</button>
           <a className="btn secondary" href="#/search" data-tooltip="Search across all brains" onClick={(e) => { e.preventDefault(); window.location.hash = '#/search'; }}>Search</a>
@@ -430,6 +393,7 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
           <a className="btn secondary" href="#/embed" data-tooltip="Re-embed all knowledge" onClick={(e) => { e.preventDefault(); window.location.hash = '#/embed'; }}>Re-embed</a>
         </div>
       </div>
+
       <p className="muted" style={{ marginTop: 12 }}>live: connecting… <span data-tooltip="Time of last successful data fetch">(refreshed —)</span></p>
     </div>
   );
@@ -456,13 +420,15 @@ function Roles({ roles }: { roles: any }) {
               data-tooltip="Filter roles by name or slug"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              style={{ padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', width: 180 }}
+              className="input"
+              style={{ width: 220 }}
             />
             <select
               data-tooltip="Filter by seeding status"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              style={{ padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+              className="select"
+              style={{ width: 180 }}
             >
               <option value="">All statuses</option>
               <option value="seeded">Seeded</option>
@@ -479,8 +445,9 @@ function Roles({ roles }: { roles: any }) {
                   <h3>{r.role || r.slug}</h3>
                   <p className="muted mono">{r.slug}</p>
                 </div>
-                <span className={`pill ${r.exists ? 'ok' : 'bad'}`}>{r.exists ? 'seeded' : 'missing'}</span>
+                <span className={`tag ${r.exists ? 'success' : 'danger'}`}>{r.exists ? 'seeded' : 'missing'}</span>
               </div>
+              <p className="muted" style={{ marginTop: 6 }}>reports_to: {r.reports_to || '—'}</p>
             </div>
           ))}
         </div>
@@ -568,7 +535,7 @@ export default function App() {
                       <h3>{p.name}</h3>
                       <p className="muted mono">{p.id}</p>
                     </div>
-                    <span className={`pill ${p.status === 'active' ? 'ok' : 'bad'}`}>{p.status}</span>
+                    <span className={`tag ${p.status === 'active' ? 'success' : 'danger'}`}>{p.status}</span>
                   </div>
                   {p.lastCheck ? <p className="muted" style={{ marginTop: 8 }}>lastCheck: {p.lastCheck}</p> : null}
                   {'limit' in p ? <p className="muted mono">limit: {p.limit}/min</p> : null}
