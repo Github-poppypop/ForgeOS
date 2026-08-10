@@ -191,8 +191,8 @@ app.use((_req, res) => {
   res.status(404).json({ error: 'not found' });
 });
 
-function run(args: string[], opts?: { stdin?: string; timeoutMs?: number }): { ok: boolean; out: string; err: string; code: number } {
-  const { execSync } = require('node:child_process');
+async function run(args: string[], opts?: { stdin?: string; timeoutMs?: number }): Promise<{ ok: boolean; out: string; err: string; code: number }> {
+  const { execSync } = await import('node:child_process');
   const cmd = ['npx', 'gbrain', ...args];
   try {
     const out = execSync(cmd.join(' '), { encoding: 'utf8', cwd: path.resolve('..'), input: opts?.stdin, timeout: opts?.timeoutMs || 120000 });
