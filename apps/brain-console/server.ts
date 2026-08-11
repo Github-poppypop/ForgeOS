@@ -376,7 +376,6 @@ async function main() {
     { id: 'sdk', name: 'ForgeOS SDK', version: '1.0.0', owner: 'CTO', status: 'stable', runtime: 'node', health: 97, port: 0, capabilities: ['sdk'], updated: '2026-08-10' },
   ];
   const appsStore = loadStore<{ id: string; name: string; version: string; owner: string; status: string; runtime: string; health: number; port: number; capabilities: string[]; updated: string }[]>(defaultApps);
-  const appsPersist = () => saveStore({ appsStore });
 
   app.get('/api/apps', (req, res) => {
     res.json({ apps: appsStore.map(({ id, name, version, owner, status, runtime, health, port, capabilities, updated }) => ({ id, name, version, owner, status, runtime, health, port, capabilities, updated })) });
@@ -392,7 +391,7 @@ async function main() {
     const capabilities = Array.isArray(body.capabilities) ? body.capabilities : [];
     const entry = { id, name, version, owner, status: 'development', runtime, health: 0, port: body.port || 0, capabilities, updated: new Date().toISOString().split('T')[0] };
     appsStore.push(entry);
-    appsPersist();
+    persist();
     res.status(201).json({ app: entry });
   });
 
@@ -402,7 +401,7 @@ async function main() {
     const incoming = (req.body?.health ?? req.body?.score ?? req.body?.value) as number | undefined;
     if (Number.isFinite(incoming)) target.health = Math.min(100, Math.max(0, incoming));
     target.updated = new Date().toISOString().split('T')[0];
-    appsPersist();
+    persist();
     res.json({ id: target.id, health: target.health, updated: target.updated });
   });
 
@@ -432,6 +431,7 @@ async function main() {
   } as const;
 
   const selfImproveState = loadStore<typeof defaultSelfImprove>(defaultSelfImprove as any);
+  const persist = () => saveStore({ appsStore, selfImproveState });
   const selfImprovePersist = () => saveStore({ selfImproveState } as any);
 
   app.get('/api/self-improve', (req, res) => {
@@ -450,7 +450,7 @@ async function main() {
     selfImproveState.feedback.push(entry);
     selfImproveState.iterations += 1;
     selfImproveState.last_improvement = entry.date;
-    selfImprovePersist();
+    persist();
     res.status(201).json({ ok: true, received: entry });
   });
 
@@ -461,7 +461,7 @@ async function main() {
     const status = String(req.body?.status || '').trim();
     if (!status) return res.status(400).json({ error: 'status required' });
     item.status = status;
-    selfImprovePersist();
+    persist();
     res.json({ id: item.id, status: item.status });
   });
 
@@ -472,7 +472,7 @@ async function main() {
     if (event === 'error') selfImproveState.telemetry.errors_last_24h += 1;
     if (body.load_ms) selfImproveState.telemetry.avg_load_ms = Math.round((selfImproveState.telemetry.avg_load_ms * 0.9) + (Number(body.load_ms) * 0.1));
     if (body.latency_ms) selfImproveState.telemetry.api_latency_p95_ms = Math.round((selfImproveState.telemetry.api_latency_p95_ms * 0.9) + (Number(body.latency_ms) * 0.1));
-    selfImprovePersist();
+    persist();
     res.json({ ok: true, telemetry: selfImproveState.telemetry });
   });
 
@@ -491,7 +491,7 @@ async function main() {
     selfImproveState.last_improvement = new Date().toISOString();
     selfImproveState.learning_rate = Number((selfImproveState.learning_rate + 0.01).toFixed(2));
     selfImproveState.confidence = Number((selfImproveState.confidence + 0.005).toFixed(3));
-    selfImprovePersist();
+    persist();
     res.json({ ok: true, learning_rate: selfImproveState.learning_rate, confidence: selfImproveState.confidence, iterations: selfImproveState.iterations, last_improvement: selfImproveState.last_improvement, suggestions: selfImproveState.suggestions });
   });
 
