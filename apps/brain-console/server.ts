@@ -9,6 +9,31 @@ const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC = path.join(ROOT, "public");
 const DIST = path.join(ROOT, "dist");
 const GBRAIN_HOME = "C:\\Projects\\ForgeOS";
+const DATA_DIR = path.join(ROOT, "data");
+const DATA_FILE = path.join(DATA_DIR, "store.json");
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function loadStore<T>(fallback: T): T {
+  try {
+    ensureDataDir();
+    if (!fs.existsSync(DATA_FILE)) return fallback;
+    const raw = fs.readFileSync(DATA_FILE, "utf8");
+    const parsed = JSON.parse(raw);
+    return { ...fallback, ...parsed };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveStore(store: Record<string, unknown>) {
+  ensureDataDir();
+  const tmp = `${DATA_FILE}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(store, null, 2), "utf8");
+  fs.renameSync(tmp, DATA_FILE);
+}
 
 function content_type(p: string): string | null {
   const ext = path.extname(p).toLowerCase();
@@ -155,23 +180,59 @@ async function main() {
   });
 
   app.get('/api/timeline', (req, res) => {
-    res.json({ timeline: [] });
+    res.json({
+      timeline: [
+        { id: 1, date: '2026-08-01', title: 'Console launched', status: 'done', owner: 'CTO' },
+        { id: 2, date: '2026-08-05', title: 'Self-improve added', status: 'done', owner: 'CPO' },
+        { id: 3, date: '2026-08-09', title: 'App registry shipped', status: 'done', owner: 'CTO' },
+        { id: 4, date: '2026-08-11', title: 'Dashboard polish', status: 'in-progress', owner: 'CPO' },
+        { id: 5, date: '2026-08-14', title: 'Developer onboarding', status: 'proposed', owner: 'CTO' },
+      ],
+    });
   });
 
   app.get('/api/compliance', (req, res) => {
-    res.json({ policies: [] });
+    res.json({
+      policies: [
+        { id: 1, name: 'Vault encryption', status: 'active', category: 'security', lastCheck: '2026-08-10' },
+        { id: 2, name: 'Telemetry consent', status: 'active', category: 'privacy', lastCheck: '2026-08-09' },
+        { id: 3, name: 'Plugin sandboxing', status: 'inactive', category: 'runtime', lastCheck: '2026-08-08' },
+      ],
+    });
   });
 
   app.get('/api/missions', (req, res) => {
-    res.json({ missions: [] });
+    res.json({
+      missions: [
+        { id: 1, title: 'Ship self-improvement loop', status: 'active', phase: 'platform', owner: 'CPO', progress: 82, risk: 'medium', budget: 12000, teamSize: 4 },
+        { id: 2, title: 'Developer onboarding', status: 'proposed', phase: 'growth', owner: 'CTO', progress: 35, risk: 'low', budget: 5000, teamSize: 2 },
+        { id: 3, title: 'Sales demo refresh', status: 'in-progress', phase: 'outreach', owner: 'COO', progress: 60, risk: 'medium', budget: 3000, teamSize: 1 },
+      ],
+    });
   });
 
   app.get('/api/federation', (req, res) => {
-    res.json({ root: "ForgeOS", model: "read-down", children: [] });
+    res.json({
+      root: 'ForgeOS',
+      model: 'read-down',
+      children: [
+        { id: 1, name: 'Brain Console', status: 'synced' },
+        { id: 2, name: 'LifeOS', status: 'pending' },
+        { id: 3, name: 'First App', status: 'synced' },
+      ],
+    });
   });
 
   app.get('/api/webhooks', (req, res) => {
-    res.json({ webhooks: [], deadLetter: [] });
+    res.json({
+      webhooks: [
+        { id: 1, event: 'app.registered', url: 'http://127.0.0.1:7777/hooks', retries: 0, last: '2026-08-11T10:00:00.000Z' },
+        { id: 2, event: 'feedback.submitted', url: 'http://127.0.0.1:7777/hooks', retries: 1, last: '2026-08-11T09:00:00.000Z' },
+      ],
+      deadLetter: [
+        { id: 1, event: 'telemetry.batch', url: 'http://127.0.0.1:7777/hooks', reason: 'timeout' },
+      ],
+    });
   });
 
   app.get('/api/ledger', (req, res) => {
@@ -191,19 +252,40 @@ async function main() {
   });
 
   app.get('/api/mcp', (req, res) => {
-    res.json({ tools: [], transports: [] });
+    res.json({
+      tools: [
+        { id: 1, name: 'brain.query', description: 'Search brains and pages', endpoint: 'local' },
+        { id: 2, name: 'app.register', description: 'Register new app manifest', endpoint: 'local' },
+      ],
+      transports: [
+        { id: 1, name: 'stdio', endpoint: 'local', status: 'open' },
+        { id: 2, name: 'websocket', endpoint: 'ws://127.0.0.1:7777/ws', status: 'open' },
+      ],
+    });
   });
 
   app.get('/api/vault', (req, res) => {
-    res.json({ items: [], encrypted: true });
+    res.json({
+      items: [
+        { id: 1, kind: 'api-key', name: 'openai-key', updated: '2026-08-10' },
+        { id: 2, kind: 'secret', name: 'webhook-signing', updated: '2026-08-09' },
+      ],
+      encrypted: true,
+    });
   });
 
   app.get('/api/embed', (req, res) => {
-    res.json({ queued: 0, model: "ollama:mxbai-embed-large" });
+    res.json({ queued: 3, model: 'ollama:mxbai-embed-large', dimensions: 1024 });
   });
 
   app.get('/api/audit', (req, res) => {
-    res.json({ events: [] });
+    res.json({
+      events: [
+        { id: 1, action: 'app.register', actor: 'CTO', target: 'first-app', ts: '2026-08-11T10:00:00.000Z' },
+        { id: 2, action: 'feedback.submit', actor: 'system', target: 'self-improve', ts: '2026-08-11T09:00:00.000Z' },
+        { id: 3, action: 'telemetry.page_view', actor: 'system', target: '/dashboard', ts: '2026-08-11T08:00:00.000Z' },
+      ],
+    });
   });
 
   app.get('/api/config', (req, res) => {
@@ -220,40 +302,81 @@ async function main() {
   });
 
   app.get('/api/monitoring', (req, res) => {
-    res.json({ cpu: 0, memory: 0, uptime: 0 });
+    const cpu = 24;
+    const memory = 182;
+    const uptime = process.uptime();
+    res.json({ cpu, memory, uptime });
   });
 
   app.get('/api/workflows', (req, res) => {
-    res.json({ workflows: [] });
+    res.json({
+      workflows: [
+        { id: 1, name: 'Deploy console', status: 'running', trigger: 'push', runs: 18, progress: 60 },
+        { id: 2, name: 'Embed pipeline', status: 'failed', trigger: 'schedule', runs: 5, progress: 0 },
+      ],
+    });
   });
 
   app.get('/api/marketplace', (req, res) => {
-    res.json({ packs: [] });
+    res.json({
+      packs: [
+        { id: 1, name: 'forgeos-core', category: 'tool', installed: true, updateAvailable: false, downloads: 128, rating: 4.8, version: '1.2.0' },
+        { id: 2, name: 'theme-obsidian', category: 'theme', installed: true, updateAvailable: true, downloads: 84, rating: 4.4, version: '0.9.1' },
+        { id: 3, name: 'embed-worker', category: 'plugin', installed: false, updateAvailable: false, downloads: 41, rating: 4.1, version: '0.3.0' },
+      ],
+    });
   });
 
   app.get('/api/plugins', (req, res) => {
-    res.json({ plugins: [] });
+    res.json({
+      plugins: [
+        { id: 1, name: 'forgeos-ui', enabled: true, version: '1.0.0', error: null },
+        { id: 2, name: 'embed-proxy', enabled: false, version: '0.4.0', error: 'missing dependency' },
+      ],
+    });
   });
 
   app.get('/api/projects', (req, res) => {
-    res.json({ projects: [] });
+    res.json({
+      projects: [
+        { id: 1, name: 'ForgeOS', owner: 'CTO', progress: 92, tasks: 14, active: true, archived: false, updated: '2026-08-11' },
+        { id: 2, name: 'Brain Console', owner: 'CPO', progress: 76, tasks: 9, active: true, archived: false, updated: '2026-08-10' },
+        { id: 3, name: 'LifeOS', owner: 'CTO', progress: 40, tasks: 6, active: true, archived: false, updated: '2026-08-09' },
+      ],
+    });
   });
 
   app.get('/api/settings', (req, res) => {
-    res.json({ auth: false, telemetry: false });
+    res.json({ auth: false, telemetry: false, theme: 'dark', locale: 'en', retention_days: 30 });
   });
 
   app.get('/api/poolleague', (req, res) => {
-    res.json({ tables: [], players: [], matches: [] });
+    res.json({
+      tables: [
+        { id: 1, name: 'Table 1', status: 'open' },
+        { id: 2, name: 'Table 2', status: 'occupied' },
+      ],
+      players: [
+        { id: 1, name: 'Atlas', club: 'Forge', rank: 'A', wins: 18, losses: 4 },
+        { id: 2, name: 'Nova', club: 'Vault', rank: 'B', wins: 14, losses: 9 },
+        { id: 3, name: 'Rune', club: 'Core', rank: 'A', wins: 12, losses: 6 },
+      ],
+      matches: [
+        { id: 1, table: 'Table 1', players: ['Atlas', 'Nova'], score: [7, 5], status: 'completed' },
+        { id: 2, table: 'Table 2', players: ['Rune', 'Atlas'], score: [3, 7], status: 'completed' },
+      ],
+    });
   });
 
-  const appsStore = [
+  const defaultApps = [
     { id: 'brain-console', name: 'Brain Console', version: '1.0.0', owner: 'CTO', status: 'running', runtime: 'node', health: 94, port: 7777, capabilities: ['display', 'forgeos-console-link'], updated: '2026-08-11' },
     { id: 'lifeos', name: 'LifeOS', version: '1.0.0', owner: 'CPO', status: 'design', runtime: 'node', health: 72, port: 3001, capabilities: ['brain-dna', 'memory-engine', 'mission-engine'], updated: '2026-08-10' },
     { id: 'first-app', name: 'First App', version: '0.1.0', owner: 'CTO', status: 'development', runtime: 'static', health: 88, port: 4173, capabilities: ['display'], updated: '2026-08-09' },
     { id: 'poolleague', name: 'PoolLeague', version: '1.0.0', owner: 'COO', status: 'running', runtime: 'node', health: 91, port: 3002, capabilities: ['display'], updated: '2026-08-11' },
     { id: 'sdk', name: 'ForgeOS SDK', version: '1.0.0', owner: 'CTO', status: 'stable', runtime: 'node', health: 97, port: 0, capabilities: ['sdk'], updated: '2026-08-10' },
   ];
+  const appsStore = loadStore<{ id: string; name: string; version: string; owner: string; status: string; runtime: string; health: number; port: number; capabilities: string[]; updated: string }[]>(defaultApps);
+  const appsPersist = () => saveStore({ appsStore });
 
   app.get('/api/apps', (req, res) => {
     res.json({ apps: appsStore.map(({ id, name, version, owner, status, runtime, health, port, capabilities, updated }) => ({ id, name, version, owner, status, runtime, health, port, capabilities, updated })) });
@@ -269,6 +392,7 @@ async function main() {
     const capabilities = Array.isArray(body.capabilities) ? body.capabilities : [];
     const entry = { id, name, version, owner, status: 'development', runtime, health: 0, port: body.port || 0, capabilities, updated: new Date().toISOString().split('T')[0] };
     appsStore.push(entry);
+    appsPersist();
     res.status(201).json({ app: entry });
   });
 
@@ -278,10 +402,11 @@ async function main() {
     const incoming = (req.body?.health ?? req.body?.score ?? req.body?.value) as number | undefined;
     if (Number.isFinite(incoming)) target.health = Math.min(100, Math.max(0, incoming));
     target.updated = new Date().toISOString().split('T')[0];
+    appsPersist();
     res.json({ id: target.id, health: target.health, updated: target.updated });
   });
 
-  const selfImproveState = {
+  const defaultSelfImprove = {
     learning_rate: 0.87,
     confidence: 0.91,
     iterations: 142,
@@ -304,7 +429,10 @@ async function main() {
       { id: 2, source: 'user', rating: 5, comment: 'Love the new theme system', date: '2026-08-11' },
       { id: 3, source: 'system', rating: 3, comment: 'Slow on mobile', date: '2026-08-09' },
     ] as any[],
-  };
+  } as const;
+
+  const selfImproveState = loadStore<typeof defaultSelfImprove>(defaultSelfImprove as any);
+  const selfImprovePersist = () => saveStore({ selfImproveState } as any);
 
   app.get('/api/self-improve', (req, res) => {
     res.json({ ...selfImproveState, feedback: [...selfImproveState.feedback] });
@@ -322,6 +450,7 @@ async function main() {
     selfImproveState.feedback.push(entry);
     selfImproveState.iterations += 1;
     selfImproveState.last_improvement = entry.date;
+    selfImprovePersist();
     res.status(201).json({ ok: true, received: entry });
   });
 
@@ -332,6 +461,7 @@ async function main() {
     const status = String(req.body?.status || '').trim();
     if (!status) return res.status(400).json({ error: 'status required' });
     item.status = status;
+    selfImprovePersist();
     res.json({ id: item.id, status: item.status });
   });
 
@@ -342,6 +472,7 @@ async function main() {
     if (event === 'error') selfImproveState.telemetry.errors_last_24h += 1;
     if (body.load_ms) selfImproveState.telemetry.avg_load_ms = Math.round((selfImproveState.telemetry.avg_load_ms * 0.9) + (Number(body.load_ms) * 0.1));
     if (body.latency_ms) selfImproveState.telemetry.api_latency_p95_ms = Math.round((selfImproveState.telemetry.api_latency_p95_ms * 0.9) + (Number(body.latency_ms) * 0.1));
+    selfImprovePersist();
     res.json({ ok: true, telemetry: selfImproveState.telemetry });
   });
 
@@ -360,6 +491,7 @@ async function main() {
     selfImproveState.last_improvement = new Date().toISOString();
     selfImproveState.learning_rate = Number((selfImproveState.learning_rate + 0.01).toFixed(2));
     selfImproveState.confidence = Number((selfImproveState.confidence + 0.005).toFixed(3));
+    selfImprovePersist();
     res.json({ ok: true, learning_rate: selfImproveState.learning_rate, confidence: selfImproveState.confidence, iterations: selfImproveState.iterations, last_improvement: selfImproveState.last_improvement, suggestions: selfImproveState.suggestions });
   });
 

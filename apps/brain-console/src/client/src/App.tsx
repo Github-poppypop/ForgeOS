@@ -97,6 +97,7 @@ const CATEGORIES = [
   { title: 'Governance', items: ['#/missions', '#/federation', '#/audit', '#/schema', '#/governance'] },
   { title: 'Platform', items: ['#/mcp', '#/plugins', '#/marketplace', '#/workflows', '#/monitoring'] },
   { title: 'System', items: ['#/config', '#/command', '#/settings', '#/projects', '#/poolleague', '#/webhooks', '#/apps'] },
+  { title: 'Developers', items: ['#/developers'] },
 ];
 
 function useHashRoute() {
@@ -2219,6 +2220,50 @@ function AppStorePanel() {
   );
 }
 
+function DeveloperPanel() {
+  return (
+    <div className="fadein">
+      <h1>Developer onboarding</h1>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Onboarding checklist</h2>
+        <ul className="stack" style={{ marginTop: 10 }}>
+          <li className="card" style={{ padding: 12 }}>Run the local console on <span className="mono">:7777</span></li>
+          <li className="card" style={{ padding: 12 }}>Open <span className="mono">#/apps</span> and create an app manifest</li>
+          <li className="card" style={{ padding: 12 }}>Use <span className="mono">/api/page/:slug</span> to create app pages</li>
+          <li className="card" style={{ padding: 12 }}>Send telemetry events to <span className="mono">/api/telemetry</span></li>
+          <li className="card" style={{ padding: 12 }}>Submit feedback via <span className="mono">/api/feedback</span></li>
+        </ul>
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>API playground</h2>
+        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <a className="btn secondary" href="#/apps" onClick={(e) => { e.preventDefault(); window.location.hash = '#/apps'; }}>App registry</a>
+          <a className="btn secondary" href="#/self-improve" onClick={(e) => { e.preventDefault(); window.location.hash = '#/self-improve'; }}>Self-improve</a>
+          <a className="btn secondary" href="#/monitoring" onClick={(e) => { e.preventDefault(); window.location.hash = '#/monitoring'; }}>Monitoring</a>
+          <a className="btn secondary" href="https://developer.mozilla.org/en-US/docs/Learn/Server-side/Express_Nodejs" target="_blank" rel="noreferrer">Express docs</a>
+        </div>
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>App templates</h2>
+        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <span className="pill">Display App — static UI shell</span>
+          <span className="pill">API Service — Node backend</span>
+          <span className="pill">Embedding Worker — background job</span>
+          <span className="pill">Plugin — SDK extension</span>
+        </div>
+      </div>
+      <div className="card">
+        <h2>Contribute to self-improvement</h2>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Use <span className="mono">/api/telemetry</span> to report page views and load times.
+          Submit improvement feedback with <span className="mono">/api/feedback</span>.
+          Trigger the learning loop with <span className="mono">/api/self-improve/learning-loop</span>.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function SelfImprovePanel() {
   const { data, reload } = useApi<any>('/api/self-improve');
   const [feedback, setFeedback] = useState('');
@@ -2399,6 +2444,8 @@ export default function App() {
         return <WebhooksPanel />;
       case '#/apps':
         return <AppStorePanel />;
+      case '#/developers':
+        return <DeveloperPanel />;
       case '#/self-improve':
         return <SelfImprovePanel />;
       case '#/mcp':
