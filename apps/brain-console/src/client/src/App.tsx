@@ -2323,6 +2323,11 @@ export default function App() {
   const route = useMemo(() => matchRoute(hash), [hash]);
   const { theme, setTheme, contrast, setContrast } = useTheme();
   const { showShortcuts, setShowShortcuts } = useShortcuts();
+
+  useEffect(() => {
+    api('/api/telemetry', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'page_view', route: route || '#/dashboard', load_ms: performance?.timeOrigin ? Math.round(performance.now()) : 0 }) }).catch(() => {});
+  }, [route]);
+
   const statusApi = useApi('/api/status');
   const rolesApi = useApi('/api/roles');
   const searchApi = useApi(`/api/search?q=${encodeURIComponent((new URLSearchParams(window.location.hash.split('?')[1] || '')).get('q') || '')}`);
