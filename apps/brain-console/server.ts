@@ -30,6 +30,15 @@ function content_type(p: string): string | null {
   return map[ext] ?? null;
 }
 
+function cache_headers(path: string, headers: Record<string, string>) {
+  if (path.endsWith('.html')) {
+    headers['cache-control'] = 'no-store, no-cache, must-revalidate, max-age=0';
+  } else if (path.endsWith('.js') || path.endsWith('.css')) {
+    headers['cache-control'] = 'public, max-age=0, must-revalidate';
+  }
+  return headers;
+}
+
 function resolveAsset(p: string): { path?: string; headers?: Record<string, string> } {
   const safe = path.normalize(p).replace(/^(\.\.(\/)?)+/, '');
   for (const root of [DIST, PUBLIC]) {
@@ -236,6 +245,49 @@ async function main() {
 
   app.get('/api/poolleague', (req, res) => {
     res.json({ tables: [], players: [] });
+  });
+
+  app.get('/api/apps', (req, res) => {
+    const apps = [
+      { id: 'brain-console', name: 'Brain Console', version: '1.0.0', owner: 'CTO', status: 'running', runtime: 'node', health: 94, port: 7777, capabilities: ['display', 'forgeos-console-link'], updated: '2026-08-11' },
+      { id: 'lifeos', name: 'LifeOS', version: '1.0.0', owner: 'CPO', status: 'design', runtime: 'node', health: 72, port: 3001, capabilities: ['brain-dna', 'memory-engine', 'mission-engine'], updated: '2026-08-10' },
+      { id: 'first-app', name: 'First App', version: '0.1.0', owner: 'CTO', status: 'development', runtime: 'static', health: 88, port: 4173, capabilities: ['display'], updated: '2026-08-09' },
+      { id: 'poolleague', name: 'PoolLeague', version: '1.0.0', owner: 'COO', status: 'running', runtime: 'node', health: 91, port: 3002, capabilities: ['display'], updated: '2026-08-11' },
+      { id: 'sdk', name: 'ForgeOS SDK', version: '1.0.0', owner: 'CTO', status: 'stable', runtime: 'node', health: 97, port: 0, capabilities: ['sdk'], updated: '2026-08-10' },
+    ];
+    res.json({ apps });
+  });
+
+  app.get('/api/self-improve', (req, res) => {
+    res.json({
+      learning_rate: 0.87,
+      confidence: 0.91,
+      iterations: 142,
+      last_improvement: '2026-08-11T00:00:00.000Z',
+      suggestions: [
+        { id: 1, title: 'Add caching layer', impact: 'high', effort: 'medium', status: 'proposed' },
+        { id: 2, title: 'Improve error messages', impact: 'medium', effort: 'low', status: 'in-progress' },
+        { id: 3, title: 'Add health checks', impact: 'high', effort: 'low', status: 'done' },
+        { id: 4, title: 'Optimize bundle size', impact: 'medium', effort: 'high', status: 'proposed' },
+        { id: 5, title: 'Add dark mode toggle', impact: 'low', effort: 'low', status: 'done' },
+      ],
+      telemetry: {
+        page_views: 1240,
+        errors_last_24h: 3,
+        avg_load_ms: 210,
+        api_latency_p95_ms: 145,
+      },
+      feedback: [
+        { id: 1, source: 'user', rating: 4, comment: 'Great dashboard', date: '2026-08-10' },
+        { id: 2, source: 'user', rating: 5, comment: 'Love the new theme system', date: '2026-08-11' },
+        { id: 3, source: 'system', rating: 3, comment: 'Slow on mobile', date: '2026-08-09' },
+      ],
+    });
+  });
+
+  app.post('/api/feedback', (req, res) => {
+    const body = req.body ?? {};
+    res.json({ ok: true, received: body });
   });
 
   app.use((req, res, next) => {

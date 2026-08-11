@@ -26,7 +26,9 @@ type Route =
   | '#/projects'
   | '#/settings'
   | '#/poolleague'
-  | '#/webhooks';
+  | '#/webhooks'
+  | '#/apps'
+  | '#/self-improve';
 
 const ROUTES: Route[] = [
   '#/dashboard',
@@ -54,6 +56,8 @@ const ROUTES: Route[] = [
   '#/settings',
   '#/poolleague',
   '#/webhooks',
+  '#/apps',
+  '#/self-improve',
 ];
 
 const THEME_PREFIX = 'forgeos-theme-';
@@ -82,6 +86,7 @@ const SHORTCUTS: [string, string, string][] = [
   ['r', 'Roles', 'Go to roles'],
   ['s', 'Search', 'Go to search'],
   ['c', 'Capture', 'Go to capture'],
+  ['a', 'Apps', 'Go to app store'],
   ['?', 'Shortcuts', 'Show shortcuts'],
   ['Esc', 'Close', 'Close dialogs/overlays'],
 ];
@@ -91,7 +96,7 @@ const CATEGORIES = [
   { title: 'Knowledge', items: ['#/decisions', '#/timeline', '#/ledger', '#/vault'] },
   { title: 'Governance', items: ['#/missions', '#/federation', '#/audit', '#/schema', '#/governance'] },
   { title: 'Platform', items: ['#/mcp', '#/plugins', '#/marketplace', '#/workflows', '#/monitoring'] },
-  { title: 'System', items: ['#/config', '#/command', '#/settings', '#/projects', '#/poolleague', '#/webhooks'] },
+  { title: 'System', items: ['#/config', '#/command', '#/settings', '#/projects', '#/poolleague', '#/webhooks', '#/apps'] },
 ];
 
 function useHashRoute() {
@@ -1904,6 +1909,188 @@ function PoolLeaguePanel() {
   );
 }
 
+function AppStorePanel() {
+  const apps = [
+    { id: 'brain-console', name: 'Brain Console', version: '1.0.0', owner: 'CTO', status: 'running', runtime: 'node', health: 94, port: 7777, capabilities: ['display', 'forgeos-console-link'], updated: '2026-08-11' },
+    { id: 'lifeos', name: 'LifeOS', version: '1.0.0', owner: 'CPO', status: 'design', runtime: 'node', health: 72, port: 3001, capabilities: ['brain-dna', 'memory-engine', 'mission-engine'], updated: '2026-08-10' },
+    { id: 'first-app', name: 'First App', version: '0.1.0', owner: 'CTO', status: 'development', runtime: 'static', health: 88, port: 4173, capabilities: ['display'], updated: '2026-08-09' },
+    { id: 'poolleague', name: 'PoolLeague', version: '1.0.0', owner: 'COO', status: 'running', runtime: 'node', health: 91, port: 3002, capabilities: ['display'], updated: '2026-08-11' },
+    { id: 'sdk', name: 'ForgeOS SDK', version: '1.0.0', owner: 'CTO', status: 'stable', runtime: 'node', health: 97, port: 0, capabilities: ['sdk'], updated: '2026-08-10' },
+  ];
+  const runtimeCounts = apps.reduce<Record<string, number>>((acc, app) => { acc[app.runtime] = (acc[app.runtime] || 0) + 1; return acc; }, {});
+  const statusCounts = apps.reduce<Record<string, number>>((acc, app) => { acc[app.status] = (acc[app.status] || 0) + 1; return acc; }, {});
+  const owners = apps.reduce<Record<string, number>>((acc, app) => { acc[app.owner] = (acc[app.owner] || 0) + 1; return acc; }, {});
+  return (
+    <div className="fadein">
+      <h1>App Store</h1>
+      <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <StatCard title="Apps" value={apps.length} subtitle="registered" />
+        <StatCard title="Running" value={apps.filter((a) => a.status === 'running').length} subtitle="live" accent />
+        <StatCard title="Stable" value={apps.filter((a) => a.status === 'stable').length} subtitle="ready" />
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Status</h2>
+        <DonutChart data={Object.entries(statusCounts).map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }))} size={160} />
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Runtime distribution</h2>
+        <BarChart data={Object.entries(runtimeCounts).map(([label, value]) => ({ label, value }))} height={110} />
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Ownership</h2>
+        <DonutChart data={Object.entries(owners).map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }))} size={160} />
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>System health</h2>
+        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          {apps.filter((a) => a.port > 0).map((a) => (
+            <GaugeChart key={a.id} value={a.health} label={a.name} />
+          ))}
+        </div>
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Dependency graph</h2>
+        <div style={{ marginTop: 10 }}>
+          <svg viewBox="0 0 700 220" style={{ width: '100%', height: 'auto' }}>
+            {apps.map((a, i) => {
+              const x = 60 + (i % 3) * 220;
+              const y = 50 + Math.floor(i / 3) * 110;
+              return (
+                <g key={a.id}>
+                  <rect x={x} y={y} width="180" height="64" rx="10" className="node leaf" />
+                  <text x={x + 10} y={y + 20} className="node-label">{a.name}</text>
+                  <text x={x + 10} y={y + 38} className="node-label" style={{ fontSize: 10 }}>{a.version} • {a.runtime}</text>
+                  <text x={x + 10} y={y + 54} className="node-label" style={{ fontSize: 10, fill: 'var(--text-dim)' }}>{a.owner} • {a.status}</text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      </div>
+      <div className="card">
+        <h2>Compatibility matrix</h2>
+        <div style={{ overflowX: 'auto', marginTop: 10 }}>
+          <table className="tbl">
+            <thead>
+              <tr><th>App</th><th>Version</th><th>Runtime</th><th>Port</th><th>Status</th><th>Health</th><th>Owner</th><th>Updated</th></tr>
+            </thead>
+            <tbody>
+              {apps.map((a) => (
+                <tr key={a.id}>
+                  <td className="mono">{a.id}</td>
+                  <td><span className="pill">{a.version}</span></td>
+                  <td><span className="pill">{a.runtime}</span></td>
+                  <td className="mono">{a.port || '—'}</td>
+                  <td><span className={cn('tag', a.status === 'running' ? 'success' : a.status === 'stable' ? 'info' : 'warn')}>{a.status}</span></td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className="progress" style={{ flex: 1 }}><i style={{ width: `${a.health}%` }} /></div>
+                      <span className="mono">{a.health}%</span>
+                    </div>
+                  </td>
+                  <td>{a.owner}</td>
+                  <td className="mono">{a.updated}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SelfImprovePanel() {
+  const { data } = useApi<any>('/api/self-improve');
+  const [feedback, setFeedback] = useState('');
+  const [rating, setRating] = useState(5);
+  const suggestions = (data?.suggestions || []) as any[];
+  const feedbacks = (data?.feedback || []) as any[];
+  const telemetry = data?.telemetry || {};
+  const learningRate = Math.round((data?.learning_rate || 0) * 100);
+  const confidence = Math.round((data?.confidence || 0) * 100);
+  const submit = async () => {
+    await api('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rating, comment: feedback, source: 'user', date: new Date().toISOString().split('T')[0] }) });
+    setFeedback('');
+    setRating(5);
+    window.location.reload();
+  };
+  return (
+    <div className="fadein">
+      <h1>Self Improve</h1>
+      <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <StatCard title="Learning rate" value={`${learningRate}%`} subtitle="model confidence" accent />
+        <StatCard title="Confidence" value={`${confidence}%`} subtitle="prediction accuracy" />
+        <StatCard title="Iterations" value={data?.iterations ?? 0} subtitle="improvement cycles" accent />
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Telemetry</h2>
+        <div className="stats cols-3" style={{ marginTop: 10 }}>
+          <StatCard title="Page views" value={telemetry.page_views ?? 0} subtitle="total" />
+          <StatCard title="Errors (24h)" value={telemetry.errors_last_24h ?? 0} subtitle="last day" danger={!!telemetry.errors_last_24h} />
+          <StatCard title="P95 latency" value={`${telemetry.api_latency_p95_ms ?? 0}ms`} subtitle="API" />
+          <StatCard title="Avg load" value={`${telemetry.avg_load_ms ?? 0}ms`} subtitle="page" />
+          <StatCard title="Last improvement" value={new Date(data?.last_improvement || Date.now()).toLocaleDateString()} subtitle="auto-update" accent />
+        </div>
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Learning progress</h2>
+        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <GaugeChart value={learningRate} label="Learning" />
+          <GaugeChart value={confidence} label="Confidence" />
+          <GaugeChart value={Math.min(100, ((data?.iterations || 0) / 200) * 100)} label="Iterations" />
+        </div>
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Improvement suggestions</h2>
+        <div className="stack" style={{ marginTop: 10 }}>
+          {suggestions.map((s) => (
+            <div key={s.id} className="card" style={{ padding: 12 }}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <div className="h3">{s.title}</div>
+                  <div className="row" style={{ marginTop: 6, gap: 8 }}>
+                    <span className={cn('tag', s.impact === 'high' ? 'success' : s.impact === 'medium' ? 'warn' : 'info')}>{s.impact} impact</span>
+                    <span className={cn('tag', s.effort === 'low' ? 'success' : s.effort === 'medium' ? 'warn' : 'danger')}>{s.effort} effort</span>
+                  </div>
+                </div>
+                <span className={cn('tag', s.status === 'done' ? 'success' : s.status === 'in-progress' ? 'warn' : 'info')}>{s.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Feedback</h2>
+        <div className="stack" style={{ marginTop: 10 }}>
+          {feedbacks.map((f) => (
+            <div key={f.id} className="card" style={{ padding: 12 }}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <div className="h3">{f.source} feedback</div>
+                  <p className="muted mono">{f.date}</p>
+                </div>
+                <span className="pill">{f.rating}/5</span>
+              </div>
+              <p className="muted" style={{ marginTop: 8 }}>{f.comment}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card">
+        <h2>Submit feedback</h2>
+        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="Your feedback..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+          <select className="select" style={{ width: 140 }} value={rating} onChange={(e) => setRating(Number(e.target.value))}>
+            {[5, 4, 3, 2, 1].map((r) => <option key={r} value={r}>{r}/5</option>)}
+          </select>
+          <button className="btn primary" onClick={submit} disabled={!feedback.trim()}>Submit</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TimelineChart({ items }: { items: { date: string; title: string; status: string }[] }) {
   return (
     <div className="timeline">
@@ -1976,6 +2163,10 @@ export default function App() {
         return <FederationPanel />;
       case '#/webhooks':
         return <WebhooksPanel />;
+      case '#/apps':
+        return <AppStorePanel />;
+      case '#/self-improve':
+        return <SelfImprovePanel />;
       case '#/mcp':
         return <McpPanel />;
       case '#/vault':
