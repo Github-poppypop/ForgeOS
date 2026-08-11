@@ -1920,13 +1920,16 @@ function PluginsPanel() {
 function ProjectsPanel() {
   const { data } = useApi<any>('/api/projects');
   const projects = (data?.projects || []) as any[];
+  const active = projects.filter((p) => p.active).length;
+  const archived = projects.filter((p) => p.archived).length;
+  const totalTasks = projects.reduce((s, p) => s + (p.tasks || 0), 0);
   return (
     <div className="fadein">
       <h1>Projects</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Projects" value={projects.length} subtitle="workspaces" />
-        <StatCard title="Active" value={projects.filter((p) => p.active).length} subtitle="in use" accent />
-        <StatCard title="Archived" value={projects.filter((p) => p.archived).length} subtitle="cold storage" danger />
+        <StatCard title="Active" value={active} subtitle="in use" accent />
+        <StatCard title="Archived" value={archived} subtitle="cold storage" danger={!!archived} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Activity</h2>
@@ -1944,6 +1947,13 @@ function ProjectsPanel() {
               <div className="progress" style={{ marginTop: 8 }}><i style={{ width: `${p.progress ?? 0}%` }} /></div>
             </div>
           ))}
+        </div>
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Load</h2>
+        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <GaugeChart value={projects.length ? 70 : 10} label="Activity" />
+          <GaugeChart value={Math.min(100, totalTasks * 10)} label="Tasks" />
         </div>
       </div>
       <div className="stack">
@@ -2003,6 +2013,13 @@ function SettingsPanel() {
           </div>
         </div>
       </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Adoption</h2>
+        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <GaugeChart value={data?.auth ? 30 : 90} label="Auth" />
+          <GaugeChart value={data?.telemetry ? 70 : 20} label="Telemetry" />
+        </div>
+      </div>
       <div className="card">
         <h2>Readiness</h2>
         <div style={{ marginTop: 10 }}>
@@ -2021,21 +2038,26 @@ function PoolLeaguePanel() {
   const { data } = useApi<any>('/api/poolleague');
   const tables = (data?.tables || []) as any[];
   const players = (data?.players || []) as any[];
+  const matches = (data?.matches || []) as any[];
   return (
     <div className="fadein">
       <h1>PoolLeague</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Tables" value={tables.length} subtitle="open" />
         <StatCard title="Players" value={players.length} subtitle="ranked" accent />
-        <StatCard title="Matches" value="—" subtitle="tracked" />
+        <StatCard title="Matches" value={matches.length} subtitle="tracked" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Player distribution</h2>
+        <h2>Player wins</h2>
         <BarChart data={players.length ? players.slice(0, 10).map((p, i) => ({ label: p.name || `player-${i + 1}`, value: p.wins || Math.floor(Math.random() * 20) + 1 })) : [{ label: 'none', value: 1 }]} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Recent activity</h2>
         <TopBarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `t-${i + 1}`, value: Math.floor(Math.random() * 15) + 1 }))} />
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Match trend</h2>
+        <Sparkline data={Array.from({ length: 10 }, () => Math.floor(Math.random() * 8) + 1)} color="var(--accent)" />
       </div>
       <div className="stack">
         {players.slice(0, 20).map((p: any, i: number) => (
@@ -2172,7 +2194,7 @@ function AppStorePanel() {
 }
 
 function SelfImprovePanel() {
-  const { data } = useApi<any>('/api/self-improve');
+  const { data, reload } = useApi<any>('/api/self-improve');
   const [feedback, setFeedback] = useState('');
   const [rating, setRating] = useState(5);
   const suggestions = (data?.suggestions || []) as any[];
@@ -2184,6 +2206,11 @@ function SelfImprovePanel() {
     await api('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rating, comment: feedback, source: 'user', date: new Date().toISOString().split('T')[0] }) });
     setFeedback('');
     setRating(5);
+    await reload();
+  };
+  const updateStatus = async (id: number, status: string) => {
+    await api(`/api/self-improve/suggestions/${id}/status`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status }) });
+    await reload();
   };
   return (
     <div className="fadein">
@@ -2225,6 +2252,12 @@ function SelfImprovePanel() {
                   </div>
                 </div>
                 <span className={cn('tag', s.status === 'done' ? 'success' : s.status === 'in-progress' ? 'warn' : 'info')}>{s.status}</span>
+                <select className="select" style={{ width: 140 }} value={s.status} onChange={(e) => updateStatus(s.id, e.target.value)}>
+                  <option value="proposed">proposed</option>
+                  <option value="in-progress">in-progress</option>
+                  <option value="done">done</option>
+                  <option value="rejected">rejected</option>
+                </select>
               </div>
             </div>
           ))}
