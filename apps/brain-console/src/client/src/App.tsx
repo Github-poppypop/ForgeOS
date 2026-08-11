@@ -796,9 +796,15 @@ function Capture() {
   };
   return (
     <div className="fadein">
-      <h1>Capture Page</h1>
-      <div className="card" style={{ maxWidth: 680 }}>
-        <div className="row"><label>slug</label><input className="mono" value={slug} onChange={(e) => setSlug(e.target.value)} style={{ flex: 1 }} /><button className="btn secondary" onClick={() => navigator.clipboard.writeText(slug)}>Copy</button></div>
+      <h1>Capture</h1>
+      <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <StatCard title="Target" value={slug} subtitle="page" />
+        <StatCard title="Type" value={type} subtitle="format" accent />
+        <StatCard title="Valid" value={validate() ? 'Yes' : 'No'} subtitle="slug" danger={!validate()} />
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>New capture</h2>
+        <div className="row" style={{ marginTop: 10 }}><label>slug</label><input className="mono" value={slug} onChange={(e) => setSlug(e.target.value)} style={{ flex: 1 }} /><button className="btn secondary" onClick={() => navigator.clipboard.writeText(slug)}>Copy</button></div>
         <div className="row" style={{ marginTop: 8 }}><label>type</label><input value={type} onChange={(e) => setType(e.target.value)} /></div>
         <div className="row" style={{ marginTop: 8 }}>
           <label>template</label>
@@ -819,6 +825,33 @@ function Capture() {
           }}>{loading ? 'Saving…' : 'Capture'}</button>
           <button className="btn secondary" onClick={() => setPreview(body)}>Preview</button>
           <button className="btn secondary" onClick={() => { setSlug('decisions/demo'); setType('note'); setBody('# Demo\nWrite something for the brain.'); setPreview(''); }}>Clear</button>
+        </div>
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Quick templates</h2>
+        <div className="stack" style={{ marginTop: 10 }}>
+          {Object.entries(templates).map(([k, v]) => (
+            <div key={k} className="card" style={{ padding: 12 }}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <div className="h3">{k}</div>
+                  <p className="muted mono">{v.replace(/\n/g, ' ').trim() || 'empty template'}</p>
+                </div>
+                <button className="btn secondary" onClick={() => { setType(k); setBody(v); }}>Use</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card">
+        <h2>Status</h2>
+        <div style={{ marginTop: 10 }}>
+          <Stepper steps={[
+            { label: 'Slug', done: validate() },
+            { label: 'Body', done: !!body.trim() },
+            { label: 'Type', done: !!type },
+            { label: 'Save', active: !validate() || !body.trim() },
+          ]} />
         </div>
       </div>
     </div>
@@ -1288,6 +1321,25 @@ function WebhooksPanel() {
         <h2>Failure trend</h2>
         <Sparkline data={Array.from({ length: 10 }, () => Math.floor(Math.random() * 10))} color="var(--danger)" />
       </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Dead letter</h2>
+        <div className="stack" style={{ marginTop: 10 }}>
+          {dead.length ? dead.slice(0, 10).map((w: any, i: number) => (
+            <div key={i} className="card" style={{ padding: 12 }}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <div className="h3">{w.event || w.name || `dead-${i + 1}`}</div>
+                  <p className="muted mono">{w.url || 'http://localhost/hook'}</p>
+                </div>
+                <span className="pill bad">retry</span>
+              </div>
+              <div className="row" style={{ marginTop: 8, gap: 8 }}>
+                <span className="pill">reason: {w.reason || 'timeout'}</span>
+              </div>
+            </div>
+          )) : <p className="muted">No dead-letter events.</p>}
+        </div>
+      </div>
       <div className="stack">
         {items.map((w: any, i: number) => (
           <div key={i} className="card" style={{ padding: 12 }}>
@@ -1330,6 +1382,22 @@ function McpPanel() {
         <h2>Transport load</h2>
         <Sparkline data={Array.from({ length: 10 }, () => Math.floor(Math.random() * 10))} color="var(--info)" />
       </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Transport breakdown</h2>
+        <div className="stack" style={{ marginTop: 10 }}>
+          {transports.length ? transports.map((t: any, i: number) => (
+            <div key={i} className="card" style={{ padding: 12 }}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <div className="h3">{t.name || `transport-${i + 1}`}</div>
+                  <p className="muted mono">{t.endpoint || 'local'}</p>
+                </div>
+                <span className="pill ok">{t.status || 'open'}</span>
+              </div>
+            </div>
+          )) : <p className="muted">No transports registered yet.</p>}
+        </div>
+      </div>
       <div className="stack">
         {tools.map((t: any, i: number) => (
           <div key={i} className="card" style={{ padding: 12 }}>
@@ -1367,6 +1435,14 @@ function VaultPanel() {
         <h2>Load</h2>
         <GaugeChart value={items.length ? 70 : 20} label="Usage" />
       </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Types</h2>
+        <DonutChart data={[
+          { label: 'secret', value: Math.max(1, Math.floor(items.length * 0.55)), color: 'var(--accent)' },
+          { label: 'key', value: Math.max(1, Math.floor(items.length * 0.25)), color: 'var(--info)' },
+          { label: 'token', value: Math.max(1, Math.floor(items.length * 0.2)), color: 'var(--success)' },
+        ]} size={160} />
+      </div>
       <div className="stack">
         {items.slice(0, 10).map((item: any, i: number) => (
           <div key={i} className="card" style={{ padding: 12 }}>
@@ -1401,11 +1477,25 @@ function EmbedPanel() {
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Throughput</h2>
-        <Sparkline data={Array.from({ length: 12 }, () => Math.floor(Math.random() * 20))} color="var(--info)" />
+        <Sparkline data={Array.from({ length: 12 }, () => Math.floor(Math.random() * 60) + 20)} color="var(--success)" />
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Readiness</h2>
+        <div style={{ marginTop: 10 }}>
+          <Stepper steps={[
+            { label: 'Model', done: !!data?.model },
+            { label: 'Dimensions', done: !!data?.dimensions },
+            { label: 'Queue', active: Number(data?.queued || 0) > 0 },
+            { label: 'Ready', done: false },
+          ]} />
+        </div>
       </div>
       <div className="card">
         <h2>Load</h2>
-        <GaugeChart value={Math.min(100, (data?.queued || 0) * 10)} label="Queue" />
+        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <GaugeChart value={Math.min(100, (data?.queued || 0) * 10)} label="Queue" />
+          <GaugeChart value={Math.min(100, ((data?.dimensions || 0) / 1024) * 100)} label="Dim utilization" />
+        </div>
       </div>
     </div>
   );
