@@ -1799,6 +1799,13 @@ function WorkflowsPanel() {
         <h2>Success rate</h2>
         <Sparkline data={Array.from({ length: 10 }, () => Math.floor(Math.random() * 20) + 80)} color="var(--success)" />
       </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Load</h2>
+        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <GaugeChart value={workflows.length ? 70 : 10} label="Activity" />
+          <GaugeChart value={workflows.filter((w) => w.status === 'failed').length ? 45 : 90} label="Health" />
+        </div>
+      </div>
       <div className="stack">
         {workflows.map((w: any, i: number) => (
           <div key={i} className="card" style={{ padding: 12 }}>
