@@ -356,6 +356,16 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
   const seeded = (roles?.roles || []).filter((r: any) => r.exists).length;
   const brainOk = status?.gbrain_health?.status === 'ok';
   const ollamaOk = status?.ollama?.status === 'online' || status?.ollama?.status === 'up';
+  const items = [
+    { label: 'Brain', ok: brainOk },
+    { label: 'Ollama', ok: ollamaOk },
+    { label: 'Embed', ok: Boolean(status?.embedding_model) },
+    { label: 'Pack', ok: Boolean(status?.schema) },
+  ];
+  const score = items.filter((i) => i.ok).length;
+  const radius = 52;
+  const circ = 2 * Math.PI * radius;
+  const dash = (score / items.length) * circ;
   return (
     <div className="fadein">
       <div className="row" style={{ marginBottom: 24, gap: 10 }}>
@@ -364,6 +374,29 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
         <span className="pill" data-tooltip="Embedding model for semantic search"><span className="dot" /> {status?.embedding_model || '—'}</span>
         <span className="pill" data-tooltip="Loaded knowledge pack">pack {(status?.schema || '').match(/forgeos/) ? 'forgeos' : '—'}</span>
         {status?.auth ? <span className="pill warn" data-tooltip="Authentication system is enabled"><span className="dot" /> auth on</span> : null}
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2>System health</h2>
+            <p className="muted">{score}/{items.length} checks healthy</p>
+          </div>
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            <circle cx="70" cy="70" r={radius} className="gauge-bg" />
+            <circle cx="70" cy="70" r={radius} className="gauge-fg" stroke={brainOk ? 'var(--success)' : 'var(--danger)'} strokeDasharray={`${dash} ${circ - dash}`} transform="rotate(-90 70 70)" />
+            <text x="70" y="68" textAnchor="middle" className="donut-center">{Math.round((score / items.length) * 100)}%</text>
+            <text x="70" y="86" textAnchor="middle" className="gauge-label">health</text>
+          </svg>
+        </div>
+        <div className="stack" style={{ marginTop: 14 }}>
+          {items.map((item) => (
+            <div key={item.label} className="row" style={{ justifyContent: 'space-between' }}>
+              <span>{item.label}</span>
+              <span className={`pill ${item.ok ? 'ok' : 'bad'}`}>{item.ok ? 'ok' : 'down'}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
@@ -710,6 +743,7 @@ function CompliancePanel() {
 
 function FederationPanel() {
   const { data } = useApi<any>('/api/federation');
+  const children = (data?.children || []) as string[];
   return (
     <div className="fadein">
       <h1>Federation</h1>
@@ -717,8 +751,27 @@ function FederationPanel() {
         <h3>Topology</h3>
         <p className="mono">{data?.root}</p>
         <p className="muted">{data?.model}</p>
-        <div className="tags" style={{ marginTop: 8 }}>
-          {(data?.children || []).map((c: string, i: number) => <span key={i} className="tag info">{c}</span>)}
+        <div style={{ marginTop: 12 }}>
+          <svg viewBox="0 0 600 220" style={{ width: '100%', height: 'auto' }}>
+            <rect x="10" y="10" width="120" height="40" rx="8" className="node root" />
+            <text x="70" y="35" textAnchor="middle" className="node-label">{data?.root || 'ForgeOS'}</text>
+            {children.map((c, i) => {
+              const y = 70 + i * 40;
+              return (
+                <g key={i}>
+                  <line x1="70" y1="50" x2="70" y2={y} className="edge" />
+                  <rect x="140" y={y - 16} width="120" height="32" rx="8" className="node leaf" />
+                  <text x="200" y={y + 4} textAnchor="middle" className="node-label">{c}</text>
+                </g>
+              );
+            })}
+            {!children.length && (
+              <text x="300" y="120" textAnchor="middle" className="muted">No children</text>
+            )}
+          </svg>
+        </div>
+        <div className="tags" style={{ marginTop: 12 }}>
+          {children.map((c, i) => <span key={i} className="tag info">{c}</span>)}
         </div>
       </div>
     </div>

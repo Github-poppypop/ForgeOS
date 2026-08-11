@@ -466,6 +466,14 @@ ul.mono { list-style: none; padding: 0; }
 .chart .tooltip-bg { fill: rgba(0,0,0,0.7); rx: 6; }
 .chart .tooltip-text { font-size: 11px; fill: #fff; }
 
+/* ---------- (58b) federation topology visualization ---------- */
+.node-label { font-family: var(--mono); font-size: 11px; fill: var(--text); }
+.node { transition: opacity var(--trans); }
+.node:hover { opacity: 0.85; }
+.node.root { fill: var(--accent); }
+.node.leaf { fill: var(--surface-2); stroke: var(--border); stroke-width: 1; }
+.edge { stroke: var(--border); stroke-width: 2; }
+
 /* ---------- (59) accessibility: focus-visible + skip-link ---------- */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
