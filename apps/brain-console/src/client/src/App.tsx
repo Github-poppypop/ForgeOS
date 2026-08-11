@@ -1708,6 +1708,17 @@ function SchemaPanel() {
         <h2>Coverage</h2>
         <Heatmap values={Array.from({ length: 28 }, () => Math.floor(Math.random() * 6))} cols={14} />
       </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Readiness</h2>
+        <div style={{ marginTop: 10 }}>
+          <Stepper steps={[
+            { label: 'Schema loaded', done: !!data?.active },
+            { label: 'Types validated', done: types.length > 0 },
+            { label: 'Fields counted', done: counts.length > 0 },
+            { label: 'Ready', active: true },
+          ]} />
+        </div>
+      </div>
       <div className="card">
         <h2>Definition</h2>
         <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(data, null, 2)}</pre>
@@ -1829,6 +1840,13 @@ function MarketplacePanel() {
           { label: 'plugin', value: packs.filter((p) => p.category === 'plugin').length || 1, color: 'var(--accent-2)' },
           { label: 'theme', value: packs.filter((p) => p.category === 'theme').length || 1, color: 'var(--info)' },
         ]} size={160} />
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Load</h2>
+        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <GaugeChart value={packs.filter((p) => p.installed).length ? 75 : 10} label="Adoption" />
+          <GaugeChart value={packs.filter((p) => p.updateAvailable).length ? 40 : 90} label="Freshness" />
+        </div>
       </div>
       <div className="stack">
         {packs.slice(0, 20).map((p: any, i: number) => (
