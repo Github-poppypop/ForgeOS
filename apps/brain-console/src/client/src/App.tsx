@@ -128,14 +128,16 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 function useApi<T>(path: string) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+  const reload = () => setTick((n) => n + 1);
   useEffect(() => {
     let cancelled = false;
     api<T>(path)
       .then((d) => { if (!cancelled) { setData(d); setError(null); } })
       .catch((e) => { if (!cancelled) setError(String(e?.message ?? e)); });
     return () => { cancelled = true; };
-  }, [path]);
-  return { data, error };
+  }, [path, tick]);
+  return { data, error, reload };
 }
 
 function useTheme() {
@@ -2058,16 +2060,22 @@ function PoolLeaguePanel() {
 }
 
 function AppStorePanel() {
-  const apps = [
-    { id: 'brain-console', name: 'Brain Console', version: '1.0.0', owner: 'CTO', status: 'running', runtime: 'node', health: 94, port: 7777, capabilities: ['display', 'forgeos-console-link'], updated: '2026-08-11' },
-    { id: 'lifeos', name: 'LifeOS', version: '1.0.0', owner: 'CPO', status: 'design', runtime: 'node', health: 72, port: 3001, capabilities: ['brain-dna', 'memory-engine', 'mission-engine'], updated: '2026-08-10' },
-    { id: 'first-app', name: 'First App', version: '0.1.0', owner: 'CTO', status: 'development', runtime: 'static', health: 88, port: 4173, capabilities: ['display'], updated: '2026-08-09' },
-    { id: 'poolleague', name: 'PoolLeague', version: '1.0.0', owner: 'COO', status: 'running', runtime: 'node', health: 91, port: 3002, capabilities: ['display'], updated: '2026-08-11' },
-    { id: 'sdk', name: 'ForgeOS SDK', version: '1.0.0', owner: 'CTO', status: 'stable', runtime: 'node', health: 97, port: 0, capabilities: ['sdk'], updated: '2026-08-10' },
-  ];
+  const { data, reload } = useApi<any>('/api/apps');
+  const apps = (data?.apps || []) as any[];
   const runtimeCounts = apps.reduce<Record<string, number>>((acc, app) => { acc[app.runtime] = (acc[app.runtime] || 0) + 1; return acc; }, {});
   const statusCounts = apps.reduce<Record<string, number>>((acc, app) => { acc[app.status] = (acc[app.status] || 0) + 1; return acc; }, {});
   const owners = apps.reduce<Record<string, number>>((acc, app) => { acc[app.owner] = (acc[app.owner] || 0) + 1; return acc; }, {});
+  const [form, setForm] = useState({ name: '', version: '0.1.0', owner: 'CTO', runtime: 'static', capabilities: 'display', port: 4173 });
+  const submitApp = async () => {
+    const payload = { ...form, capabilities: form.capabilities.split(',').map((s) => s.trim()).filter(Boolean), port: Number(form.port) || 0 };
+    await api('/api/apps', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+    setForm((p) => ({ ...p, name: '' }));
+    await reload();
+  };
+  const updateHealth = async (id: string, health: number) => {
+    await api(`/api/apps/${encodeURIComponent(id)}/health`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ health }) });
+    await reload();
+  };
   return (
     <div className="fadein">
       <h1>App Store</h1>
@@ -2132,7 +2140,7 @@ function AppStorePanel() {
                   <td><span className={cn('tag', a.status === 'running' ? 'success' : a.status === 'stable' ? 'info' : 'warn')}>{a.status}</span></td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div className="progress" style={{ flex: 1 }}><i style={{ width: `${a.health}%` }} /></div>
+                      <input type="range" min="0" max="100" value={a.health} onChange={(e) => updateHealth(a.id, Number(e.target.value))} />
                       <span className="mono">{a.health}%</span>
                     </div>
                   </td>
@@ -2142,6 +2150,21 @@ function AppStorePanel() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+      <div className="card">
+        <h2>Register app</h2>
+        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+          <input className="input" style={{ width: 120 }} placeholder="version" value={form.version} onChange={(e) => setForm((p) => ({ ...p, version: e.target.value }))} />
+          <input className="input" style={{ width: 140 }} placeholder="owner" value={form.owner} onChange={(e) => setForm((p) => ({ ...p, owner: e.target.value }))} />
+          <select className="select" style={{ width: 120 }} value={form.runtime} onChange={(e) => setForm((p) => ({ ...p, runtime: e.target.value }))}>
+            <option value="static">static</option>
+            <option value="node">node</option>
+          </select>
+          <input className="input" style={{ width: 180 }} placeholder="capabilities" value={form.capabilities} onChange={(e) => setForm((p) => ({ ...p, capabilities: e.target.value }))} />
+          <input className="input" style={{ width: 120 }} placeholder="port" type="number" value={form.port} onChange={(e) => setForm((p) => ({ ...p, port: Number(e.target.value) }))} />
+          <button className="btn primary" disabled={!form.name.trim()} onClick={submitApp}>Register</button>
         </div>
       </div>
     </div>
@@ -2161,7 +2184,6 @@ function SelfImprovePanel() {
     await api('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rating, comment: feedback, source: 'user', date: new Date().toISOString().split('T')[0] }) });
     setFeedback('');
     setRating(5);
-    window.location.reload();
   };
   return (
     <div className="fadein">

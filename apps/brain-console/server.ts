@@ -247,47 +247,102 @@ async function main() {
     res.json({ tables: [], players: [] });
   });
 
+  const appsStore = [
+    { id: 'brain-console', name: 'Brain Console', version: '1.0.0', owner: 'CTO', status: 'running', runtime: 'node', health: 94, port: 7777, capabilities: ['display', 'forgeos-console-link'], updated: '2026-08-11' },
+    { id: 'lifeos', name: 'LifeOS', version: '1.0.0', owner: 'CPO', status: 'design', runtime: 'node', health: 72, port: 3001, capabilities: ['brain-dna', 'memory-engine', 'mission-engine'], updated: '2026-08-10' },
+    { id: 'first-app', name: 'First App', version: '0.1.0', owner: 'CTO', status: 'development', runtime: 'static', health: 88, port: 4173, capabilities: ['display'], updated: '2026-08-09' },
+    { id: 'poolleague', name: 'PoolLeague', version: '1.0.0', owner: 'COO', status: 'running', runtime: 'node', health: 91, port: 3002, capabilities: ['display'], updated: '2026-08-11' },
+    { id: 'sdk', name: 'ForgeOS SDK', version: '1.0.0', owner: 'CTO', status: 'stable', runtime: 'node', health: 97, port: 0, capabilities: ['sdk'], updated: '2026-08-10' },
+  ];
+
   app.get('/api/apps', (req, res) => {
-    const apps = [
-      { id: 'brain-console', name: 'Brain Console', version: '1.0.0', owner: 'CTO', status: 'running', runtime: 'node', health: 94, port: 7777, capabilities: ['display', 'forgeos-console-link'], updated: '2026-08-11' },
-      { id: 'lifeos', name: 'LifeOS', version: '1.0.0', owner: 'CPO', status: 'design', runtime: 'node', health: 72, port: 3001, capabilities: ['brain-dna', 'memory-engine', 'mission-engine'], updated: '2026-08-10' },
-      { id: 'first-app', name: 'First App', version: '0.1.0', owner: 'CTO', status: 'development', runtime: 'static', health: 88, port: 4173, capabilities: ['display'], updated: '2026-08-09' },
-      { id: 'poolleague', name: 'PoolLeague', version: '1.0.0', owner: 'COO', status: 'running', runtime: 'node', health: 91, port: 3002, capabilities: ['display'], updated: '2026-08-11' },
-      { id: 'sdk', name: 'ForgeOS SDK', version: '1.0.0', owner: 'CTO', status: 'stable', runtime: 'node', health: 97, port: 0, capabilities: ['sdk'], updated: '2026-08-10' },
-    ];
-    res.json({ apps });
+    res.json({ apps: appsStore.map(({ id, name, version, owner, status, runtime, health, port, capabilities, updated }) => ({ id, name, version, owner, status, runtime, health, port, capabilities, updated })) });
   });
+
+  app.post('/api/apps', express.json(), (req, res) => {
+    const body = req.body ?? {};
+    const id = String(body.id || `app-${Date.now()}`).trim();
+    const name = String(body.name || 'Untitled App').trim();
+    const version = String(body.version || '0.1.0').trim();
+    const owner = String(body.owner || 'CTO').trim();
+    const runtime = String(body.runtime || 'static').trim();
+    const capabilities = Array.isArray(body.capabilities) ? body.capabilities : [];
+    const entry = { id, name, version, owner, status: 'development', runtime, health: 0, port: body.port || 0, capabilities, updated: new Date().toISOString().split('T')[0] };
+    appsStore.push(entry);
+    res.status(201).json({ app: entry });
+  });
+
+  app.patch('/api/apps/:id/health', express.json(), (req, res) => {
+    const target = appsStore.find((a) => a.id === req.params.id);
+    if (!target) return res.status(404).json({ error: 'app not found' });
+    const incoming = (req.body?.health ?? req.body?.score ?? req.body?.value) as number | undefined;
+    if (Number.isFinite(incoming)) target.health = Math.min(100, Math.max(0, incoming));
+    target.updated = new Date().toISOString().split('T')[0];
+    res.json({ id: target.id, health: target.health, updated: target.updated });
+  });
+
+  const selfImproveState = {
+    learning_rate: 0.87,
+    confidence: 0.91,
+    iterations: 142,
+    last_improvement: '2026-08-11T00:00:00.000Z',
+    suggestions: [
+      { id: 1, title: 'Add caching layer', impact: 'high', effort: 'medium', status: 'proposed' },
+      { id: 2, title: 'Improve error messages', impact: 'medium', effort: 'low', status: 'in-progress' },
+      { id: 3, title: 'Add health checks', impact: 'high', effort: 'low', status: 'done' },
+      { id: 4, title: 'Optimize bundle size', impact: 'medium', effort: 'high', status: 'proposed' },
+      { id: 5, title: 'Add dark mode toggle', impact: 'low', effort: 'low', status: 'done' },
+    ],
+    telemetry: {
+      page_views: 1240,
+      errors_last_24h: 3,
+      avg_load_ms: 210,
+      api_latency_p95_ms: 145,
+    },
+    feedback: [
+      { id: 1, source: 'user', rating: 4, comment: 'Great dashboard', date: '2026-08-10' },
+      { id: 2, source: 'user', rating: 5, comment: 'Love the new theme system', date: '2026-08-11' },
+      { id: 3, source: 'system', rating: 3, comment: 'Slow on mobile', date: '2026-08-09' },
+    ] as any[],
+  };
 
   app.get('/api/self-improve', (req, res) => {
-    res.json({
-      learning_rate: 0.87,
-      confidence: 0.91,
-      iterations: 142,
-      last_improvement: '2026-08-11T00:00:00.000Z',
-      suggestions: [
-        { id: 1, title: 'Add caching layer', impact: 'high', effort: 'medium', status: 'proposed' },
-        { id: 2, title: 'Improve error messages', impact: 'medium', effort: 'low', status: 'in-progress' },
-        { id: 3, title: 'Add health checks', impact: 'high', effort: 'low', status: 'done' },
-        { id: 4, title: 'Optimize bundle size', impact: 'medium', effort: 'high', status: 'proposed' },
-        { id: 5, title: 'Add dark mode toggle', impact: 'low', effort: 'low', status: 'done' },
-      ],
-      telemetry: {
-        page_views: 1240,
-        errors_last_24h: 3,
-        avg_load_ms: 210,
-        api_latency_p95_ms: 145,
-      },
-      feedback: [
-        { id: 1, source: 'user', rating: 4, comment: 'Great dashboard', date: '2026-08-10' },
-        { id: 2, source: 'user', rating: 5, comment: 'Love the new theme system', date: '2026-08-11' },
-        { id: 3, source: 'system', rating: 3, comment: 'Slow on mobile', date: '2026-08-09' },
-      ],
-    });
+    res.json({ ...selfImproveState, feedback: [...selfImproveState.feedback] });
   });
 
-  app.post('/api/feedback', (req, res) => {
+  app.post('/api/feedback', express.json(), (req, res) => {
     const body = req.body ?? {};
-    res.json({ ok: true, received: body });
+    const entry = {
+      id: selfImproveState.feedback.length + 1,
+      source: body.source || 'user',
+      rating: Number(body.rating) || 0,
+      comment: body.comment || '',
+      date: body.date || new Date().toISOString().split('T')[0],
+    };
+    selfImproveState.feedback.push(entry);
+    selfImproveState.iterations += 1;
+    selfImproveState.last_improvement = entry.date;
+    res.status(201).json({ ok: true, received: entry });
+  });
+
+  app.patch('/api/self-improve/suggestions/:id/status', express.json(), (req, res) => {
+    const id = Number(req.params.id);
+    const item = selfImproveState.suggestions.find((s) => s.id === id);
+    if (!item) return res.status(404).json({ error: 'not found' });
+    const status = String(req.body?.status || '').trim();
+    if (!status) return res.status(400).json({ error: 'status required' });
+    item.status = status;
+    res.json({ id: item.id, status: item.status });
+  });
+
+  app.post('/api/telemetry', express.json(), (req, res) => {
+    const body = req.body ?? {};
+    const event = String(body.event || 'unknown');
+    if (event === 'page_view') selfImproveState.telemetry.page_views += 1;
+    if (event === 'error') selfImproveState.telemetry.errors_last_24h += 1;
+    if (body.load_ms) selfImproveState.telemetry.avg_load_ms = Math.round((selfImproveState.telemetry.avg_load_ms * 0.9) + (Number(body.load_ms) * 0.1));
+    if (body.latency_ms) selfImproveState.telemetry.api_latency_p95_ms = Math.round((selfImproveState.telemetry.api_latency_p95_ms * 0.9) + (Number(body.latency_ms) * 0.1));
+    res.json({ ok: true, telemetry: selfImproveState.telemetry });
   });
 
   app.use((req, res, next) => {
