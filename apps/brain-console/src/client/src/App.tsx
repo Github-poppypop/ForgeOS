@@ -349,11 +349,19 @@ function StatusBar({ status }: { status: any }) {
   );
 }
 
-function StatCard({ title, value, subtitle, accent, danger }: { title: string; value: string | number; subtitle?: string; accent?: boolean; danger?: boolean }) {
+function formatIsolation(value: string | undefined) {
+  if (!value) return '—';
+  const m = String(value).match(/C:\\Projects\\ForgeOS|\/Projects\/ForgeOS|ForgeOS/);
+  const short = m ? m[0] : String(value);
+  const suffix = String(value).includes('separate from') ? ' (isolated)' : '';
+  return short + suffix;
+}
+
+function StatCard({ title, value, subtitle, accent, danger, valueClassName }: { title: string; value: string | number; subtitle?: string; accent?: boolean; danger?: boolean; valueClassName?: string }) {
   return (
     <div className={`stat ${accent ? 'hl' : ''} ${danger ? 'danger' : ''}`}>
       <div className="h3">{title}</div>
-      <div className="value">{value}</div>
+      <div className={`value ${valueClassName || ''}`}>{value}</div>
       {subtitle ? <div className="caption">{subtitle}</div> : null}
     </div>
   );
@@ -571,10 +579,10 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
         </div>
       </div>
 
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Isolation" value={status?.isolation || '—'} subtitle="PGLite brain ownership" />
+      <div className="stats cols-4" style={{ marginBottom: 16 }}>
+        <StatCard title="Isolation" value={formatIsolation(status?.isolation)} subtitle="PGLite brain ownership" />
         <StatCard title="Roles seeded" value={`${seeded}/7`} subtitle="C-suite roles" />
-        <StatCard title="Console port" value={status?.console_port || '—'} subtitle="Public API surface" />
+        <StatCard title="Console port" value={String(status?.console_port || '—')} subtitle={status?.console_port ? 'Listening on 127.0.0.1' : 'Not listening'} />
         <StatCard title="Health" value={brainOk ? 'Healthy' : 'Degraded'} subtitle={brainOk ? 'All systems nominal' : 'Check dependencies'} accent={!brainOk} danger={!brainOk} />
       </div>
 
@@ -605,18 +613,20 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
           ]} />
         </div>
       </div>
-      <div className="card" style={{ marginTop: 16 }}>
-        <h2>Status timeline</h2>
-        <div style={{ marginTop: 10 }}>
-          <Sparkline data={[1, 3, 2, 5, 4, 6, 5]} color="var(--accent)" />
+      <div className="stats cols-2" style={{ marginTop: 16 }}>
+        <div className="card">
+          <h2>Status timeline</h2>
+          <div style={{ marginTop: 10 }}>
+            <Sparkline data={[1, 3, 2, 5, 4, 6, 5]} color="var(--accent)" />
+          </div>
         </div>
-      </div>
-      <div className="card" style={{ marginTop: 16 }}>
-        <h2>Load</h2>
-        <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <GaugeChart value={68} label="CPU" />
-          <GaugeChart value={45} label="MEM" />
-          <GaugeChart value={82} label="DISK" />
+        <div className="card">
+          <h2>Load</h2>
+          <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <GaugeChart value={68} label="CPU" />
+            <GaugeChart value={45} label="MEM" />
+            <GaugeChart value={82} label="DISK" />
+          </div>
         </div>
       </div>
     </div>
