@@ -1565,7 +1565,7 @@ function ConfigPanel() {
           { label: 'Ready', done: false },
         ]} />
       </div>
-      <div className="card">
+      <div className="card" style={{ marginBottom: 16 }}>
         <h2>Change timeline</h2>
         <div style={{ marginTop: 10 }}>
           <TimelineChart items={[
@@ -1573,6 +1573,13 @@ function ConfigPanel() {
             { date: '2026-08-05', title: 'Dimensions updated', status: 'done' },
             { date: '2026-08-10', title: 'Isolation changed', status: 'in-progress' },
           ]} />
+        </div>
+      </div>
+      <div className="card">
+        <h2>Readiness</h2>
+        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <GaugeChart value={!!data?.isolation ? 80 : 20} label="Config" />
+          <GaugeChart value={!!data?.ollama ? 60 : 20} label="Ollama" />
         </div>
       </div>
     </div>
@@ -1592,6 +1599,11 @@ function CommandPanel() {
   return (
     <div className="fadein">
       <h1>Command</h1>
+      <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <StatCard title="Input" value={cmd || '—'} subtitle="current command" />
+        <StatCard title="History" value={history.length} subtitle="recent" />
+        <StatCard title="Output" value={res ? 'Ready' : '—'} subtitle="last result" accent={!!res} />
+      </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="row" style={{ gap: 8 }}>
           <input className="input" style={{ flex: 1 }} value={cmd} onChange={(e) => setCmd(e.target.value)} placeholder="command" />
@@ -1633,6 +1645,11 @@ function GovernancePanel() {
         <h3>Scope</h3>
         <p className="mono">{data?.root}</p>
         <p className="muted">{data?.model || 'delegated'}</p>
+      </div>
+      <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <StatCard title="Rules" value={rules.length} subtitle="enforced" />
+        <StatCard title="Model" value={data?.model || 'delegated'} subtitle="authority" accent />
+        <StatCard title="Root" value={(data?.root || '—').split(' ')[0]} subtitle="scope" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Rules</h2>
@@ -1720,6 +1737,22 @@ function MonitoringPanel() {
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Trend</h2>
         <Sparkline data={Array.from({ length: 20 }, () => Math.floor(Math.random() * 100))} color="var(--accent)" />
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Recent checks</h2>
+        <div className="stack" style={{ marginTop: 10 }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="card" style={{ padding: 12 }}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  <div className="h3">Health check {i + 1}</div>
+                  <p className="muted mono">{new Date(Date.now() - i * 60000).toISOString()}</p>
+                </div>
+                <span className="pill ok">ok</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="card">
         <h2>Readiness</h2>
