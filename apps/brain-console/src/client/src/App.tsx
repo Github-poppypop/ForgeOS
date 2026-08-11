@@ -2088,6 +2088,12 @@ function AppStorePanel() {
   const statusCounts = apps.reduce<Record<string, number>>((acc, app) => { acc[app.status] = (acc[app.status] || 0) + 1; return acc; }, {});
   const owners = apps.reduce<Record<string, number>>((acc, app) => { acc[app.owner] = (acc[app.owner] || 0) + 1; return acc; }, {});
   const [form, setForm] = useState({ name: '', version: '0.1.0', owner: 'CTO', runtime: 'static', capabilities: 'display', port: 4173 });
+  const templates = [
+    { name: 'Display App', runtime: 'static', capabilities: 'display', port: 4173 },
+    { name: 'API Service', runtime: 'node', capabilities: 'api', port: 3003 },
+    { name: 'Plugin', runtime: 'node', capabilities: 'plugin,sdk', port: 0 },
+    { name: 'Embedding Worker', runtime: 'node', capabilities: 'embed,worker', port: 3004 },
+  ];
   const submitApp = async () => {
     const payload = { ...form, capabilities: form.capabilities.split(',').map((s) => s.trim()).filter(Boolean), port: Number(form.port) || 0 };
     await api('/api/apps', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
@@ -2172,6 +2178,16 @@ function AppStorePanel() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+      <div className="card">
+        <h2>Quick start</h2>
+        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          {templates.map((t) => (
+            <button key={t.name} className="btn secondary" onClick={() => setForm((p) => ({ ...p, name: t.name, runtime: t.runtime, capabilities: t.capabilities, port: t.port }))}>
+              {t.name}
+            </button>
+          ))}
         </div>
       </div>
       <div className="card">
