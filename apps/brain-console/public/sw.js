@@ -32,8 +32,10 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(
       fetch(e.request)
         .then((res) => {
-          const clone = res.clone();
-          caches.open(API_CACHE).then((c) => c.put(e.request, clone));
+          if (res && res.status === 200 && e.request.method === "GET") {
+            const clone = res.clone();
+            caches.open(API_CACHE).then((c) => c.put(e.request, clone));
+          }
           return res;
         })
         .catch(() => {
