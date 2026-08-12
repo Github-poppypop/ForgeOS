@@ -404,17 +404,18 @@ function cn(...classes: (string | false | undefined | null)[]) {
 
 function BarChart({ data, height = 180 }: { data: { label: string; value: number; color?: string }[]; height?: number }) {
   const max = Math.max(1, ...data.map((d) => d.value));
-  const gap = 6;
   const count = Math.max(1, data.length);
-  const barW = (100 - gap * (count + 1)) / count;
-  const vbH = 100;
-  const baseline = vbH - 18;
-  const barMaxH = baseline - 8;
+  const gap = 18;
+  const barW = (220 - gap * (count + 1)) / count;
+  const vbW = 220;
+  const vbH = 120;
+  const baseline = vbH - 24;
+  const barMaxH = baseline - 16;
   if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   return (
     <div className="chart">
-      <svg viewBox={`0 0 100 ${vbH}`} preserveAspectRatio="xMidYMid meet" style={{ height }}>
-        <line x1={0} y1={baseline - 0.5} x2={100} y2={baseline - 0.5} className="chart-grid" />
+      <svg viewBox={`0 0 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMid meet" style={{ height, width: '100%' }}>
+        <line x1={0} y1={baseline - 0.5} x2={vbW} y2={baseline - 0.5} className="chart-grid" />
         {data.map((d, i) => {
           const rawH = (d.value / max) * barMaxH;
           const h = Math.max(2, rawH);
@@ -423,8 +424,8 @@ function BarChart({ data, height = 180 }: { data: { label: string; value: number
           return (
             <g key={i}>
               <rect x={x} y={baseline - 4 - h} width={barW} height={h} rx="2" className={cn('bar-rect', empty ? 'empty' : '')} fill={d.color || COLORS[i % COLORS.length]} opacity={empty ? 0.35 : 1} />
-              {!empty && <text x={x + barW / 2} y={baseline - 6 - h} textAnchor="middle" className="bar-value">{d.value}</text>}
-              <text x={x + barW / 2} y={baseline + 14} textAnchor="middle" className="label">{d.label}</text>
+              {!empty && <text x={x + barW / 2} y={baseline - 8 - h} textAnchor="middle" className="bar-value">{d.value}</text>}
+              <text x={x + barW / 2} y={baseline + 18} textAnchor="middle" className="label">{d.label}</text>
             </g>
           );
         })}
