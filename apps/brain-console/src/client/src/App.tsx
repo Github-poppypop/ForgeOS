@@ -1054,7 +1054,10 @@ function TimelinePanel() {
         )}
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Progress</h2>
+        <div className="section-header">
+          <h2>Progress</h2>
+          <span className="subtitle">Milestone completion</span>
+        </div>
         <div className="stats cols-3">
           <StatCard title="Done" value={done} subtitle="completed" />
           <StatCard title="Active" value={inProgress} subtitle="in progress" accent={!!inProgress} />
@@ -1100,7 +1103,10 @@ function LedgerPanel() {
         <StatCard title="Rejected" value={rejected} subtitle="needs review" danger={!!rejected} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Outcomes</h2>
+        <div className="section-header">
+          <h2>Outcomes</h2>
+          <span className="subtitle">Approval distribution</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <DonutChart data={[
             { label: 'approved', value: approved, color: 'var(--success)' },
@@ -1110,7 +1116,10 @@ function LedgerPanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Types</h2>
+        <div className="section-header">
+          <h2>Types</h2>
+          <span className="subtitle">Category breakdown</span>
+        </div>
         <TopBarChart data={rows.length ? rows : [{ label: 'none', value: 1 }]} height={90} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -1121,7 +1130,7 @@ function LedgerPanel() {
         </div>
       </div>
       <div className="card">
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-wrap">
           <table className="tbl">
             <thead><tr><th>Date</th><th>Title</th><th>Type</th><th>Mission</th><th>Owner</th><th>Outcome</th></tr></thead>
             <tbody>
@@ -1162,11 +1171,17 @@ function MissionsPanel() {
         <StatCard title="Done" value={done} subtitle="completed" accent />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Progress</h2>
+        <div className="section-header">
+          <h2>Progress</h2>
+          <span className="subtitle">Avg completion</span>
+        </div>
         <GaugeChart value={avgProgress} label="Avg progress" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>By phase</h2>
+        <div className="section-header">
+          <h2>By phase</h2>
+          <span className="subtitle">Phase counts</span>
+        </div>
         <BarChart data={Object.entries(phaseCounts).map(([label, value]) => ({ label, value }))} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -1327,11 +1342,17 @@ function WebhooksPanel() {
         <StatCard title="Health" value={dead.length ? 'Degraded' : 'Healthy'} subtitle="delivery" accent={!dead.length} danger={!!dead.length} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Delivery load</h2>
+        <div className="section-header">
+          <h2>Delivery load</h2>
+          <span className="subtitle">Per-hour volume</span>
+        </div>
         <TopBarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `${i + 1}h`, value: Math.floor(Math.random() * 12) }))} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Failure trend</h2>
+        <div className="section-header">
+          <h2>Failure trend</h2>
+          <span className="subtitle">Recent errors</span>
+        </div>
         <Sparkline data={Array.from({ length: 10 }, () => Math.floor(Math.random() * 10))} color="var(--danger)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -1388,7 +1409,10 @@ function McpPanel() {
         <StatCard title="Status" value={tools.length ? 'Ready' : 'Idle'} subtitle="server" accent />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Tool usage</h2>
+        <div className="section-header">
+          <h2>Tool usage</h2>
+          <span className="subtitle">Top invocations</span>
+        </div>
         <TopBarChart data={tools.length ? tools.slice(0, 8).map((t, i) => ({ label: t.name || `tool-${i + 1}`, value: Math.floor(Math.random() * 20) + 1 })) : [{ label: 'none', value: 1 }]} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -1751,7 +1775,10 @@ function MonitoringPanel() {
         <StatCard title="Uptime" value={`${Math.round((data?.uptime || 0) / 60)}m`} subtitle="process" accent />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Load</h2>
+        <div className="section-header">
+          <h2>Load</h2>
+          <span className="subtitle">Resource gauges</span>
+        </div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
           <GaugeChart value={Math.min(100, data?.cpu ?? 0)} label="CPU" />
           <GaugeChart value={Math.min(100, ((data?.memory || 0) / 200) * 100)} label="MEM" />
@@ -1759,7 +1786,10 @@ function MonitoringPanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Trend</h2>
+        <div className="section-header">
+          <h2>Trend</h2>
+          <span className="subtitle">Last reads</span>
+        </div>
         <Sparkline data={Array.from({ length: 20 }, () => Math.floor(Math.random() * 100))} color="var(--accent)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -1805,15 +1835,24 @@ function WorkflowsPanel() {
         <StatCard title="Failed" value={workflows.filter((w) => w.status === 'failed').length} subtitle="last 24h" danger />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Throughput</h2>
+        <div className="section-header">
+          <h2>Throughput</h2>
+          <span className="subtitle">Runs by workflow</span>
+        </div>
         <TopBarChart data={workflows.length ? workflows.map((w, i) => ({ label: w.id || `w-${i + 1}`, value: w.runs || Math.floor(Math.random() * 20) + 1 })) : [{ label: 'none', value: 1 }]} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Success rate</h2>
+        <div className="section-header">
+          <h2>Success rate</h2>
+          <span className="subtitle">Completion health</span>
+        </div>
         <Sparkline data={Array.from({ length: 10 }, () => Math.floor(Math.random() * 20) + 80)} color="var(--success)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Load</h2>
+        <div className="section-header">
+          <h2>Load</h2>
+          <span className="subtitle">Activity vs health</span>
+        </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <GaugeChart value={workflows.length ? 70 : 10} label="Activity" />
           <GaugeChart value={workflows.filter((w) => w.status === 'failed').length ? 45 : 90} label="Health" />
@@ -1850,7 +1889,10 @@ function MarketplacePanel() {
         <StatCard title="Updates" value={packs.filter((p) => p.updateAvailable).length} subtitle="pending" danger />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Popularity</h2>
+        <div className="section-header">
+          <h2>Popularity</h2>
+          <span className="subtitle">By downloads</span>
+        </div>
         <TopBarChart data={packs.length ? packs.map((p, i) => ({ label: p.name || `pack-${i + 1}`, value: p.downloads || Math.floor(Math.random() * 40) + 1 })) : [{ label: 'none', value: 1 }]} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
