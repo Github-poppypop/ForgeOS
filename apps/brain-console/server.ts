@@ -476,17 +476,20 @@ async function main() {
     if (event === 'error') selfImproveState.telemetry.errors_last_24h += 1;
     if (body.load_ms) selfImproveState.telemetry.avg_load_ms = Math.round((selfImproveState.telemetry.avg_load_ms * 0.9) + (Number(body.load_ms) * 0.1));
     if (body.latency_ms) selfImproveState.telemetry.api_latency_p95_ms = Math.round((selfImproveState.telemetry.api_latency_p95_ms * 0.9) + (Number(body.latency_ms) * 0.1));
+    const route = String(body.route || '');
+    selfImproveState.telemetry.route_events = selfImproveState.telemetry.route_events || {};
+    selfImproveState.telemetry.route_events[route] = (selfImproveState.telemetry.route_events[route] || 0) + 1;
     persist();
 
     const avgRating = selfImproveState.feedback.length ? (selfImproveState.feedback.reduce((s, f) => s + (f.rating || 0), 0) / selfImproveState.feedback.length) : 0;
     if (selfImproveState.telemetry.errors_last_24h > 2 && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('error') && s.status !== 'done')) {
-      selfImproveState.suggestions.push({ id: Date.now() + 10, title: 'Reduce error rate with better validation', impact: 'high', effort: 'low', status: 'proposed' });
+      selfImproveState.suggestions.push({ id: Date.now() + 10, title: 'Reduce error rate with better validation', impact: 'high', effort: 'low', status: 'proposed', detail: `Current errors_last_24h=${selfImproveState.telemetry.errors_last_24h}` });
     }
     if (selfImproveState.telemetry.avg_load_ms > 100 && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('perf') && s.status !== 'done')) {
-      selfImproveState.suggestions.push({ id: Date.now() + 20, title: 'Performance optimization pass', impact: 'medium', effort: 'high', status: 'proposed' });
+      selfImproveState.suggestions.push({ id: Date.now() + 20, title: 'Performance optimization pass', impact: 'medium', effort: 'high', status: 'proposed', detail: `Current avg_load_ms=${selfImproveState.telemetry.avg_load_ms}` });
     }
     if (avgRating < 4.0 && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('ux') && s.status !== 'done')) {
-      selfImproveState.suggestions.push({ id: Date.now() + 30, title: 'Improve UX and onboarding', impact: 'high', effort: 'medium', status: 'proposed' });
+      selfImproveState.suggestions.push({ id: Date.now() + 30, title: 'Improve UX and onboarding', impact: 'high', effort: 'medium', status: 'proposed', detail: `Current avg rating=${avgRating.toFixed(2)}` });
     }
     persist();
     res.json({ ok: true, telemetry: selfImproveState.telemetry });

@@ -386,6 +386,7 @@ function BarChart({ data, height = 180 }: { data: { label: string; value: number
   const barW = (100 - gap * (count + 1)) / count;
   const labelSpace = 22;
   const chartH = height - labelSpace - 6;
+  if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   return (
     <div className="chart">
       <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" style={{ height }}>
@@ -402,6 +403,11 @@ function BarChart({ data, height = 180 }: { data: { label: string; value: number
           );
         })}
       </svg>
+      <div className="donut-legend" style={{ marginTop: 10 }}>
+        {data.map((d, i) => (
+          <span key={i} className="tag"><span className="sw" style={{ background: d.color || COLORS[i % COLORS.length] }} />{d.label}: <strong>{d.value}</strong></span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -411,6 +417,7 @@ function DonutChart({ data, size = 180 }: { data: { label: string; value: number
   const r = 60;
   const circ = 2 * Math.PI * r;
   let offset = 0;
+  if (!data.length) return <div className="chart" style={{ maxWidth: size + 40 }}><svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}><text x={size / 2} y={size / 2 + 5} textAnchor="middle" className="label">No data</text></svg></div>;
   return (
     <div className="chart" style={{ maxWidth: size + 40 }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -446,12 +453,16 @@ function Sparkline({ data, color = 'var(--accent)', height = 60 }: { data: numbe
   });
   const path = `M${pts.join(' L')}`;
   const area = `${path} L${w},${chartH} L0,${chartH} Z`;
+  const avg = Math.round((data.reduce((s, v) => s + v, 0) / data.length) * 10) / 10;
   return (
     <div className="chart" style={{ height }}>
       <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none">
         <path d={area} className="line-area" fill={color} />
         <path d={path} className="line-path" stroke={color} />
         <line x1={0} y1={chartH - 0.5} x2={w} y2={chartH - 0.5} className="chart-grid" />
+        <text x="4" y="12" className="label">avg: {avg}</text>
+        <text x="4" y={height - 4} className="label">min: {min}</text>
+        <text x={w - 4} y={height - 4} textAnchor="end" className="label">max: {max}</text>
         {pts.map((p, i) => {
           const [x, y] = p.split(',').map(Number);
           return <circle key={i} cx={x} cy={y} r="1.8" fill={color} className="dot" />;
@@ -482,9 +493,22 @@ function Heatmap({ values, cols = 12 }: { values: number[]; cols?: number }) {
     return n === 0 ? '' : `l${Math.min(5, n)}`;
   };
   const avg = values.length ? Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 10) / 10 : 0;
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const dayAvgs = Array.from({ length: 7 }, (_, d) => {
+    const dayVals = values.filter((_, i) => i % 7 === d);
+    return dayVals.length ? Math.round((dayVals.reduce((s, v) => s + v, 0) / dayVals.length) * 10) / 10 : 0;
+  });
+  if (!values.length) return <div className="chart"><p className="muted">No heatmap data yet.</p></div>;
   return (
     <div className="heatmap" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-      {values.map((v, i) => <div key={i} className={cn('heat-cell', level(v))} data-tooltip={`Day ${i + 1}: ${v} (avg ${avg})`} />)}
+      {values.map((v, i) => (
+        <div key={i} className={cn('heat-cell', level(v))} data-tooltip={`Day ${i + 1}: ${v} (avg ${avg})`} />
+      ))}
+      <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+        {dayAvgs.map((v, i) => (
+          <span key={i} className="tag">{days[i]} avg: <strong>{v}</strong></span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -501,8 +525,16 @@ function GaugeChart({ value, max = 100, label }: { value: number; max?: number; 
     const y1 = 80 + Math.sin(angle) * (r - 8);
     const x2 = 80 + Math.cos(angle) * (r + 2);
     const y2 = 80 + Math.sin(angle) * (r + 2);
-    return <line key={t} x1={x1} y1={y1} x2={x2} y2={y2} className="gauge-ticks" />;
+    const lx = 80 + Math.cos(angle) * (r + 14);
+    const ly = 80 + Math.sin(angle) * (r + 14);
+    return (
+      <g key={t}>
+        <line x1={x1} y1={y1} x2={x2} y2={y2} className="gauge-ticks" />
+        <text x={lx} y={ly + 3} textAnchor="middle" className="label">{Math.round(t * max)}</text>
+      </g>
+    );
   });
+  if (!Number.isFinite(value) && !Number.isFinite(max)) return <div className="chart" style={{ maxWidth: 180 }}><p className="muted">No gauge data yet.</p></div>;
   return (
     <div className="chart" style={{ maxWidth: 180 }}>
       <svg width="160" height="160" viewBox="0 0 160 160">
@@ -524,6 +556,7 @@ function TopBarChart({ data, height = 80 }: { data: { label: string; value: numb
   const bw = (w - gap * (count + 1)) / count;
   const labelSpace = 20;
   const chartH = height - labelSpace - 6;
+  if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   return (
     <div className="chart" style={{ height }}>
       <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none">
@@ -540,6 +573,11 @@ function TopBarChart({ data, height = 80 }: { data: { label: string; value: numb
           );
         })}
       </svg>
+      <div className="donut-legend" style={{ marginTop: 10 }}>
+        {data.map((d, i) => (
+          <span key={i} className="tag"><span className="sw" style={{ background: COLORS[i % COLORS.length] }} />{d.label}: <strong>{d.value}</strong></span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2527,7 +2565,7 @@ function DeveloperPanel() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
           <h2>Onboarding checklist</h2>
-          <span className="subtitle">Onboarding Checklist overview</span>
+          <span className="subtitle">Get started in minutes</span>
         </div>
         <ul className="stack" style={{ marginTop: 10 }}>
           <li className="card" style={{ padding: 12 }}>Run the local console on <span className="mono">:7777</span></li>
@@ -2539,8 +2577,38 @@ function DeveloperPanel() {
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
+          <h2>App templates</h2>
+          <span className="subtitle">Scaffold a new app</span>
+        </div>
+        <div className="stack" style={{ marginTop: 10, gap: 12 }}>
+          {[
+            { name: 'Display App', runtime: 'static', capabilities: 'display', port: 4173, desc: 'Public UI with SSR hydration.' },
+            { name: 'API Service', runtime: 'node', capabilities: 'api', port: 3003, desc: 'Express backend with health checks.' },
+            { name: 'Plugin', runtime: 'node', capabilities: 'plugin,sdk', port: 0, desc: 'Extend ForgeOS with hooks.' },
+            { name: 'Embedding Worker', runtime: 'node', capabilities: 'embed,worker', port: 3004, desc: 'Background jobs for embeddings.' },
+          ].map((t) => (
+            <div key={t.name} className="card" style={{ padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div className="h3">{t.name}</div>
+                  <p className="muted" style={{ marginTop: 4 }}>{t.desc}</p>
+                </div>
+                <span className="pill">{t.runtime}</span>
+              </div>
+              <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
+                <code className="code json">runtime: {t.runtime}</code>
+                <code className="code json">capabilities: {t.capabilities}</code>
+                <code className="code json">port: {t.port}</code>
+                <button className="btn secondary" onClick={() => navigate('/apps')}>Use in App Store</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="section-header">
           <h2>API playground</h2>
-          <span className="subtitle">Api Playground overview</span>
+          <span className="subtitle">Core endpoints</span>
         </div>
         <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           <a className="btn secondary" onClick={() => navigate('/apps')}>App registry</a>
@@ -2549,22 +2617,10 @@ function DeveloperPanel() {
           <a className="btn secondary" href="https://developer.mozilla.org/en-US/docs/Learn/Server-side/Express_Nodejs" target="_blank" rel="noreferrer">Express docs</a>
         </div>
       </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>App templates</h2>
-          <span className="subtitle">App Templates overview</span>
-        </div>
-        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <span className="pill">Display App — static UI shell</span>
-          <span className="pill">API Service — Node backend</span>
-          <span className="pill">Embedding Worker — background job</span>
-          <span className="pill">Plugin — SDK extension</span>
-        </div>
-      </div>
       <div className="card">
         <div className="section-header">
           <h2>Contribute to self-improvement</h2>
-          <span className="subtitle">Contribute To Self-Improvement overview</span>
+          <span className="subtitle">Help ForgeOS learn</span>
         </div>
         <p className="muted" style={{ marginTop: 8 }}>
           Use <span className="mono">/api/telemetry</span> to report page views and load times.
