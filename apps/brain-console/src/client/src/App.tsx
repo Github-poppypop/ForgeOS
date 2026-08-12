@@ -402,7 +402,7 @@ function BarChart({ data, height = 180 }: { data: { label: string; value: number
           );
         })}
       </svg>
-      <div className="donut-legend" style={{ marginTop: 8 }}>
+      <div className="chart-legend" style={{ gridTemplateColumns: `repeat(${count}, 1fr)`, marginTop: 8 }}>
         {data.map((d, i) => (
           <span key={i} className="tag"><span className="sw" style={{ background: d.color || COLORS[i % COLORS.length] }} />{d.label}: <strong>{d.value}</strong></span>
         ))}

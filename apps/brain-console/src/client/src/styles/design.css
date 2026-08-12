@@ -402,6 +402,8 @@ ul.mono { list-style: none; padding: 0; }
 .chart .label { font-size: 11px; font-family: var(--mono); fill: var(--text); }
 .bar-value { font-size: 11px; font-family: var(--mono); fill: var(--text); font-weight: 700; }
 .chart .title { font-family: var(--display); font-size: 13px; fill: var(--text); }
+.chart-legend { display: grid; gap: 8px; }
+.chart-legend .tag { white-space: nowrap; }
 
 /* ---------- (46) chart: bar ---------- */
 .bar-rect { rx: 3; transition: height 320ms ease, y 320ms ease, fill var(--trans); }
