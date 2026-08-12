@@ -1,63 +1,65 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useCallback, useState } from 'react';
 
 type Route =
-  | '#/dashboard'
-  | '#/roles'
-  | '#/page/:slug'
-  | '#/search'
-  | '#/capture'
-  | '#/decisions'
-  | '#/timeline'
-  | '#/ledger'
-  | '#/missions'
-  | '#/mcp'
-  | '#/vault'
-  | '#/embed'
-  | '#/federation'
-  | '#/audit'
-  | '#/schema'
-  | '#/config'
-  | '#/command'
-  | '#/governance'
-  | '#/monitoring'
-  | '#/workflows'
-  | '#/marketplace'
-  | '#/plugins'
-  | '#/projects'
-  | '#/settings'
-  | '#/poolleague'
-  | '#/webhooks'
-  | '#/apps'
-  | '#/self-improve';
+  | '/dashboard'
+  | '/roles'
+  | '/page/:slug'
+  | '/search'
+  | '/capture'
+  | '/decisions'
+  | '/timeline'
+  | '/ledger'
+  | '/missions'
+  | '/mcp'
+  | '/vault'
+  | '/embed'
+  | '/federation'
+  | '/audit'
+  | '/schema'
+  | '/config'
+  | '/command'
+  | '/governance'
+  | '/monitoring'
+  | '/workflows'
+  | '/marketplace'
+  | '/plugins'
+  | '/projects'
+  | '/settings'
+  | '/poolleague'
+  | '/webhooks'
+  | '/apps'
+  | '/self-improve'
+  | '/developers';
 
 const ROUTES: Route[] = [
-  '#/dashboard',
-  '#/roles',
-  '#/search',
-  '#/capture',
-  '#/decisions',
-  '#/timeline',
-  '#/ledger',
-  '#/missions',
-  '#/mcp',
-  '#/vault',
-  '#/embed',
-  '#/federation',
-  '#/audit',
-  '#/schema',
-  '#/config',
-  '#/command',
-  '#/governance',
-  '#/monitoring',
-  '#/workflows',
-  '#/marketplace',
-  '#/plugins',
-  '#/projects',
-  '#/settings',
-  '#/poolleague',
-  '#/webhooks',
-  '#/apps',
-  '#/self-improve',
+  '/dashboard',
+  '/roles',
+  '/search',
+  '/capture',
+  '/decisions',
+  '/timeline',
+  '/ledger',
+  '/missions',
+  '/mcp',
+  '/vault',
+  '/embed',
+  '/federation',
+  '/audit',
+  '/schema',
+  '/config',
+  '/command',
+  '/governance',
+  '/monitoring',
+  '/workflows',
+  '/marketplace',
+  '/plugins',
+  '/projects',
+  '/settings',
+  '/poolleague',
+  '/webhooks',
+  '/apps',
+  '/self-improve',
+  '/developers',
 ];
 
 const THEME_PREFIX = 'forgeos-theme-';
@@ -92,32 +94,36 @@ const SHORTCUTS: [string, string, string][] = [
 ];
 
 const CATEGORIES = [
-  { title: 'Core', items: ['#/dashboard', '#/roles', '#/search', '#/capture'] },
-  { title: 'Knowledge', items: ['#/decisions', '#/timeline', '#/ledger', '#/vault'] },
-  { title: 'Governance', items: ['#/missions', '#/federation', '#/audit', '#/schema', '#/governance'] },
-  { title: 'Platform', items: ['#/mcp', '#/plugins', '#/marketplace', '#/workflows', '#/monitoring'] },
-  { title: 'System', items: ['#/config', '#/command', '#/settings', '#/projects', '#/poolleague', '#/webhooks', '#/apps'] },
-  { title: 'Developers', items: ['#/developers'] },
+  { title: 'Core', items: ['/dashboard', '/roles', '/search', '/capture'] },
+  { title: 'Knowledge', items: ['/decisions', '/timeline', '/ledger', '/vault'] },
+  { title: 'Governance', items: ['/missions', '/federation', '/audit', '/schema', '/governance'] },
+  { title: 'Platform', items: ['/mcp', '/plugins', '/marketplace', '/workflows', '/monitoring'] },
+  { title: 'System', items: ['/config', '/command', '/settings', '/projects', '/poolleague', '/webhooks', '/apps'] },
+  { title: 'Developers', items: ['/developers'] },
 ];
 
-function useHashRoute() {
-  const [hash, setHash] = useState(() => (typeof window !== 'undefined' ? window.location.hash || '#/dashboard' : '#/dashboard'));
+function usePathRoute() {
+  const [path, setPath] = useState(() => typeof window !== 'undefined' ? window.location.pathname || '/dashboard' : '/dashboard');
   useEffect(() => {
-    const onHash = () => setHash(window.location.hash || '#/dashboard');
-    window.addEventListener('hashchange', onHash, false);
-    return () => window.removeEventListener('hashchange', onHash, false);
+    const onPop = () => setPath(window.location.pathname || '/dashboard');
+    window.addEventListener('popstate', onPop, false);
+    return () => window.removeEventListener('popstate', onPop, false);
   }, []);
-  return hash;
+  const navigate = useCallback((r: string) => {
+    window.history.pushState({}, '', r);
+    setPath(r);
+  }, []);
+  return { path, navigate };
 }
 
-function matchRoute(hash: string): string {
-  if (!hash || hash === '#') return '#/dashboard';
-  const base = hash.split('?')[0].split('/')[1];
+function matchRoute(path: string): string {
+  if (!path || path === '/') return '/dashboard';
+  const base = path.split('?')[0].split('/')[1];
   const found = ROUTES.find((r) => {
-    if (r === '#/page/:slug') return base === 'page';
-    return r === `#/${base}`;
+    if (r === '/page/:slug') return base === 'page';
+    return r === `/${base}`;
   });
-  return found || hash;
+  return found || path;
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -293,7 +299,7 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
           <div className="nav-category-header" onClick={() => toggle(cat.title)}>{cat.title}</div>
           <div className="nav-category-items" style={{ maxHeight: collapsed[cat.title] ? '0px' : '240px' }}>
             {cat.items.map((r) => {
-              const label = r.replace('#/', '').charAt(0).toUpperCase() + r.replace('#/', '').slice(1);
+              const label = r.replace(/^\//, '').charAt(0).toUpperCase() + r.replace(/^\//, '').slice(1);
               return (
                 <a key={r} href={r} className={route === r ? 'active' : ''} onClick={(e) => { e.preventDefault(); onNavigate(r); }}>
                   {label}
@@ -315,7 +321,7 @@ function Navbar({ route, theme, setTheme, contrast, setContrast, onShortcuts }: 
   setContrast: (t: string) => void;
   onShortcuts: () => void;
 }) {
-  const label = route ? route.replace('#/', '').charAt(0).toUpperCase() + route.replace('#/', '').slice(1) : 'Console';
+  const label = route ? route.replace(/^\//, '').charAt(0).toUpperCase() + route.replace(/^\//, '').slice(1) : 'Console';
   return (
     <header className="navbar">
       <button className="btn icon sm" aria-label="Menu" onClick={() => document.querySelector('.sidebar')?.classList.toggle('open')}>☰</button>
@@ -2432,18 +2438,19 @@ function NotFound() {
 }
 
 export default function App() {
-  const hash = useHashRoute();
-  const route = useMemo(() => matchRoute(hash), [hash]);
+  const { path, navigate } = usePathRoute();
+  const route = useMemo(() => matchRoute(path), [path]);
   const { theme, setTheme, contrast, setContrast } = useTheme();
   const { showShortcuts, setShowShortcuts } = useShortcuts();
 
   useEffect(() => {
-    api('/api/telemetry', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'page_view', route: route || '#/dashboard', load_ms: performance?.timeOrigin ? Math.round(performance.now()) : 0 }) }).catch(() => {});
+    api('/api/telemetry', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'page_view', route: route || '/dashboard', load_ms: performance?.timeOrigin ? Math.round(performance.now()) : 0 }) }).catch(() => {});
   }, [route]);
 
   const statusApi = useApi('/api/status');
   const rolesApi = useApi('/api/roles');
-  const searchApi = useApi(`/api/search?q=${encodeURIComponent((new URLSearchParams(window.location.hash.split('?')[1] || '')).get('q') || '')}`);
+  const q = encodeURIComponent(new URLSearchParams(window.location.search.slice(1)).get('q') || '');
+  const searchApi = useApi('/api/search?q=' + q);
   const missionsApi = useApi('/api/missions');
   const timelineApi = useApi('/api/timeline');
   const complianceApi = useApi('/api/compliance');
@@ -2452,73 +2459,69 @@ export default function App() {
   const ledgerApi = useApi('/api/ledger?from=2000-01-01');
   void [missionsApi, timelineApi, complianceApi, federationApi, webhooksApi, ledgerApi];
 
-  const navigate = (r: string) => {
-    window.location.hash = r;
-  };
-
   const renderPanel = () => {
-    if (route.startsWith('#/page/')) {
-      const slug = route.slice('#/page/'.length);
+    if (route.startsWith('/page/')) {
+      const slug = route.slice('/page/'.length);
       return <PagePanel slug={slug} />;
     }
     switch (route) {
-      case '#/dashboard':
+      case '/dashboard':
         return <Dashboard status={statusApi.data} roles={rolesApi.data} />;
-      case '#/roles':
+      case '/roles':
         return <Roles roles={rolesApi.data} />;
-      case '#/search':
+      case '/search':
         return <Search data={searchApi.data} />;
-      case '#/capture':
+      case '/capture':
         return <Capture />;
-      case '#/decisions':
+      case '/decisions':
         return <Decisions />;
-      case '#/timeline':
+      case '/timeline':
         return <TimelinePanel />;
-      case '#/ledger':
+      case '/ledger':
         return <LedgerPanel />;
-      case '#/missions':
+      case '/missions':
         return <MissionsPanel />;
-      case '#/compliance':
+      case '/compliance':
         return <CompliancePanel />;
-      case '#/federation':
+      case '/federation':
         return <FederationPanel />;
-      case '#/webhooks':
+      case '/webhooks':
         return <WebhooksPanel />;
-      case '#/apps':
+      case '/apps':
         return <AppStorePanel />;
-      case '#/developers':
+      case '/developers':
         return <DeveloperPanel />;
-      case '#/self-improve':
+      case '/self-improve':
         return <SelfImprovePanel />;
-      case '#/mcp':
+      case '/mcp':
         return <McpPanel />;
-      case '#/vault':
+      case '/vault':
         return <VaultPanel />;
-      case '#/embed':
+      case '/embed':
         return <EmbedPanel />;
-      case '#/audit':
+      case '/audit':
         return <AuditPanel />;
-      case '#/schema':
+      case '/schema':
         return <SchemaPanel />;
-      case '#/config':
+      case '/config':
         return <ConfigPanel />;
-      case '#/command':
+      case '/command':
         return <CommandPanel />;
-      case '#/governance':
+      case '/governance':
         return <GovernancePanel />;
-      case '#/monitoring':
+      case '/monitoring':
         return <MonitoringPanel />;
-      case '#/workflows':
+      case '/workflows':
         return <WorkflowsPanel />;
-      case '#/marketplace':
+      case '/marketplace':
         return <MarketplacePanel />;
-      case '#/plugins':
+      case '/plugins':
         return <PluginsPanel />;
-      case '#/projects':
+      case '/projects':
         return <ProjectsPanel />;
-      case '#/settings':
+      case '/settings':
         return <SettingsPanel />;
-      case '#/poolleague':
+      case '/poolleague':
         return <PoolLeaguePanel />;
       default:
         return <NotFound />;
@@ -2539,9 +2542,9 @@ export default function App() {
         <Sidebar route={route} onNavigate={navigate} />
         <main className="main">
           <nav className="breadcrumb" aria-label="breadcrumb">
-            <a href="#/dashboard" onClick={(e) => { e.preventDefault(); navigate('#/dashboard'); }}>ForgeOS</a>
+            <a href="/dashboard" onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }}>ForgeOS</a>
             <span style={{ margin: '0 8px', color: 'var(--text-dim)' }}>/</span>
-            <span style={{ color: 'var(--text)' }}>{route.replace('#/', '')}</span>
+            <span style={{ color: 'var(--text)' }}>{route.replace(/^\//, '')}</span>
           </nav>
           {renderPanel()}
         </main>

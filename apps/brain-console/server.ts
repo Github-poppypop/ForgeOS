@@ -3,6 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import { match } from "path-to-regexp";
 
 const PORT = Number(process.env.PORT ?? 7777);
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
@@ -514,6 +515,14 @@ async function main() {
   });
 
   app.get('/', (req, res) => {
+    const indexAsset = resolveAsset('/index.html');
+    if (indexAsset.path) {
+      return res.sendFile(indexAsset.path, { headers: indexAsset.headers });
+    }
+    return res.status(404).send('not found');
+  });
+
+  app.get(/^\/[^?#]*$/, (req, res) => {
     const indexAsset = resolveAsset('/index.html');
     if (indexAsset.path) {
       return res.sendFile(indexAsset.path, { headers: indexAsset.headers });
