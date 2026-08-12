@@ -2404,23 +2404,6 @@ function PoolLeaguePanel() {
         </div>
         <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--accent)" />
       </div>
-      <div className="stack">
-        {players.slice(0, 20).map((p: any, i: number) => (
-          <div key={i} className="card" style={{ padding: 12 }}>
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <div>
-                <div className="h3">{p.name || `player-${i + 1}`}</div>
-                <p className="muted mono">{p.club || 'free agent'}</p>
-              </div>
-              <span className="pill ok">{p.rank || 'R'}</span>
-            </div>
-            <div className="row" style={{ marginTop: 8, gap: 8 }}>
-              <span className="pill">wins: {p.wins ?? 0}</span>
-              <span className="pill">losses: {p.losses ?? 0}</span>
-            </div>
-          </div>
-        ))}
-      </div>
       {!players.length && <EmptyState title="No players" body="Add players and tables to run the league." />}
     </div>
   );
