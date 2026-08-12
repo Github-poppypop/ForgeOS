@@ -392,12 +392,14 @@ function BarChart({ data, height = 180 }: { data: { label: string; value: number
       <svg viewBox={`0 0 100 ${chartH}`} preserveAspectRatio="none" style={{ height: chartH }}>
         <line x1={0} y1={chartH - 0.5} x2={100} y2={chartH - 0.5} className="chart-grid" />
         {data.map((d, i) => {
-          const h = (d.value / max) * (chartH - 8);
+          const rawH = (d.value / max) * (chartH - 8);
+          const h = Math.max(1.5, rawH);
           const x = gap + i * (barW + gap);
+          const empty = d.value === 0;
           return (
             <g key={i}>
-              <rect x={x} y={chartH - 4 - h} width={barW} height={h} rx="2" className="bar-rect" fill={d.color || COLORS[i % COLORS.length]} />
-              <text x={x + barW / 2} y={chartH - 6 - h} textAnchor="middle" className="bar-value">{d.value}</text>
+              <rect x={x} y={chartH - 4 - h} width={barW} height={h} rx="2" className={cn('bar-rect', empty ? 'empty' : '')} fill={d.color || COLORS[i % COLORS.length]} opacity={empty ? 0.35 : 1} />
+              {!empty && <text x={x + barW / 2} y={chartH - 6 - h} textAnchor="middle" className="bar-value">{d.value}</text>}
             </g>
           );
         })}

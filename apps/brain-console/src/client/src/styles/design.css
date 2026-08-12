@@ -402,14 +402,16 @@ ul.mono { list-style: none; padding: 0; }
 .chart .label { font-size: 11px; font-family: var(--mono); fill: var(--text); }
 .bar-value { font-size: 11px; font-family: var(--mono); fill: var(--text); font-weight: 700; }
 .chart .title { font-family: var(--display); font-size: 13px; fill: var(--text); }
-.chart-legend { display: grid; gap: 8px; }
-.chart-legend .tag { white-space: nowrap; }
+.chart-legend { display: grid; gap: 6px; }
+.chart-legend .tag { font-size: 10px; padding: 2px 8px; gap: 4px; white-space: nowrap; }
+.chart-legend .sw { width: 8px; height: 8px; }
 
 /* ---------- (46) chart: bar ---------- */
 .bar-rect { rx: 3; transition: height 320ms ease, y 320ms ease, fill var(--trans); }
 .bar-rect:hover { fill: var(--accent); }
 .bar-rect.bad { fill: var(--danger); }
 .bar-rect.ok { fill: var(--success); }
+.bar-rect.empty { opacity: 0.35; }
 
 /* ---------- (47) chart: donut ---------- */
 .donut-ring { fill: none; stroke: var(--surface); stroke-width: 12; }
