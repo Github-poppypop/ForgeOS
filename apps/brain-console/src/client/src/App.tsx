@@ -655,9 +655,9 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
       <div className="stats cols-2" style={{ marginTop: 16 }}>
         <div className="card">
           <div className="section-header">
-            <h2>Status timeline</h2>
-            <span className="subtitle">Last 7 checks</span>
-          </div>
+          <h2>Status timeline</h2>
+          <span className="subtitle">Last 7 checks</span>
+        </div>
           <div style={{ marginTop: 10 }}>
             <Sparkline data={[1, 3, 2, 5, 4, 6, 5]} color="var(--accent)" />
           </div>
@@ -730,13 +730,19 @@ function Roles({ roles }: { roles: any }) {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Reporting structure</h2>
+        <div className="section-header">
+          <h2>Reporting structure</h2>
+          <span className="subtitle">Direct vs indirect reports</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <BarChart data={reportCounts} height={100} />
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Capability heatmap</h2>
+        <div className="section-header">
+          <h2>Capability heatmap</h2>
+          <span className="subtitle">Role coverage intensity</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <Heatmap values={Array.from({ length: 28 }, (_, i) => i % 6)} cols={14} />
         </div>
@@ -747,7 +753,10 @@ function Roles({ roles }: { roles: any }) {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Lifecycle</h2>
+        <div className="section-header">
+          <h2>Lifecycle</h2>
+          <span className="subtitle">Role maturity stages</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Design', done: true },
@@ -764,13 +773,19 @@ function Roles({ roles }: { roles: any }) {
         <StatCard title="Open" value={list.filter((r) => !r.exists).length} subtitle="missing roles" accent={!!list.some((r) => !r.exists)} danger={!!list.some((r) => !r.exists)} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Status timeline</h2>
+        <div className="section-header">
+          <h2>Status timeline</h2>
+          <span className="subtitle">Recent checks</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <Sparkline data={[2, 3, 3, 4, 5, 5, 6]} color="var(--success)" />
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Recent activity</h2>
+        <div className="section-header">
+          <h2>Recent activity</h2>
+          <span className="subtitle">Latest role updates</span>
+        </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {list.slice(0, 5).map((r, i) => (
             <div key={r.slug} className="card" style={{ padding: 12 }}>
@@ -812,7 +827,10 @@ function Search({ data }: { data: any }) {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Score distribution</h2>
+        <div className="section-header">
+          <h2>Score distribution</h2>
+          <span className="subtitle">Performance spread</span>
+        </div>
         <TopBarChart data={scores.length ? scores.slice(0, 12).map((v, i) => ({ label: `#${i + 1}`, value: Math.round(v * 10) })) : [{ label: 'none', value: 1 }]} height={90} />
       </div>
       {!lines.length ? <EmptyState title="No results yet" body="Try capturing a page first." action={<button className="btn primary" onClick={() => navigate('/capture')}>Capture a page</button>} /> : (
@@ -862,7 +880,10 @@ function Capture() {
         <StatCard title="Valid" value={validate() ? 'Yes' : 'No'} subtitle="slug" danger={!validate()} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>New capture</h2>
+        <div className="section-header">
+          <h2>New capture</h2>
+          <span className="subtitle">Create a knowledge page</span>
+        </div>
         <div className="row" style={{ marginTop: 10 }}><label>slug</label><input className="mono" value={slug} onChange={(e) => setSlug(e.target.value)} style={{ flex: 1 }} /><button className="btn secondary" onClick={() => navigator.clipboard.writeText(slug)}>Copy</button></div>
         <div className="row" style={{ marginTop: 8 }}><label>type</label><input value={type} onChange={(e) => setType(e.target.value)} /></div>
         <div className="row" style={{ marginTop: 8 }}>
@@ -887,7 +908,10 @@ function Capture() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Quick templates</h2>
+        <div className="section-header">
+          <h2>Quick templates</h2>
+          <span className="subtitle">Starter page shapes</span>
+        </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {Object.entries(templates).map(([k, v]) => (
             <div key={k} className="card" style={{ padding: 12 }}>
@@ -903,7 +927,10 @@ function Capture() {
         </div>
       </div>
       <div className="card">
-        <h2>Status</h2>
+        <div className="section-header">
+          <h2>Status</h2>
+          <span className="subtitle">Capture state</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Slug', done: validate() },
@@ -1022,7 +1049,10 @@ function Decisions() {
         )}
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Outcomes</h2>
+        <div className="section-header">
+          <h2>Outcomes</h2>
+          <span className="subtitle">Approval distribution</span>
+        </div>
         <DonutChart data={[
           { label: 'approved', value: approved, color: 'var(--success)' },
           { label: 'pending', value: pending, color: 'var(--warn)' },
@@ -1030,7 +1060,10 @@ function Decisions() {
         ]} size={160} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Decision velocity</h2>
+        <div className="section-header">
+          <h2>Decision velocity</h2>
+          <span className="subtitle">Decisions over time</span>
+        </div>
         <Sparkline data={monthCounts} color="var(--accent)" />
       </div>
       {!entries.length && <EmptyState title="No decisions yet" body="Decisions will appear here after missions and governance actions." />}
@@ -1111,11 +1144,17 @@ function TimelinePanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Milestone density</h2>
+        <div className="section-header">
+          <h2>Milestone density</h2>
+          <span className="subtitle">Monthly milestones</span>
+        </div>
         <BarChart data={Array.from({ length: 7 }, (_, i) => ({ label: `${i + 1}m`, value: series[i] }))} />
       </div>
       <div className="card">
-        <h2>Load</h2>
+        <div className="section-header">
+          <h2>Load</h2>
+          <span className="subtitle">Mission capacity</span>
+        </div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
           <GaugeChart value={Math.round((done / Math.max(1, items.length)) * 100)} label="Completion" />
           <GaugeChart value={Math.round((inProgress / Math.max(1, items.length)) * 100)} label="Active" />
@@ -1169,7 +1208,10 @@ function LedgerPanel() {
         <TopBarChart data={rows.length ? rows : [{ label: 'none', value: 1 }]} height={90} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Trend</h2>
+        <div className="section-header">
+          <h2>Trend</h2>
+          <span className="subtitle">Workflow runs</span>
+        </div>
         <Sparkline data={monthCounts} color="var(--accent)" />
         <div className="tags" style={{ marginTop: 8 }}>
           {monthCounts.map((v, i) => <span key={i} className="tag info">{i + 1}m: {v}</span>)}
@@ -1231,7 +1273,10 @@ function MissionsPanel() {
         <BarChart data={Object.entries(phaseCounts).map(([label, value]) => ({ label, value }))} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Ownership</h2>
+        <div className="section-header">
+          <h2>Ownership</h2>
+          <span className="subtitle">Top owners</span>
+        </div>
         <DonutChart data={Object.entries(ownerCounts).slice(0, 5).map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }))} size={160} />
       </div>
       <div className="stack">
@@ -1273,7 +1318,10 @@ function CompliancePanel() {
         <StatCard title="Gaps" value={inactive} subtitle="needs attention" danger={!!inactive} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Status</h2>
+        <div className="section-header">
+          <h2>Status</h2>
+          <span className="subtitle">Capture state</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <DonutChart data={[
             { label: 'active', value: active, color: 'var(--success)' },
@@ -1282,11 +1330,17 @@ function CompliancePanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Category coverage</h2>
+        <div className="section-header">
+          <h2>Category coverage</h2>
+          <span className="subtitle">Active vs inactive</span>
+        </div>
         <BarChart data={Object.entries(categoryCounts).map(([label, value]) => ({ label, value }))} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Recent checks</h2>
+        <div className="section-header">
+          <h2>Recent checks</h2>
+          <span className="subtitle">Latest monitoring</span>
+        </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {policies.slice(0, 10).map((p, i) => (
             <div key={p.id} className="card" style={{ padding: 12 }}>
@@ -1307,7 +1361,10 @@ function CompliancePanel() {
         </div>
       </div>
       <div className="card">
-        <h2>Load</h2>
+        <div className="section-header">
+          <h2>Load</h2>
+          <span className="subtitle">Plugin traffic</span>
+        </div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
           <GaugeChart value={active ? 85 : 30} label="Compliance" />
           <GaugeChart value={inactive ? 40 : 90} label="Coverage" />
@@ -1353,15 +1410,24 @@ function FederationPanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Member distribution</h2>
+        <div className="section-header">
+          <h2>Member distribution</h2>
+          <span className="subtitle">Team makeup</span>
+        </div>
         <BarChart data={children.length ? children.map((c, i) => ({ label: c, value: 3 + i })) : [{ label: 'none', value: 1 }]} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Sync activity</h2>
+        <div className="section-header">
+          <h2>Sync activity</h2>
+          <span className="subtitle">Replication events</span>
+        </div>
         <Sparkline data={counts} color="var(--accent)" />
       </div>
       <div className="card">
-        <h2>Status timeline</h2>
+        <div className="section-header">
+          <h2>Status timeline</h2>
+          <span className="subtitle">Recent checks</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Register', done: true },
@@ -1402,7 +1468,10 @@ function WebhooksPanel() {
         <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--danger)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Dead letter</h2>
+        <div className="section-header">
+          <h2>Dead letter</h2>
+          <span className="subtitle">Failed messages</span>
+        </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {dead.length ? dead.slice(0, 10).map((w: any, i: number) => (
             <div key={i} className="card" style={{ padding: 12 }}>
@@ -1462,11 +1531,17 @@ function McpPanel() {
         <TopBarChart data={tools.length ? tools.slice(0, 8).map((t, i) => ({ label: t.name || `tool-${i + 1}`, value: i + 1 })) : [{ label: 'none', value: 1 }]} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Transport load</h2>
+        <div className="section-header">
+          <h2>Transport load</h2>
+          <span className="subtitle">MCP traffic</span>
+        </div>
         <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--info)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Transport breakdown</h2>
+        <div className="section-header">
+          <h2>Transport breakdown</h2>
+          <span className="subtitle">Protocol mix</span>
+        </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {transports.length ? transports.map((t: any, i: number) => (
             <div key={i} className="card" style={{ padding: 12 }}>
@@ -1511,15 +1586,24 @@ function VaultPanel() {
         <StatCard title="Sync" value="Manual" subtitle="pending backup" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Activity</h2>
+        <div className="section-header">
+          <h2>Activity</h2>
+          <span className="subtitle">Recent events</span>
+        </div>
         <TopBarChart data={Array.from({ length: 10 }, (_, i) => ({ label: `${i + 1}`, value: i + 1 }))} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Load</h2>
+        <div className="section-header">
+          <h2>Load</h2>
+          <span className="subtitle">Plugin traffic</span>
+        </div>
         <GaugeChart value={items.length ? 70 : 20} label="Usage" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Types</h2>
+        <div className="section-header">
+          <h2>Types</h2>
+          <span className="subtitle">Item categories</span>
+        </div>
         <DonutChart data={[
           { label: 'secret', value: Math.max(1, Math.floor(items.length * 0.55)), color: 'var(--accent)' },
           { label: 'key', value: Math.max(1, Math.floor(items.length * 0.25)), color: 'var(--info)' },
@@ -1555,15 +1639,24 @@ function EmbedPanel() {
         <StatCard title="Dimensions" value={data?.dimensions ?? '—'} subtitle="vector size" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Queue depth</h2>
+        <div className="section-header">
+          <h2>Queue depth</h2>
+          <span className="subtitle">Pending items</span>
+        </div>
         <BarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `batch-${i + 1}`, value: (data?.queued || i + 1) }))} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Throughput</h2>
+        <div className="section-header">
+          <h2>Throughput</h2>
+          <span className="subtitle">Requests processed</span>
+        </div>
         <Sparkline data={Array.from({ length: 12 }, (_, i) => i + 1)} color="var(--success)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Readiness</h2>
+        <div className="section-header">
+          <h2>Readiness</h2>
+          <span className="subtitle">Monitoring health</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Model', done: !!data?.model },
@@ -1574,7 +1667,10 @@ function EmbedPanel() {
         </div>
       </div>
       <div className="card">
-        <h2>Load</h2>
+        <div className="section-header">
+          <h2>Load</h2>
+          <span className="subtitle">Plugin traffic</span>
+        </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <GaugeChart value={Math.min(100, (data?.queued || 0) * 10)} label="Queue" />
           <GaugeChart value={Math.min(100, ((data?.dimensions || 0) / 1024) * 100)} label="Dim utilization" />
@@ -1596,11 +1692,17 @@ function AuditPanel() {
         <StatCard title="Source" value="Local" subtitle="append-only" accent />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Event volume</h2>
+        <div className="section-header">
+          <h2>Event volume</h2>
+          <span className="subtitle">Telemetry events</span>
+        </div>
         <TopBarChart data={Array.from({ length: 7 }, (_, i) => ({ label: `${i + 1}d`, value: i + 1 }))} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Severity</h2>
+        <div className="section-header">
+          <h2>Severity</h2>
+          <span className="subtitle">Issue levels</span>
+        </div>
         <DonutChart data={[
           { label: 'info', value: Math.max(1, events.length - 2), color: 'var(--info)' },
           { label: 'warn', value: 1, color: 'var(--warn)' },
@@ -1636,11 +1738,17 @@ function ConfigPanel() {
         <StatCard title="Isolation" value={(data?.isolation || '—').split(' ')[0]} subtitle="brain root" accent />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Current config</h2>
+        <div className="section-header">
+          <h2>Current config</h2>
+          <span className="subtitle">Live settings</span>
+        </div>
         <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(data, null, 2)}</pre>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Environment stability</h2>
+        <div className="section-header">
+          <h2>Environment stability</h2>
+          <span className="subtitle">Uptime and health</span>
+        </div>
         <Stepper steps={[
           { label: 'Read config', done: true },
           { label: 'Validate paths', done: !!data?.isolation },
@@ -1649,7 +1757,10 @@ function ConfigPanel() {
         ]} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Change timeline</h2>
+        <div className="section-header">
+          <h2>Change timeline</h2>
+          <span className="subtitle">Recent updates</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <TimelineChart items={[
             { date: '2026-08-01', title: 'Config created', status: 'done' },
@@ -1659,7 +1770,10 @@ function ConfigPanel() {
         </div>
       </div>
       <div className="card">
-        <h2>Readiness</h2>
+        <div className="section-header">
+          <h2>Readiness</h2>
+          <span className="subtitle">Monitoring health</span>
+        </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <GaugeChart value={!!data?.isolation ? 80 : 20} label="Config" />
           <GaugeChart value={!!data?.ollama ? 60 : 20} label="Ollama" />
@@ -1694,18 +1808,27 @@ function CommandPanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>History</h2>
+        <div className="section-header">
+          <h2>History</h2>
+          <span className="subtitle">Change log</span>
+        </div>
         <div className="tabs" style={{ marginTop: 10 }}>
           {history.map((h, i) => <button key={i} className={cn('tab', i === 0 && 'active')} onClick={() => setCmd(h)}>{h}</button>)}
         </div>
         {!history.length && <p className="muted">No commands run yet.</p>}
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Output</h2>
+        <div className="section-header">
+          <h2>Output</h2>
+          <span className="subtitle">Recent results</span>
+        </div>
         {res ? <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(res, null, 2)}</pre> : <Skeleton rows={3} />}
       </div>
       <div className="card">
-        <h2>Status</h2>
+        <div className="section-header">
+          <h2>Status</h2>
+          <span className="subtitle">Capture state</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Input', done: !!cmd },
@@ -1735,7 +1858,10 @@ function GovernancePanel() {
         <StatCard title="Root" value={(data?.root || '—').split(' ')[0]} subtitle="scope" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Rules</h2>
+        <div className="section-header">
+          <h2>Rules</h2>
+          <span className="subtitle">Active policies</span>
+        </div>
         {rules.length ? (
           <div className="stack" style={{ marginTop: 10 }}>
             {rules.map((r: any, i: number) => (
@@ -1756,7 +1882,10 @@ function GovernancePanel() {
         )}
       </div>
       <div className="card">
-        <h2>Enforcement timeline</h2>
+        <div className="section-header">
+          <h2>Enforcement timeline</h2>
+          <span className="subtitle">Policy checks</span>
+        </div>
         <TimelineChart items={[
           { date: '2026-08-01', title: 'Governance initialized', status: 'done' },
           { date: '2026-08-05', title: 'Ruleset updated', status: 'done' },
@@ -1784,15 +1913,24 @@ function SchemaPanel() {
         <StatCard title="Status" value="Stable" subtitle="versioned" accent />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Type distribution</h2>
+        <div className="section-header">
+          <h2>Type distribution</h2>
+          <span className="subtitle">Schema mix</span>
+        </div>
         <TopBarChart data={counts.length ? counts.slice(0, 10) : [{ label: 'none', value: 1 }]} height={100} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Coverage</h2>
+        <div className="section-header">
+          <h2>Coverage</h2>
+          <span className="subtitle">Embedded entities</span>
+        </div>
         <Heatmap values={Array.from({ length: 28 }, (_, i) => i % 6)} cols={14} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Readiness</h2>
+        <div className="section-header">
+          <h2>Readiness</h2>
+          <span className="subtitle">Monitoring health</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Schema loaded', done: !!data?.active },
@@ -1803,7 +1941,10 @@ function SchemaPanel() {
         </div>
       </div>
       <div className="card">
-        <h2>Definition</h2>
+        <div className="section-header">
+          <h2>Definition</h2>
+          <span className="subtitle">Schema summary</span>
+        </div>
         <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(data, null, 2)}</pre>
       </div>
     </div>
@@ -1839,7 +1980,10 @@ function MonitoringPanel() {
         <Sparkline data={Array.from({ length: 20 }, (_, i) => i + 1)} color="var(--accent)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Recent checks</h2>
+        <div className="section-header">
+          <h2>Recent checks</h2>
+          <span className="subtitle">Latest monitoring</span>
+        </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="card" style={{ padding: 12 }}>
@@ -1855,7 +1999,10 @@ function MonitoringPanel() {
         </div>
       </div>
       <div className="card">
-        <h2>Readiness</h2>
+        <div className="section-header">
+          <h2>Readiness</h2>
+          <span className="subtitle">Monitoring health</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Start', done: true },
@@ -1942,7 +2089,10 @@ function MarketplacePanel() {
         <TopBarChart data={packs.length ? packs.map((p, i) => ({ label: p.name || `pack-${i + 1}`, value: p.downloads || i + 1 })) : [{ label: 'none', value: 1 }]} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Installs by category</h2>
+        <div className="section-header">
+          <h2>Installs by category</h2>
+          <span className="subtitle">Pack adoption</span>
+        </div>
         <DonutChart data={[
           { label: 'tool', value: packs.filter((p) => p.category === 'tool').length || 1, color: 'var(--accent)' },
           { label: 'plugin', value: packs.filter((p) => p.category === 'plugin').length || 1, color: 'var(--accent-2)' },
@@ -1950,7 +2100,10 @@ function MarketplacePanel() {
         ]} size={160} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Load</h2>
+        <div className="section-header">
+          <h2>Load</h2>
+          <span className="subtitle">Plugin traffic</span>
+        </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <GaugeChart value={packs.filter((p) => p.installed).length ? 75 : 10} label="Adoption" />
           <GaugeChart value={packs.filter((p) => p.updateAvailable).length ? 40 : 90} label="Freshness" />
@@ -1991,7 +2144,10 @@ function PluginsPanel() {
         <StatCard title="Errors" value={plugins.filter((p) => p.error).length} subtitle="failed" danger />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Status</h2>
+        <div className="section-header">
+          <h2>Status</h2>
+          <span className="subtitle">Capture state</span>
+        </div>
         <DonutChart data={[
           { label: 'enabled', value: plugins.filter((p) => p.enabled).length || 1, color: 'var(--success)' },
           { label: 'disabled', value: plugins.filter((p) => !p.enabled).length || 0, color: 'var(--warn)' },
@@ -2032,11 +2188,17 @@ function ProjectsPanel() {
         <StatCard title="Archived" value={archived} subtitle="cold storage" danger={!!archived} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Activity</h2>
+        <div className="section-header">
+          <h2>Activity</h2>
+          <span className="subtitle">Workload by project</span>
+        </div>
         <TopBarChart data={projects.length ? projects.map((p, i) => ({ label: p.name || `proj-${i + 1}`, value: p.tasks || i + 1 })) : [{ label: 'none', value: 1 }]} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Progress</h2>
+        <div className="section-header">
+          <h2>Progress</h2>
+          <span className="subtitle">Completion tracking</span>
+        </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {projects.slice(0, 10).map((p: any, i: number) => (
             <div key={i}>
@@ -2050,7 +2212,10 @@ function ProjectsPanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Load</h2>
+        <div className="section-header">
+          <h2>Load</h2>
+          <span className="subtitle">Resource usage</span>
+        </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <GaugeChart value={projects.length ? 70 : 10} label="Activity" />
           <GaugeChart value={Math.min(100, totalTasks * 10)} label="Tasks" />
@@ -2089,11 +2254,17 @@ function SettingsPanel() {
         <StatCard title="Mode" value="Local" subtitle="standalone" accent />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Current settings</h2>
+        <div className="section-header">
+          <h2>Current settings</h2>
+          <span className="subtitle">Live configuration</span>
+        </div>
         <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(data, null, 2)}</pre>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Environment</h2>
+        <div className="section-header">
+          <h2>Environment</h2>
+          <span className="subtitle">Runtime details</span>
+        </div>
         <div className="stack" style={{ marginTop: 10 }}>
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span>Runtime</span>
@@ -2114,14 +2285,20 @@ function SettingsPanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Adoption</h2>
+        <div className="section-header">
+          <h2>Adoption</h2>
+          <span className="subtitle">Feature uptake</span>
+        </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <GaugeChart value={data?.auth ? 30 : 90} label="Auth" />
           <GaugeChart value={data?.telemetry ? 70 : 20} label="Telemetry" />
         </div>
       </div>
       <div className="card">
-        <h2>Readiness</h2>
+        <div className="section-header">
+          <h2>Readiness</h2>
+          <span className="subtitle">Monitoring health</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Config loaded', done: true },
@@ -2148,15 +2325,24 @@ function PoolLeaguePanel() {
         <StatCard title="Matches" value={matches.length} subtitle="tracked" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Player wins</h2>
+        <div className="section-header">
+          <h2>Player wins</h2>
+          <span className="subtitle">Top ranked players</span>
+        </div>
         <BarChart data={players.length ? players.slice(0, 10).map((p, i) => ({ label: p.name || `player-${i + 1}`, value: p.wins || i + 1 })) : [{ label: 'none', value: 1 }]} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Recent activity</h2>
+        <div className="section-header">
+          <h2>Recent activity</h2>
+          <span className="subtitle">Last 8 matches</span>
+        </div>
         <TopBarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `t-${i + 1}`, value: i + 1 }))} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Match trend</h2>
+        <div className="section-header">
+          <h2>Match trend</h2>
+          <span className="subtitle">Matches over time</span>
+        </div>
         <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--accent)" />
       </div>
       <div className="stack">
@@ -2213,19 +2399,31 @@ function AppStorePanel() {
         <StatCard title="Stable" value={apps.filter((a) => a.status === 'stable').length} subtitle="ready" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Status</h2>
+        <div className="section-header">
+          <h2>Status</h2>
+          <span className="subtitle">App state distribution</span>
+        </div>
         <DonutChart data={Object.entries(statusCounts).map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }))} size={160} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Runtime distribution</h2>
+        <div className="section-header">
+          <h2>Runtime distribution</h2>
+          <span className="subtitle">Runtime breakdown</span>
+        </div>
         <BarChart data={Object.entries(runtimeCounts).map(([label, value]) => ({ label, value }))} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Ownership</h2>
+        <div className="section-header">
+          <h2>Ownership</h2>
+          <span className="subtitle">App ownership map</span>
+        </div>
         <DonutChart data={Object.entries(owners).map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }))} size={160} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>System health</h2>
+        <div className="section-header">
+          <h2>System health</h2>
+          <span className="subtitle">Live health per app</span>
+        </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           {apps.filter((a) => a.port > 0).map((a) => (
             <GaugeChart key={a.id} value={a.health} label={a.name} />
@@ -2233,7 +2431,10 @@ function AppStorePanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Dependency graph</h2>
+        <div className="section-header">
+          <h2>Dependency graph</h2>
+          <span className="subtitle">Dependency Graph overview</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <svg viewBox="0 0 700 220" style={{ width: '100%', height: 'auto' }}>
             {apps.map((a, i) => {
@@ -2252,7 +2453,10 @@ function AppStorePanel() {
         </div>
       </div>
       <div className="card">
-        <h2>Compatibility matrix</h2>
+        <div className="section-header">
+          <h2>Compatibility matrix</h2>
+          <span className="subtitle">Compatibility Matrix overview</span>
+        </div>
         <div style={{ overflowX: 'auto', marginTop: 10 }}>
           <table className="tbl">
             <thead>
@@ -2281,7 +2485,10 @@ function AppStorePanel() {
         </div>
       </div>
       <div className="card">
-        <h2>Quick start</h2>
+        <div className="section-header">
+          <h2>Quick start</h2>
+          <span className="subtitle">Quick Start overview</span>
+        </div>
         <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           {templates.map((t) => (
             <button key={t.name} className="btn secondary" onClick={() => setForm((p) => ({ ...p, name: t.name, runtime: t.runtime, capabilities: t.capabilities, port: t.port }))}>
@@ -2291,7 +2498,10 @@ function AppStorePanel() {
         </div>
       </div>
       <div className="card">
-        <h2>Register app</h2>
+        <div className="section-header">
+          <h2>Register app</h2>
+          <span className="subtitle">Register App overview</span>
+        </div>
         <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
           <input className="input" style={{ width: 120 }} placeholder="version" value={form.version} onChange={(e) => setForm((p) => ({ ...p, version: e.target.value }))} />
@@ -2315,7 +2525,10 @@ function DeveloperPanel() {
     <div className="fadein">
       <h1>Developer onboarding</h1>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Onboarding checklist</h2>
+        <div className="section-header">
+          <h2>Onboarding checklist</h2>
+          <span className="subtitle">Onboarding Checklist overview</span>
+        </div>
         <ul className="stack" style={{ marginTop: 10 }}>
           <li className="card" style={{ padding: 12 }}>Run the local console on <span className="mono">:7777</span></li>
           <li className="card" style={{ padding: 12 }}>Open <span className="mono">/apps</span> and create an app manifest</li>
@@ -2325,7 +2538,10 @@ function DeveloperPanel() {
         </ul>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>API playground</h2>
+        <div className="section-header">
+          <h2>API playground</h2>
+          <span className="subtitle">Api Playground overview</span>
+        </div>
         <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           <a className="btn secondary" onClick={() => navigate('/apps')}>App registry</a>
           <a className="btn secondary" onClick={() => navigate('/self-improve')}>Self-improve</a>
@@ -2334,7 +2550,10 @@ function DeveloperPanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>App templates</h2>
+        <div className="section-header">
+          <h2>App templates</h2>
+          <span className="subtitle">App Templates overview</span>
+        </div>
         <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           <span className="pill">Display App — static UI shell</span>
           <span className="pill">API Service — Node backend</span>
@@ -2343,7 +2562,10 @@ function DeveloperPanel() {
         </div>
       </div>
       <div className="card">
-        <h2>Contribute to self-improvement</h2>
+        <div className="section-header">
+          <h2>Contribute to self-improvement</h2>
+          <span className="subtitle">Contribute To Self-Improvement overview</span>
+        </div>
         <p className="muted" style={{ marginTop: 8 }}>
           Use <span className="mono">/api/telemetry</span> to report page views and load times.
           Submit improvement feedback with <span className="mono">/api/feedback</span>.
@@ -2467,7 +2689,10 @@ function SelfImprovePanel() {
         </div>
       </div>
       <div className="card">
-        <h2>Submit feedback</h2>
+        <div className="section-header">
+          <h2>Submit feedback</h2>
+          <span className="subtitle">Submit Feedback overview</span>
+        </div>
         <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="Your feedback..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
           <select className="select" style={{ width: 140 }} value={rating} onChange={(e) => setRating(Number(e.target.value))}>
