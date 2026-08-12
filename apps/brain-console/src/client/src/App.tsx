@@ -507,7 +507,7 @@ function Stepper({ steps }: { steps: { label: string; done?: boolean; active?: b
   );
 }
 
-function Heatmap({ values, cols = 12 }: { values: number[]; cols?: number }) {
+function Heatmap({ values, cols = 12, title, unit }: { values: number[]; cols?: number; title?: string; unit?: string }) {
   const max = Math.max(1, ...values);
   const level = (v: number) => {
     const n = Math.round((v / max) * 5);
@@ -520,14 +520,26 @@ function Heatmap({ values, cols = 12 }: { values: number[]; cols?: number }) {
     return dayVals.length ? Math.round((dayVals.reduce((s, v) => s + v, 0) / dayVals.length) * 10) / 10 : 0;
   });
   if (!values.length) return <div className="chart"><p className="muted">No heatmap data yet.</p></div>;
+  const legendItems = [1, 2, 3, 4, 5].map((n) => ({ level: `l${n}`, label: `${Math.round((n / 5) * max)}${unit ? ` ${unit}` : ''}` }));
   return (
-    <div className="heatmap" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-      {values.map((v, i) => (
-        <div key={i} className={cn('heat-cell', level(v))} data-tooltip={`Day ${i + 1}: ${v} (avg ${avg})`} />
-      ))}
-      <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+        {title ? <span className="caption">{title}</span> : null}
+        <span className="caption muted">avg: {avg}{unit ? ` ${unit}` : ''}</span>
+        <span className="chart-legend" style={{ marginLeft: 'auto' }}>
+          {legendItems.map((item) => (
+            <span key={item.level} className="tag"><span className={cn('sw', item.level)} style={{ width: 10, height: 10, borderRadius: 2, display: 'inline-block' }} />{item.label}</span>
+          ))}
+        </span>
+      </div>
+      <div className="heatmap" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+        {values.map((v, i) => (
+          <div key={i} className={cn('heat-cell', level(v))} data-tooltip={`Day ${i + 1}: ${v}${unit ? ` ${unit}` : ''} (avg ${avg})`} />
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
         {dayAvgs.map((v, i) => (
-          <span key={i} className="tag">{days[i]} avg: <strong>{v}</strong></span>
+          <span key={i} className="tag">{days[i]} avg: <strong>{v}{unit ? ` ${unit}` : ''}</strong></span>
         ))}
       </div>
     </div>
@@ -807,7 +819,7 @@ function Roles({ roles }: { roles: any }) {
           <span className="subtitle">Role coverage intensity</span>
         </div>
         <div style={{ marginTop: 10 }}>
-          <Heatmap values={Array.from({ length: 28 }, (_, i) => i % 6)} cols={14} />
+          <Heatmap values={Array.from({ length: 28 }, (_, i) => i % 6)} cols={14} title="Coverage intensity" unit="pts" />
         </div>
         <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
           {list.slice(0, 5).map((r) => (
@@ -828,6 +840,7 @@ function Roles({ roles }: { roles: any }) {
             { label: 'Operate', done: false },
             { label: 'Evaluate', done: false },
           ]} />
+          <p className="muted" style={{ marginTop: 8 }}>Numbers are stage order, not counts.</p>
         </div>
       </div>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
@@ -1104,7 +1117,7 @@ function Decisions() {
               <span className="caption">Approval volume by month</span>
               <span className="pill">{approved}/{entries.length}</span>
             </div>
-            <Heatmap values={monthCounts} cols={7} />
+            <Heatmap values={monthCounts} cols={7} title="Monthly activity" unit="events" />
             <div className="row" style={{ marginTop: 8, gap: 8 }}>
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i} className="caption">{d}</span>)}
             </div>
@@ -1188,7 +1201,7 @@ function TimelinePanel() {
         )}
         {view === 'heatmap' && (
           <div>
-            <Heatmap values={series} cols={7} />
+            <Heatmap values={series} cols={7} title="Weekly activity" unit="events" />
             <div className="row" style={{ marginTop: 8, gap: 8 }}>
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i} className="caption">{d}</span>)}
             </div>
@@ -1987,7 +2000,7 @@ function SchemaPanel() {
           <h2>Coverage</h2>
           <span className="subtitle">Embedded entities</span>
         </div>
-        <Heatmap values={Array.from({ length: 28 }, (_, i) => i % 6)} cols={14} />
+        <Heatmap values={Array.from({ length: 28 }, (_, i) => i % 6)} cols={14} title="Coverage intensity" unit="pts" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
