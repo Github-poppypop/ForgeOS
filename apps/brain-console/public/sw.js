@@ -1,7 +1,7 @@
 // public/sw.js — ForgeOS Brain Console service worker
 // Caches the app shell and intercepts API responses for offline mode.
-const CACHE = "forgeos-shell-v6";
-const API_CACHE = "forgeos-api-v6";
+const CACHE = "forgeos-shell-v7";
+const API_CACHE = "forgeos-api-v7";
 const SHELL = [
   "/",
   "/index.html",
