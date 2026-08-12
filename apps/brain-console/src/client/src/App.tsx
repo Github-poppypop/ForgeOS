@@ -384,31 +384,28 @@ function BarChart({ data, height = 180 }: { data: { label: string; value: number
   const gap = 6;
   const count = Math.max(1, data.length);
   const barW = (100 - gap * (count + 1)) / count;
-  const labelSpace = 28;
-  const chartH = height - labelSpace - 6;
+  const vbH = 100;
+  const baseline = vbH - 18;
+  const barMaxH = baseline - 8;
   if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   return (
     <div className="chart">
-      <svg viewBox={`0 0 100 ${chartH}`} preserveAspectRatio="none" style={{ height: chartH }}>
-        <line x1={0} y1={chartH - 0.5} x2={100} y2={chartH - 0.5} className="chart-grid" />
+      <svg viewBox={`0 0 100 ${vbH}`} preserveAspectRatio="none" style={{ height }}>
+        <line x1={0} y1={baseline - 0.5} x2={100} y2={baseline - 0.5} className="chart-grid" />
         {data.map((d, i) => {
-          const rawH = (d.value / max) * (chartH - 8);
-          const h = Math.max(1.5, rawH);
+          const rawH = (d.value / max) * barMaxH;
+          const h = Math.max(2, rawH);
           const x = gap + i * (barW + gap);
           const empty = d.value === 0;
           return (
             <g key={i}>
-              <rect x={x} y={chartH - 4 - h} width={barW} height={h} rx="2" className={cn('bar-rect', empty ? 'empty' : '')} fill={d.color || COLORS[i % COLORS.length]} opacity={empty ? 0.35 : 1} />
-              {!empty && <text x={x + barW / 2} y={chartH - 6 - h} textAnchor="middle" className="bar-value">{d.value}</text>}
+              <rect x={x} y={baseline - 4 - h} width={barW} height={h} rx="2" className={cn('bar-rect', empty ? 'empty' : '')} fill={d.color || COLORS[i % COLORS.length]} opacity={empty ? 0.35 : 1} />
+              {!empty && <text x={x + barW / 2} y={baseline - 6 - h} textAnchor="middle" className="bar-value">{d.value}</text>}
+              <text x={x + barW / 2} y={baseline + 14} textAnchor="middle" className="label">{d.label}</text>
             </g>
           );
         })}
       </svg>
-      <div className="chart-legend" style={{ gridTemplateColumns: `repeat(${count}, 1fr)`, marginTop: 8 }}>
-        {data.map((d, i) => (
-          <span key={i} className="tag"><span className="sw" style={{ background: d.color || COLORS[i % COLORS.length] }} />{d.label}: <strong>{d.value}</strong></span>
-        ))}
-      </div>
     </div>
   );
 }
@@ -555,29 +552,28 @@ function TopBarChart({ data, height = 80 }: { data: { label: string; value: numb
   const gap = 6;
   const count = Math.max(1, data.length);
   const bw = (w - gap * (count + 1)) / count;
-  const labelSpace = 20;
-  const chartH = height - labelSpace - 6;
+  const vbH = 70;
+  const baseline = vbH - 14;
+  const barMaxH = baseline - 8;
   if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   return (
-    <div className="chart" style={{ height }}>
-      <svg viewBox={`0 0 ${w} ${chartH}`} preserveAspectRatio="none" style={{ height: chartH }}>
-        <line x1={0} y1={chartH - 0.5} x2={w} y2={chartH - 0.5} className="chart-grid" />
+    <div className="chart">
+      <svg viewBox={`0 0 ${w} ${vbH}`} preserveAspectRatio="none" style={{ height }}>
+        <line x1={0} y1={baseline - 0.5} x2={w} y2={baseline - 0.5} className="chart-grid" />
         {data.map((d, i) => {
-          const h = (d.value / max) * (chartH - 8);
+          const rawH = (d.value / max) * barMaxH;
+          const h = Math.max(2, rawH);
           const x = gap + i * (bw + gap);
+          const empty = d.value === 0;
           return (
             <g key={i}>
-              <rect x={x} y={chartH - 4 - h} width={bw} height={h} rx="2" className="bar-rect" fill={COLORS[i % COLORS.length]} />
-              <text x={x + bw / 2} y={chartH - 6 - h} textAnchor="middle" className="bar-value">{d.value}</text>
+              <rect x={x} y={baseline - 4 - h} width={bw} height={h} rx="2" className={cn('bar-rect', empty ? 'empty' : '')} fill={COLORS[i % COLORS.length]} opacity={empty ? 0.35 : 1} />
+              {!empty && <text x={x + bw / 2} y={baseline - 6 - h} textAnchor="middle" className="bar-value">{d.value}</text>}
+              <text x={x + bw / 2} y={baseline + 12} textAnchor="middle" className="label">{d.label}</text>
             </g>
           );
         })}
       </svg>
-      <div className="donut-legend" style={{ marginTop: 8 }}>
-        {data.map((d, i) => (
-          <span key={i} className="tag"><span className="sw" style={{ background: COLORS[i % COLORS.length] }} />{d.label}: <strong>{d.value}</strong></span>
-        ))}
-      </div>
     </div>
   );
 }
