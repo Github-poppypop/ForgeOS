@@ -62,6 +62,21 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
+  // Static assets: network-first for hashed bundles, cache-first for everything else
+  const isAsset = /\.(js|css|png|jpg|jpeg|svg|gif|webp|woff2|ttf)$/.test(url.pathname);
+  const isHashedBundle = /assets\/index-[A-Za-z0-9]+\.[a-z]+$/.test(url.pathname);
+  if (isAsset && isHashedBundle) {
+    e.respondWith(
+      fetch(e.request).then((res) => {
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(e.request).then((cached) => cached || new Response('offline', { status: 503 })))
+    );
+    return;
+  }
   // Static assets: cache-first
   e.respondWith(
     caches.match(e.request).then((hit) => {
@@ -73,7 +88,7 @@ self.addEventListener("fetch", (e) => {
         }
         return res;
       }).catch(() => {
-        return caches.match(e.request).then((cached) => cached || new Response("offline", { status: 503 }));
+        return caches.match(e.request).then((cached) => cached || new Response('offline', { status: 503 }));
       });
     })
   );
