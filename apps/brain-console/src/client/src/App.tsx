@@ -384,12 +384,12 @@ function BarChart({ data, height = 180 }: { data: { label: string; value: number
   const gap = 6;
   const count = Math.max(1, data.length);
   const barW = (100 - gap * (count + 1)) / count;
-  const labelSpace = 22;
+  const labelSpace = 28;
   const chartH = height - labelSpace - 6;
   if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   return (
     <div className="chart">
-      <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" style={{ height }}>
+      <svg viewBox={`0 0 100 ${chartH}`} preserveAspectRatio="none" style={{ height: chartH }}>
         <line x1={0} y1={chartH - 0.5} x2={100} y2={chartH - 0.5} className="chart-grid" />
         {data.map((d, i) => {
           const h = (d.value / max) * (chartH - 8);
@@ -398,12 +398,11 @@ function BarChart({ data, height = 180 }: { data: { label: string; value: number
             <g key={i}>
               <rect x={x} y={chartH - 4 - h} width={barW} height={h} rx="2" className="bar-rect" fill={d.color || COLORS[i % COLORS.length]} />
               <text x={x + barW / 2} y={chartH - 6 - h} textAnchor="middle" className="bar-value">{d.value}</text>
-              <text x={x + barW / 2} y={chartH + 12} textAnchor="middle" className="label">{d.label}</text>
             </g>
           );
         })}
       </svg>
-      <div className="donut-legend" style={{ marginTop: 10 }}>
+      <div className="donut-legend" style={{ marginTop: 8 }}>
         {data.map((d, i) => (
           <span key={i} className="tag"><span className="sw" style={{ background: d.color || COLORS[i % COLORS.length] }} />{d.label}: <strong>{d.value}</strong></span>
         ))}
@@ -727,6 +726,12 @@ function Roles({ roles }: { roles: any }) {
   });
   const depts = ['CEO', 'CTO', 'CFO', 'COO', 'CMO', 'CIO', 'CLO'];
   const deptCounts = depts.map((d) => ({ label: d, value: list.filter((r) => (r.slug || '').startsWith(d.toLowerCase())).length }));
+  const seen = new Set();
+  const uniqueDeptCounts = deptCounts.filter((d) => {
+    if (seen.has(d.label)) return false;
+    seen.add(d.label);
+    return true;
+  });
   const reportCounts = [
     { label: 'direct', value: list.filter((r) => r.reports_to === 'ceo' || r.reports_to === 'board').length },
     { label: 'indirect', value: list.filter((r) => r.reports_to && r.reports_to !== 'ceo' && r.reports_to !== 'board').length },
@@ -763,7 +768,7 @@ function Roles({ roles }: { roles: any }) {
           </div>
           <div>
             <h3>By department</h3>
-            <BarChart data={deptCounts} height={120} />
+            <BarChart data={uniqueDeptCounts} height={120} />
           </div>
         </div>
       </div>
