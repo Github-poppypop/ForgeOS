@@ -390,7 +390,7 @@ function BarChart({ data, height = 180 }: { data: { label: string; value: number
   if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   return (
     <div className="chart">
-      <svg viewBox={`0 0 100 ${vbH}`} preserveAspectRatio="none" style={{ height }}>
+      <svg viewBox={`0 0 100 ${vbH}`} preserveAspectRatio="xMidYMid meet" style={{ height }}>
         <line x1={0} y1={baseline - 0.5} x2={100} y2={baseline - 0.5} className="chart-grid" />
         {data.map((d, i) => {
           const rawH = (d.value / max) * barMaxH;
@@ -454,7 +454,7 @@ function Sparkline({ data, color = 'var(--accent)', height = 60 }: { data: numbe
   const avg = Math.round((data.reduce((s, v) => s + v, 0) / data.length) * 10) / 10;
   return (
     <div className="chart" style={{ height }}>
-      <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none">
+      <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="xMidYMid meet">
         <path d={area} className="line-area" fill={color} />
         <path d={path} className="line-path" stroke={color} />
         <line x1={0} y1={chartH - 0.5} x2={w} y2={chartH - 0.5} className="chart-grid" />
@@ -558,7 +558,7 @@ function TopBarChart({ data, height = 80 }: { data: { label: string; value: numb
   if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   return (
     <div className="chart">
-      <svg viewBox={`0 0 ${w} ${vbH}`} preserveAspectRatio="none" style={{ height }}>
+      <svg viewBox={`0 0 ${w} ${vbH}`} preserveAspectRatio="xMidYMid meet" style={{ height }}>
         <line x1={0} y1={baseline - 0.5} x2={w} y2={baseline - 0.5} className="chart-grid" />
         {data.map((d, i) => {
           const rawH = (d.value / max) * barMaxH;
