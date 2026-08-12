@@ -87,8 +87,8 @@ const ROUTES: Route[] = [
 
 const THEME_PREFIX = 'forgeos-theme-';
 const THEMES = [
-  { id: 'system', label: 'System', color: '#6ea8fe' },
-  { id: 'dark', label: 'Dark', color: '#0b0e14' },
+  { id: 'system', label: 'System', color: '#adc6ff' },
+  { id: 'dark', label: 'Dark', color: '#10131b' },
   { id: 'light', label: 'Light', color: '#f4f6fa' },
   { id: 'hc', label: 'High contrast', color: '#000' },
   { id: 'midnight', label: 'Midnight', color: '#07080c' },
