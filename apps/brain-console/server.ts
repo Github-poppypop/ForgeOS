@@ -477,20 +477,41 @@ async function main() {
     if (body.load_ms) selfImproveState.telemetry.avg_load_ms = Math.round((selfImproveState.telemetry.avg_load_ms * 0.9) + (Number(body.load_ms) * 0.1));
     if (body.latency_ms) selfImproveState.telemetry.api_latency_p95_ms = Math.round((selfImproveState.telemetry.api_latency_p95_ms * 0.9) + (Number(body.latency_ms) * 0.1));
     persist();
+
+    const avgRating = selfImproveState.feedback.length ? (selfImproveState.feedback.reduce((s, f) => s + (f.rating || 0), 0) / selfImproveState.feedback.length) : 0;
+    if (selfImproveState.telemetry.errors_last_24h > 2 && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('error') && s.status !== 'done')) {
+      selfImproveState.suggestions.push({ id: Date.now() + 10, title: 'Reduce error rate with better validation', impact: 'high', effort: 'low', status: 'proposed' });
+    }
+    if (selfImproveState.telemetry.avg_load_ms > 100 && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('perf') && s.status !== 'done')) {
+      selfImproveState.suggestions.push({ id: Date.now() + 20, title: 'Performance optimization pass', impact: 'medium', effort: 'high', status: 'proposed' });
+    }
+    if (avgRating < 4.0 && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('ux') && s.status !== 'done')) {
+      selfImproveState.suggestions.push({ id: Date.now() + 30, title: 'Improve UX and onboarding', impact: 'high', effort: 'medium', status: 'proposed' });
+    }
+    persist();
     res.json({ ok: true, telemetry: selfImproveState.telemetry });
   });
 
   app.post('/api/self-improve/learning-loop', express.json(), (req, res) => {
     const avgRating = selfImproveState.feedback.length ? (selfImproveState.feedback.reduce((s, f) => s + (f.rating || 0), 0) / selfImproveState.feedback.length) : 0;
+    const uniqueErrors = new Set(selfImproveState.feedback.filter((f) => f.comment.toLowerCase().includes('error') || f.comment.toLowerCase().includes('bug')).map((f) => f.comment));
+    const uniquePerf = new Set(selfImproveState.feedback.filter((f) => f.comment.toLowerCase().includes('slow') || f.comment.toLowerCase().includes('performance')).map((f) => f.comment));
+    const uniqueUX = new Set(selfImproveState.feedback.filter((f) => f.comment.toLowerCase().includes('confusing') || f.comment.toLowerCase().includes('hard') || f.comment.toLowerCase().includes('ui')).map((f) => f.comment));
+    const uniqueDocs = new Set(selfImproveState.feedback.filter((f) => f.comment.toLowerCase().includes('docs') || f.comment.toLowerCase().includes('documentation') || f.comment.toLowerCase().includes('unclear')).map((f) => f.comment));
+
+    if (uniqueErrors.size && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('error') && s.status !== 'done')) {
+      selfImproveState.suggestions.push({ id: Date.now() + 10, title: 'Add error boundary and better validation', impact: 'high', effort: 'low', status: 'proposed', detail: `Signals: ${uniqueErrors.size} unique error mentions` });
+    }
+    if (uniquePerf.size && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('perf') && s.status !== 'done')) {
+      selfImproveState.suggestions.push({ id: Date.now() + 20, title: 'Performance optimization pass', impact: 'medium', effort: 'high', status: 'proposed', detail: `Signals: ${uniquePerf.size} unique performance mentions` });
+    }
     if (avgRating < 4.0 && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('ux') && s.status !== 'done')) {
-      selfImproveState.suggestions.push({ id: Date.now(), title: 'Improve UX and onboarding', impact: 'high', effort: 'medium', status: 'proposed' });
+      selfImproveState.suggestions.push({ id: Date.now() + 30, title: 'Improve UX and onboarding', impact: 'high', effort: 'medium', status: 'proposed', detail: `Signal: avg rating ${avgRating.toFixed(2)}` });
     }
-    if (selfImproveState.telemetry.errors_last_24h > 2 && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('error') && s.status !== 'done')) {
-      selfImproveState.suggestions.push({ id: Date.now() + 1, title: 'Reduce error rate with better validation', impact: 'high', effort: 'low', status: 'proposed' });
+    if (uniqueDocs.size && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('docs') && s.status !== 'done')) {
+      selfImproveState.suggestions.push({ id: Date.now() + 40, title: 'Improve documentation and clarity', impact: 'medium', effort: 'low', status: 'proposed', detail: `Signals: ${uniqueDocs.size} unique documentation mentions` });
     }
-    if (selfImproveState.telemetry.avg_load_ms > 100 && !selfImproveState.suggestions.some((s) => s.title.toLowerCase().includes('perf') && s.status !== 'done')) {
-      selfImproveState.suggestions.push({ id: Date.now() + 2, title: 'Performance optimization pass', impact: 'medium', effort: 'high', status: 'proposed' });
-    }
+
     selfImproveState.iterations += 1;
     selfImproveState.last_improvement = new Date().toISOString();
     selfImproveState.learning_rate = Number((selfImproveState.learning_rate + 0.01).toFixed(2));

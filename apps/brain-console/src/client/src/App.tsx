@@ -595,7 +595,10 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
-        <h2>Quick actions</h2>
+        <div className="section-header">
+          <h2>Quick actions</h2>
+          <span className="subtitle">Common tasks</span>
+        </div>
         <div className="row" style={{ gap: 8, marginTop: 10 }}>
           <a className="btn primary" onClick={() => navigate('/roles')}>Roles</a>
           <button className="btn secondary" data-tooltip="Reload dashboard data" onClick={() => window.location.reload()}>Refresh</button>
@@ -608,7 +611,10 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
 
       <p className="muted" style={{ marginTop: 12 }}>live: connecting… <span data-tooltip="Time of last successful data fetch">(refreshed —)</span></p>
       <div className="card" style={{ marginTop: 16 }}>
-        <h2>Activity</h2>
+        <div className="section-header">
+          <h2>Activity</h2>
+          <span className="subtitle">Recent console events</span>
+        </div>
         <div style={{ marginTop: 10 }}>
           <TopBarChart data={[
             { label: 'Mon', value: 4 },
@@ -623,13 +629,19 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
       </div>
       <div className="stats cols-2" style={{ marginTop: 16 }}>
         <div className="card">
-          <h2>Status timeline</h2>
+          <div className="section-header">
+            <h2>Status timeline</h2>
+            <span className="subtitle">Last 7 checks</span>
+          </div>
           <div style={{ marginTop: 10 }}>
             <Sparkline data={[1, 3, 2, 5, 4, 6, 5]} color="var(--accent)" />
           </div>
         </div>
         <div className="card">
-          <h2>Load</h2>
+          <div className="section-header">
+            <h2>Load</h2>
+            <span className="subtitle">System resources</span>
+          </div>
           <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             <GaugeChart value={68} label="CPU" />
             <GaugeChart value={45} label="MEM" />
@@ -2345,7 +2357,10 @@ function SelfImprovePanel() {
         <StatCard title="Iterations" value={data?.iterations ?? 0} subtitle="improvement cycles" accent />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Telemetry</h2>
+        <div className="section-header">
+          <h2>Telemetry</h2>
+          <span className="subtitle">Live app metrics</span>
+        </div>
         <div className="stats cols-3" style={{ marginTop: 10 }}>
           <StatCard title="Page views" value={telemetry.page_views ?? 0} subtitle="total" />
           <StatCard title="Errors (24h)" value={telemetry.errors_last_24h ?? 0} subtitle="last day" danger={!!telemetry.errors_last_24h} />
@@ -2355,7 +2370,10 @@ function SelfImprovePanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Learning progress</h2>
+        <div className="section-header">
+          <h2>Learning progress</h2>
+          <span className="subtitle">Model improvement over time</span>
+        </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <GaugeChart value={learningRate} label="Learning" />
           <GaugeChart value={confidence} label="Confidence" />
@@ -2363,20 +2381,26 @@ function SelfImprovePanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Improvement suggestions</h2>
+        <div className="section-header">
+          <h2>Improvement suggestions</h2>
+          <span className="subtitle">Prioritized backlog</span>
+        </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {suggestions.map((s) => (
             <div key={s.id} className="card" style={{ padding: 12 }}>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div>
                   <div className="h3">{s.title}</div>
+                  {s.detail ? <p className="muted" style={{ marginTop: 6 }}>{s.detail}</p> : null}
                   <div className="row" style={{ marginTop: 6, gap: 8 }}>
                     <span className={cn('tag', s.impact === 'high' ? 'success' : s.impact === 'medium' ? 'warn' : 'info')}>{s.impact} impact</span>
                     <span className={cn('tag', s.effort === 'low' ? 'success' : s.effort === 'medium' ? 'warn' : 'danger')}>{s.effort} effort</span>
                   </div>
                 </div>
                 <span className={cn('tag', s.status === 'done' ? 'success' : s.status === 'in-progress' ? 'warn' : 'info')}>{s.status}</span>
-                <select className="select" style={{ width: 140 }} value={s.status} onChange={(e) => updateStatus(s.id, e.target.value)}>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <select className="select" style={{ width: 220 }} value={s.status} onChange={(e) => updateStatus(s.id, e.target.value)}>
                   <option value="proposed">proposed</option>
                   <option value="in-progress">in-progress</option>
                   <option value="done">done</option>
@@ -2388,7 +2412,20 @@ function SelfImprovePanel() {
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Feedback</h2>
+        <div className="section-header">
+          <h2>Learning loop</h2>
+          <span className="subtitle">Self-improvement engine</span>
+        </div>
+        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <button className="btn primary" onClick={async () => { await api('/api/self-improve/learning-loop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); await reload(); }}>Run learning loop</button>
+          <button className="btn secondary" onClick={async () => { await api('/api/telemetry', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'error', load_ms: 120, latency_ms: 45 }) }); await reload(); }}>Simulate error telemetry</button>
+        </div>
+      </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="section-header">
+          <h2>Feedback</h2>
+          <span className="subtitle">Community input</span>
+        </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {feedbacks.map((f) => (
             <div key={f.id} className="card" style={{ padding: 12 }}>
