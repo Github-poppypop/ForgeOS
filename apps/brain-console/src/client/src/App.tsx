@@ -694,7 +694,7 @@ function Roles({ roles }: { roles: any }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Capability heatmap</h2>
         <div style={{ marginTop: 10 }}>
-          <Heatmap values={Array.from({ length: 28 }, () => Math.floor(Math.random() * 6))} cols={14} />
+          <Heatmap values={Array.from({ length: 28 }, (_, i) => i % 6)} cols={14} />
         </div>
         <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
           {list.slice(0, 5).map((r) => (
@@ -1275,7 +1275,7 @@ function CompliancePanel() {
 function FederationPanel() {
   const { data } = useApi<any>('/api/federation');
   const children = (data?.children || []) as string[];
-  const counts = Array.from({ length: 7 }, () => Math.floor(Math.random() * 10));
+  const counts = Array.from({ length: 7 }, (_, i) => i + 1);
   return (
     <div className="fadein">
       <h1>Federation</h1>
@@ -1346,14 +1346,14 @@ function WebhooksPanel() {
           <h2>Delivery load</h2>
           <span className="subtitle">Per-hour volume</span>
         </div>
-        <TopBarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `${i + 1}h`, value: Math.floor(Math.random() * 12) }))} />
+        <TopBarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `${i + 1}h`, value: i + 1 }))} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
           <h2>Failure trend</h2>
           <span className="subtitle">Recent errors</span>
         </div>
-        <Sparkline data={Array.from({ length: 10 }, () => Math.floor(Math.random() * 10))} color="var(--danger)" />
+        <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--danger)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Dead letter</h2>
@@ -1413,11 +1413,11 @@ function McpPanel() {
           <h2>Tool usage</h2>
           <span className="subtitle">Top invocations</span>
         </div>
-        <TopBarChart data={tools.length ? tools.slice(0, 8).map((t, i) => ({ label: t.name || `tool-${i + 1}`, value: Math.floor(Math.random() * 20) + 1 })) : [{ label: 'none', value: 1 }]} />
+        <TopBarChart data={tools.length ? tools.slice(0, 8).map((t, i) => ({ label: t.name || `tool-${i + 1}`, value: i + 1 })) : [{ label: 'none', value: 1 }]} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Transport load</h2>
-        <Sparkline data={Array.from({ length: 10 }, () => Math.floor(Math.random() * 10))} color="var(--info)" />
+        <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--info)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Transport breakdown</h2>
@@ -1466,7 +1466,7 @@ function VaultPanel() {
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Activity</h2>
-        <TopBarChart data={Array.from({ length: 10 }, (_, i) => ({ label: `${i + 1}`, value: Math.floor(Math.random() * 14) + 1 }))} />
+        <TopBarChart data={Array.from({ length: 10 }, (_, i) => ({ label: `${i + 1}`, value: i + 1 }))} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Load</h2>
@@ -1510,11 +1510,11 @@ function EmbedPanel() {
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Queue depth</h2>
-        <BarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `batch-${i + 1}`, value: Math.floor(Math.random() * (data?.queued || 10)) }))} height={110} />
+        <BarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `batch-${i + 1}`, value: (data?.queued || i + 1) }))} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Throughput</h2>
-        <Sparkline data={Array.from({ length: 12 }, () => Math.floor(Math.random() * 60) + 20)} color="var(--success)" />
+        <Sparkline data={Array.from({ length: 12 }, (_, i) => i + 1)} color="var(--success)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Readiness</h2>
@@ -1551,7 +1551,7 @@ function AuditPanel() {
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Event volume</h2>
-        <TopBarChart data={Array.from({ length: 7 }, (_, i) => ({ label: `${i + 1}d`, value: Math.floor(Math.random() * 20) + 1 }))} />
+        <TopBarChart data={Array.from({ length: 7 }, (_, i) => ({ label: `${i + 1}d`, value: i + 1 }))} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Severity</h2>
@@ -1743,7 +1743,7 @@ function SchemaPanel() {
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Coverage</h2>
-        <Heatmap values={Array.from({ length: 28 }, () => Math.floor(Math.random() * 6))} cols={14} />
+        <Heatmap values={Array.from({ length: 28 }, (_, i) => i % 6)} cols={14} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Readiness</h2>
@@ -1790,7 +1790,7 @@ function MonitoringPanel() {
           <h2>Trend</h2>
           <span className="subtitle">Last reads</span>
         </div>
-        <Sparkline data={Array.from({ length: 20 }, () => Math.floor(Math.random() * 100))} color="var(--accent)" />
+        <Sparkline data={Array.from({ length: 20 }, (_, i) => i + 1)} color="var(--accent)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Recent checks</h2>
@@ -1839,14 +1839,14 @@ function WorkflowsPanel() {
           <h2>Throughput</h2>
           <span className="subtitle">Runs by workflow</span>
         </div>
-        <TopBarChart data={workflows.length ? workflows.map((w, i) => ({ label: w.id || `w-${i + 1}`, value: w.runs || Math.floor(Math.random() * 20) + 1 })) : [{ label: 'none', value: 1 }]} />
+        <TopBarChart data={workflows.length ? workflows.map((w, i) => ({ label: w.id || `w-${i + 1}`, value: w.runs || i + 1 })) : [{ label: 'none', value: 1 }]} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
           <h2>Success rate</h2>
           <span className="subtitle">Completion health</span>
         </div>
-        <Sparkline data={Array.from({ length: 10 }, () => Math.floor(Math.random() * 20) + 80)} color="var(--success)" />
+        <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--success)" />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
@@ -1893,7 +1893,7 @@ function MarketplacePanel() {
           <h2>Popularity</h2>
           <span className="subtitle">By downloads</span>
         </div>
-        <TopBarChart data={packs.length ? packs.map((p, i) => ({ label: p.name || `pack-${i + 1}`, value: p.downloads || Math.floor(Math.random() * 40) + 1 })) : [{ label: 'none', value: 1 }]} />
+        <TopBarChart data={packs.length ? packs.map((p, i) => ({ label: p.name || `pack-${i + 1}`, value: p.downloads || i + 1 })) : [{ label: 'none', value: 1 }]} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Installs by category</h2>
@@ -1986,7 +1986,7 @@ function ProjectsPanel() {
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Activity</h2>
-        <TopBarChart data={projects.length ? projects.map((p, i) => ({ label: p.name || `proj-${i + 1}`, value: p.tasks || Math.floor(Math.random() * 12) + 1 })) : [{ label: 'none', value: 1 }]} />
+        <TopBarChart data={projects.length ? projects.map((p, i) => ({ label: p.name || `proj-${i + 1}`, value: p.tasks || i + 1 })) : [{ label: 'none', value: 1 }]} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Progress</h2>
@@ -2102,15 +2102,15 @@ function PoolLeaguePanel() {
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Player wins</h2>
-        <BarChart data={players.length ? players.slice(0, 10).map((p, i) => ({ label: p.name || `player-${i + 1}`, value: p.wins || Math.floor(Math.random() * 20) + 1 })) : [{ label: 'none', value: 1 }]} height={110} />
+        <BarChart data={players.length ? players.slice(0, 10).map((p, i) => ({ label: p.name || `player-${i + 1}`, value: p.wins || i + 1 })) : [{ label: 'none', value: 1 }]} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Recent activity</h2>
-        <TopBarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `t-${i + 1}`, value: Math.floor(Math.random() * 15) + 1 }))} />
+        <TopBarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `t-${i + 1}`, value: i + 1 }))} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Match trend</h2>
-        <Sparkline data={Array.from({ length: 10 }, () => Math.floor(Math.random() * 8) + 1)} color="var(--accent)" />
+        <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--accent)" />
       </div>
       <div className="stack">
         {players.slice(0, 20).map((p: any, i: number) => (
