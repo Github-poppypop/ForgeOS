@@ -2297,23 +2297,6 @@ function ProjectsPanel() {
           <GaugeChart value={Math.min(100, totalTasks * 10)} label="Tasks" />
         </div>
       </div>
-      <div className="stack">
-        {projects.map((p: any, i: number) => (
-          <div key={i} className="card" style={{ padding: 12 }}>
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <div>
-                <div className="h3">{p.name || `project-${i + 1}`}</div>
-                <p className="muted mono">{p.owner || 'unassigned'}</p>
-              </div>
-              <span className={cn('tag', p.active ? 'success' : 'warn')}>{p.active ? 'active' : 'inactive'}</span>
-            </div>
-            <div className="row" style={{ marginTop: 8, gap: 8 }}>
-              <span className="pill">tasks: {p.tasks ?? 0}</span>
-              <span className="pill">updated {p.updated ?? '—'}</span>
-            </div>
-          </div>
-        ))}
-      </div>
       {!projects.length && <EmptyState title="No projects" body="Create a project to manage tasks and progress." />}
     </div>
   );
