@@ -381,18 +381,23 @@ function cn(...classes: (string | false | undefined | null)[]) {
 
 function BarChart({ data, height = 180 }: { data: { label: string; value: number; color?: string }[]; height?: number }) {
   const max = Math.max(1, ...data.map((d) => d.value));
-  const barW = 100 / data.length;
+  const gap = 6;
+  const count = Math.max(1, data.length);
+  const barW = (100 - gap * (count + 1)) / count;
+  const labelSpace = 22;
+  const chartH = height - labelSpace - 6;
   return (
     <div className="chart">
       <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" style={{ height }}>
+        <line x1={0} y1={chartH - 0.5} x2={100} y2={chartH - 0.5} className="chart-grid" />
         {data.map((d, i) => {
-          const h = (d.value / max) * (height - 12);
-          const x = i * barW + 2;
-          const w = barW - 4;
+          const h = (d.value / max) * (chartH - 8);
+          const x = gap + i * (barW + gap);
           return (
             <g key={i}>
-              <rect x={x} y={height - 4 - h} width={w} height={h} className="bar-rect" fill={d.color || COLORS[i % COLORS.length]} />
-              <text x={x + w / 2} y={height - 2} textAnchor="middle" className="label">{d.label}</text>
+              <rect x={x} y={chartH - 4 - h} width={barW} height={h} rx="2" className="bar-rect" fill={d.color || COLORS[i % COLORS.length]} />
+              <text x={x + barW / 2} y={chartH - 6 - h} textAnchor="middle" className="bar-value">{d.value}</text>
+              <text x={x + barW / 2} y={chartH + 12} textAnchor="middle" className="label">{d.label}</text>
             </g>
           );
         })}
@@ -416,11 +421,12 @@ function DonutChart({ data, size = 180 }: { data: { label: string; value: number
           return seg;
         })}
         <circle cx={size / 2} cy={size / 2} r={r - 12} className="donut-hole" />
-        <text x={size / 2} y={size / 2 + 6} textAnchor="middle" className="donut-center">{total}</text>
+        <text x={size / 2} y={size / 2 + 5} textAnchor="middle" className="donut-center">{total}</text>
+        <text x={size / 2} y={size / 2 + 20} textAnchor="middle" className="donut-sub">total</text>
       </svg>
       <div className="donut-legend">
         {data.map((d, i) => (
-          <span key={i} className="tag"><span className="sw" style={{ background: d.color }} />{d.label}: {d.value}</span>
+          <span key={i} className="tag"><span className="sw" style={{ background: d.color }} />{d.label}: <strong>{d.value}</strong></span>
         ))}
       </div>
     </div>
@@ -432,21 +438,23 @@ function Sparkline({ data, color = 'var(--accent)', height = 60 }: { data: numbe
   const max = Math.max(...data);
   const min = Math.min(...data);
   const w = 100;
+  const chartH = height - 16;
   const pts = data.map((v, i) => {
     const x = data.length === 1 ? w / 2 : (i / (data.length - 1)) * w;
-    const y = max === min ? height / 2 : height - 4 - ((v - min) / (max - min)) * (height - 12);
+    const y = max === min ? chartH / 2 : chartH - 4 - ((v - min) / (max - min)) * (chartH - 8);
     return `${x},${y}`;
   });
   const path = `M${pts.join(' L')}`;
-  const area = `${path} L${w},${height} L0,${height} Z`;
+  const area = `${path} L${w},${chartH} L0,${chartH} Z`;
   return (
     <div className="chart" style={{ height }}>
       <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none">
         <path d={area} className="line-area" fill={color} />
         <path d={path} className="line-path" stroke={color} />
+        <line x1={0} y1={chartH - 0.5} x2={w} y2={chartH - 0.5} className="chart-grid" />
         {pts.map((p, i) => {
           const [x, y] = p.split(',').map(Number);
-          return <circle key={i} cx={x} cy={y} r={1.6} fill={color} className="dot" />;
+          return <circle key={i} cx={x} cy={y} r="1.8" fill={color} className="dot" />;
         })}
       </svg>
     </div>
@@ -473,9 +481,10 @@ function Heatmap({ values, cols = 12 }: { values: number[]; cols?: number }) {
     const n = Math.round((v / max) * 5);
     return n === 0 ? '' : `l${Math.min(5, n)}`;
   };
+  const avg = values.length ? Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 10) / 10 : 0;
   return (
     <div className="heatmap" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-      {values.map((v, i) => <div key={i} className={cn('heat-cell', level(v))} data-tooltip={`${v}`} />)}
+      {values.map((v, i) => <div key={i} className={cn('heat-cell', level(v))} data-tooltip={`Day ${i + 1}: ${v} (avg ${avg})`} />)}
     </div>
   );
 }
@@ -486,13 +495,22 @@ function GaugeChart({ value, max = 100, label }: { value: number; max?: number; 
   const circ = 2 * Math.PI * r;
   const dash = pct * circ;
   const color = pct > 0.7 ? 'var(--success)' : pct > 0.35 ? 'var(--warn)' : 'var(--danger)';
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => {
+    const angle = Math.PI * 2 * t - Math.PI / 2;
+    const x1 = 80 + Math.cos(angle) * (r - 8);
+    const y1 = 80 + Math.sin(angle) * (r - 8);
+    const x2 = 80 + Math.cos(angle) * (r + 2);
+    const y2 = 80 + Math.sin(angle) * (r + 2);
+    return <line key={t} x1={x1} y1={y1} x2={x2} y2={y2} className="gauge-ticks" />;
+  });
   return (
     <div className="chart" style={{ maxWidth: 180 }}>
       <svg width="160" height="160" viewBox="0 0 160 160">
         <circle cx="80" cy="80" r={r} className="gauge-bg" />
+        {ticks}
         <circle cx="80" cy="80" r={r} className="gauge-fg" stroke={color} strokeDasharray={`${dash} ${circ - dash}`} transform="rotate(-90 80 80)" />
-        <text x="80" y="76" textAnchor="middle" className="donut-center">{Math.round(pct * 100)}%</text>
-        <text x="80" y="94" textAnchor="middle" className="gauge-label">{label || 'load'}</text>
+        <text x="80" y="74" textAnchor="middle" className="donut-center">{Math.round(pct * 100)}%</text>
+        <text x="80" y="92" textAnchor="middle" className="gauge-label">{label || 'load'}</text>
       </svg>
     </div>
   );
@@ -501,20 +519,27 @@ function GaugeChart({ value, max = 100, label }: { value: number; max?: number; 
 function TopBarChart({ data, height = 80 }: { data: { label: string; value: number }[]; height?: number }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   const w = 100;
-  const bw = w / data.length;
+  const gap = 6;
+  const count = Math.max(1, data.length);
+  const bw = (w - gap * (count + 1)) / count;
+  const labelSpace = 20;
+  const chartH = height - labelSpace - 6;
   return (
     <div className="chart" style={{ height }}>
       <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none">
+        <line x1={0} y1={chartH - 0.5} x2={w} y2={chartH - 0.5} className="chart-grid" />
         {data.map((d, i) => {
-          const h = (d.value / max) * (height - 14);
-          const x = i * bw + 1;
-          const width = bw - 2;
-          return <rect key={i} x={x} y={height - 4 - h} width={width} height={h} className="bar-rect" fill={COLORS[i % COLORS.length]} />;
+          const h = (d.value / max) * (chartH - 8);
+          const x = gap + i * (bw + gap);
+          return (
+            <g key={i}>
+              <rect x={x} y={chartH - 4 - h} width={bw} height={h} rx="2" className="bar-rect" fill={COLORS[i % COLORS.length]} />
+              <text x={x + bw / 2} y={chartH - 6 - h} textAnchor="middle" className="bar-value">{d.value}</text>
+              <text x={x + bw / 2} y={chartH + 12} textAnchor="middle" className="label">{d.label}</text>
+            </g>
+          );
         })}
       </svg>
-      <div className="tags" style={{ marginTop: 6 }}>
-        {data.map((d, i) => <span key={i} className="tag info">{d.label}: {d.value}</span>)}
-      </div>
     </div>
   );
 }

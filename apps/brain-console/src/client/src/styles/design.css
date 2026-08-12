@@ -398,7 +398,9 @@ ul.mono { list-style: none; padding: 0; }
 .chart svg { display:block; width: 100%; height: 100%; }
 .chart .axis { stroke: var(--border-strong); stroke-width: 1; }
 .chart .grid-line { stroke: var(--border); stroke-dasharray: 3 3; }
+.chart-grid { stroke: var(--border); stroke-dasharray: 3 3; }
 .chart .label { font-size: 10px; font-family: var(--mono); fill: var(--text-dim); }
+.bar-value { font-size: 9px; font-family: var(--mono); fill: var(--text-dim); }
 .chart .title { font-family: var(--display); font-size: 13px; fill: var(--text); }
 
 /* ---------- (46) chart: bar ---------- */
@@ -413,13 +415,14 @@ ul.mono { list-style: none; padding: 0; }
 .donut-seg:hover { opacity: 0.85; }
 .donut-hole { fill: var(--surface-2); }
 .donut-center { font-family: var(--display); font-size: 22px; font-weight: 800; fill: var(--text); text-anchor: middle; dominant-baseline: middle; }
+.donut-sub { font-size: 10px; font-family: var(--mono); fill: var(--text-dim); text-anchor: middle; }
 .donut-legend { display:flex; gap: 10px 14px; flex-wrap: wrap; margin-top: 10px; }
 .donut-legend .sw { width: 10px; height: 10px; border-radius: 999px; display:inline-block; }
 
 /* ---------- (48) chart: sparkline / line ---------- */
 .line-path { fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .line-area { opacity: 0.18; }
-.dot { r: 3; transition: r var(--trans); }
+.dot { transition: r var(--trans); }
 .dot:hover { r: 5; }
 .grid-lines { stroke: var(--border); stroke-dasharray: 3 3; }
 
