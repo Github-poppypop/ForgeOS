@@ -558,7 +558,7 @@ function TopBarChart({ data, height = 80 }: { data: { label: string; value: numb
   if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   return (
     <div className="chart" style={{ height }}>
-      <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none">
+      <svg viewBox={`0 0 ${w} ${chartH}`} preserveAspectRatio="none" style={{ height: chartH }}>
         <line x1={0} y1={chartH - 0.5} x2={w} y2={chartH - 0.5} className="chart-grid" />
         {data.map((d, i) => {
           const h = (d.value / max) * (chartH - 8);
@@ -567,12 +567,11 @@ function TopBarChart({ data, height = 80 }: { data: { label: string; value: numb
             <g key={i}>
               <rect x={x} y={chartH - 4 - h} width={bw} height={h} rx="2" className="bar-rect" fill={COLORS[i % COLORS.length]} />
               <text x={x + bw / 2} y={chartH - 6 - h} textAnchor="middle" className="bar-value">{d.value}</text>
-              <text x={x + bw / 2} y={chartH + 12} textAnchor="middle" className="label">{d.label}</text>
             </g>
           );
         })}
       </svg>
-      <div className="donut-legend" style={{ marginTop: 10 }}>
+      <div className="donut-legend" style={{ marginTop: 8 }}>
         {data.map((d, i) => (
           <span key={i} className="tag"><span className="sw" style={{ background: COLORS[i % COLORS.length] }} />{d.label}: <strong>{d.value}</strong></span>
         ))}
