@@ -20,9 +20,12 @@ function loadStore<T>(fallback: T): T {
   try {
     ensureDataDir();
     if (!fs.existsSync(DATA_FILE)) return fallback;
-    const raw = fs.readFileSync(DATA_FILE, "utf8");
+    const raw = fs.readFileSync(DATA_FILE, 'utf8');
     const parsed = JSON.parse(raw);
-    return { ...fallback, ...parsed };
+    if (Array.isArray(fallback)) {
+      return (Array.isArray(parsed) ? parsed : fallback) as T;
+    }
+    return { ...fallback, ...(typeof parsed === 'object' && parsed ? parsed : {}) } as T;
   } catch {
     return fallback;
   }
