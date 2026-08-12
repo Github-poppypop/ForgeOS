@@ -540,6 +540,7 @@ function EmptyState({ title, body, action }: { title: string; body?: string; act
 }
 
 function Dashboard({ status, roles }: { status: any; roles: any }) {
+  const { navigate } = usePathRoute();
   const seeded = (roles?.roles || []).filter((r: any) => r.exists).length;
   const brainOk = status?.gbrain_health?.status === 'ok';
   const ollamaOk = status?.ollama?.status === 'online' || status?.ollama?.status === 'up';
@@ -596,12 +597,12 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
       <div className="card" style={{ marginTop: 16 }}>
         <h2>Quick actions</h2>
         <div className="row" style={{ gap: 8, marginTop: 10 }}>
-          <a className="btn primary" href="#/roles" onClick={(e) => { e.preventDefault(); window.location.hash = '#/roles'; }}>Roles</a>
+          <a className="btn primary" onClick={() => navigate('/roles')}>Roles</a>
           <button className="btn secondary" data-tooltip="Reload dashboard data" onClick={() => window.location.reload()}>Refresh</button>
-          <a className="btn secondary" href="#/search" data-tooltip="Search across all brains" onClick={(e) => { e.preventDefault(); window.location.hash = '#/search'; }}>Search</a>
-          <a className="btn secondary" href="#/capture" data-tooltip="Create new brain page" onClick={(e) => { e.preventDefault(); window.location.hash = '#/capture'; }}>Capture</a>
+          <a className="btn secondary" onClick={() => navigate('/search')} data-tooltip="Search across all brains">Search</a>
+          <a className="btn secondary" onClick={() => navigate('/capture')} data-tooltip="Create new brain page">Capture</a>
           <button className="btn secondary" data-tooltip="Copy current status as JSON" onClick={() => navigator.clipboard.writeText(JSON.stringify(status, null, 2))}>Copy status</button>
-          <a className="btn secondary" href="#/embed" data-tooltip="Re-embed all knowledge" onClick={(e) => { e.preventDefault(); window.location.hash = '#/embed'; }}>Re-embed</a>
+          <a className="btn secondary" onClick={() => navigate('/embed')} data-tooltip="Re-embed all knowledge">Re-embed</a>
         </div>
       </div>
 
@@ -757,6 +758,7 @@ function Roles({ roles }: { roles: any }) {
 }
 
 function Search({ data }: { data: any }) {
+  const { navigate } = usePathRoute();
   const [q, setQ] = useState('');
   const lines = String(data?.raw || '').split('\n').filter(Boolean);
   const scores = lines.map((l) => {
@@ -769,14 +771,14 @@ function Search({ data }: { data: any }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="row" style={{ gap: 8 }}>
           <input className="input" style={{ flex: 1 }} placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} />
-          <button className="btn primary" onClick={() => { window.location.hash = `#/search?q=${encodeURIComponent(q)}`; }}>Search</button>
+          <button className="btn primary" onClick={() => navigate(`/search?q=${encodeURIComponent(q)}`)}>Search</button>
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>Score distribution</h2>
         <TopBarChart data={scores.length ? scores.slice(0, 12).map((v, i) => ({ label: `#${i + 1}`, value: Math.round(v * 10) })) : [{ label: 'none', value: 1 }]} height={90} />
       </div>
-      {!lines.length ? <EmptyState title="No results yet" body="Try capturing a page first." action={<button className="btn primary" onClick={() => window.location.hash = '#/capture'}>Capture a page</button>} /> : (
+      {!lines.length ? <EmptyState title="No results yet" body="Try capturing a page first." action={<button className="btn primary" onClick={() => navigate('/capture')}>Capture a page</button>} /> : (
         <div className="stack">
           {lines.map((l: string, i: number) => {
             const m = l.match(/^\[([\d.]+)\]\s+(\S+)\s*--\s*(.*)$/s);
@@ -786,7 +788,7 @@ function Search({ data }: { data: any }) {
             return (
               <div key={i} className="card">
                 <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <a className="link mono" href={`#/page/${encodeURIComponent(slug)}`}>{slug}</a>
+                  <a className="link mono" onClick={() => navigate(`/page/${encodeURIComponent(slug)}`)}>{slug}</a>
                   <span className="pill">{score}</span>
                 </div>
                 <p className="muted" style={{ marginTop: 6 }}>{body.slice(0, 200)}</p>
@@ -800,6 +802,7 @@ function Search({ data }: { data: any }) {
 }
 
 function Capture() {
+  const { navigate } = usePathRoute();
   const [slug, setSlug] = useState('decisions/demo');
   const [type, setType] = useState('note');
   const [body, setBody] = useState('# Demo\nWrite something for the brain.');
@@ -839,7 +842,7 @@ function Capture() {
             setLoading(true);
             try {
               await api('/api/capture', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slug, type, body }) });
-              window.location.hash = `#/page/${encodeURIComponent(slug)}`;
+              navigate(`/page/${encodeURIComponent(slug)}`);
             } finally { setLoading(false); }
           }}>{loading ? 'Saving…' : 'Capture'}</button>
           <button className="btn secondary" onClick={() => setPreview(body)}>Preview</button>
@@ -1939,6 +1942,7 @@ function MarketplacePanel() {
 }
 
 function PluginsPanel() {
+  const { navigate } = usePathRoute();
   const { data } = useApi<any>('/api/plugins');
   const plugins = (data?.plugins || []) as any[];
   return (
@@ -1971,7 +1975,7 @@ function PluginsPanel() {
           </div>
         ))}
       </div>
-      {!plugins.length && <EmptyState title="No plugins installed" body="Install plugins to extend ForgeOS." action={<button className="btn primary" onClick={() => window.location.hash = '#/marketplace'}>Browse marketplace</button>} />}
+      {!plugins.length && <EmptyState title="No plugins installed" body="Install plugins to extend ForgeOS." action={<button className="btn primary" onClick={() => navigate('/marketplace')}>Browse marketplace</button>} />}
     </div>
   );
 }
@@ -2269,6 +2273,7 @@ function AppStorePanel() {
 }
 
 function DeveloperPanel() {
+  const { navigate } = usePathRoute();
   return (
     <div className="fadein">
       <h1>Developer onboarding</h1>
@@ -2276,7 +2281,7 @@ function DeveloperPanel() {
         <h2>Onboarding checklist</h2>
         <ul className="stack" style={{ marginTop: 10 }}>
           <li className="card" style={{ padding: 12 }}>Run the local console on <span className="mono">:7777</span></li>
-          <li className="card" style={{ padding: 12 }}>Open <span className="mono">#/apps</span> and create an app manifest</li>
+          <li className="card" style={{ padding: 12 }}>Open <span className="mono">/apps</span> and create an app manifest</li>
           <li className="card" style={{ padding: 12 }}>Use <span className="mono">/api/page/:slug</span> to create app pages</li>
           <li className="card" style={{ padding: 12 }}>Send telemetry events to <span className="mono">/api/telemetry</span></li>
           <li className="card" style={{ padding: 12 }}>Submit feedback via <span className="mono">/api/feedback</span></li>
@@ -2285,9 +2290,9 @@ function DeveloperPanel() {
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>API playground</h2>
         <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <a className="btn secondary" href="#/apps" onClick={(e) => { e.preventDefault(); window.location.hash = '#/apps'; }}>App registry</a>
-          <a className="btn secondary" href="#/self-improve" onClick={(e) => { e.preventDefault(); window.location.hash = '#/self-improve'; }}>Self-improve</a>
-          <a className="btn secondary" href="#/monitoring" onClick={(e) => { e.preventDefault(); window.location.hash = '#/monitoring'; }}>Monitoring</a>
+          <a className="btn secondary" onClick={() => navigate('/apps')}>App registry</a>
+          <a className="btn secondary" onClick={() => navigate('/self-improve')}>Self-improve</a>
+          <a className="btn secondary" onClick={() => navigate('/monitoring')}>Monitoring</a>
           <a className="btn secondary" href="https://developer.mozilla.org/en-US/docs/Learn/Server-side/Express_Nodejs" target="_blank" rel="noreferrer">Express docs</a>
         </div>
       </div>
@@ -2428,11 +2433,12 @@ function TimelineChart({ items }: { items: { date: string; title: string; status
 }
 
 function NotFound() {
+  const { navigate } = usePathRoute();
   return (
     <div className="fadein">
       <h1>404</h1>
       <p className="muted">This panel hasn't been wired yet.</p>
-      <a className="btn primary" href="#/dashboard">Back to Dashboard</a>
+      <a className="btn primary" onClick={() => navigate('/dashboard')}>Back to Dashboard</a>
     </div>
   );
 }
