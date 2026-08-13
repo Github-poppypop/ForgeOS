@@ -157,16 +157,20 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 function useApi<T>(path: string) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
   const reload = () => setTick((n) => n + 1);
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     api<T>(path)
       .then((d) => { if (!cancelled) { setData(d); setError(null); } })
-      .catch((e) => { if (!cancelled) setError(String(e?.message ?? e)); });
+      .catch((e) => { if (!cancelled) setError(String(e?.message ?? e)); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [path, tick]);
-  return { data, error, reload };
+  return { data, error, loading, reload };
 }
 
 function useTheme() {
@@ -936,7 +940,8 @@ function Capture() {
           <h2>New capture</h2>
           <span className="subtitle">Create a knowledge page</span>
         </div>
-        <div className="row" style={{ marginTop: 10 }}><label>slug</label><input className="mono" value={slug} onChange={(e) => setSlug(e.target.value)} style={{ flex: 1 }} /><button className="btn secondary" onClick={() => navigator.clipboard.writeText(slug)}>Copy</button></div>
+        <div className="row" style={{ marginTop: 10 }}><label>slug</label><input className={`mono ${!validate() && slug.length ? 'input-error' : ''}`} value={slug} onChange={(e) => setSlug(e.target.value)} style={{ flex: 1 }} /><button className="btn secondary" onClick={() => navigator.clipboard.writeText(slug)}>Copy</button></div>
+        {!validate() && slug.length ? <div className="field-error">Slug must be alphanumeric and contain a category, like decisions/demo</div> : null}
         <div className="row" style={{ marginTop: 8 }}><label>type</label><input value={type} onChange={(e) => setType(e.target.value)} /></div>
         <div className="row" style={{ marginTop: 8 }}>
           <label>template</label>
@@ -2785,6 +2790,8 @@ export default function App() {
   const poolLeagueApi = useApi('/api/poolleague');
   const schemaApi = useApi('/api/schema');
   const governanceApi = useApi('/api/governance');
+  const apiErrors = [statusApi, rolesApi, searchApi, missionsApi, timelineApi, complianceApi, federationApi, webhooksApi, ledgerApi, appsApi, developersApi, projectsApi, marketplaceApi, pluginsApi, monitoringApi, workflowsApi, configApi, settingsApi, selfImproveApi, embedApi, vaultApi, mcpApi, poolLeagueApi, schemaApi, governanceApi];
+  const routeError = apiErrors.find((api) => api.error)?.error || null;
   void [statusApi, rolesApi, searchApi, missionsApi, timelineApi, complianceApi, federationApi, webhooksApi, ledgerApi, appsApi, developersApi, projectsApi, marketplaceApi, pluginsApi, monitoringApi, workflowsApi, configApi, settingsApi, selfImproveApi, embedApi, vaultApi, mcpApi, poolLeagueApi, schemaApi, governanceApi];
 
   const renderPanel = () => {
@@ -2888,6 +2895,7 @@ export default function App() {
             <span className="breadcrumb-current">{route.replace(/^\//, '')}</span>
           </nav>
           {renderPanel()}
+          {routeError ? <div className="page-error" role="alert">{routeError}</div> : null}
         </main>
       </div>
       <div className="status-bar">

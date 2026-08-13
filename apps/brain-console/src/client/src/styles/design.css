@@ -82,6 +82,9 @@ body {
 .breadcrumb-sep { margin: 0 8px; color: var(--on-surface-variant); }
 .breadcrumb-current { color: var(--on-surface); font-weight: 600; }
 .toasts { position: fixed; bottom: 16px; right: 16px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
+.page-error { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--danger-dim); color: var(--danger); border: 1px solid rgba(255,107,107,0.35); font-weight: 600; }
+.field-error { color: var(--danger); font-size: 12px; font-weight: 600; margin-top: 6px; }
+.input-error { border-color: var(--danger) !important; }
 .cmdk { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: flex-start; justify-content: center; padding-top: 18vh; z-index: 200; }
 .cmdk.open { display: flex; }
 .cmdk > div { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 520px; max-width: 92vw; box-shadow: var(--shadow-lg); overflow: hidden; }
