@@ -635,25 +635,25 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
       </div>
 
       <div className="card mb-4">
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2 className="h2">System health</h2>
-            <p className="muted caption">{score}/{items.length} checks healthy</p>
-          </div>
-          <svg width="140" height="140" viewBox="0 0 140 140">
+        <div className="section-header">
+          <h2>System health</h2>
+          <span className="subtitle">{score}/{items.length} checks healthy</span>
+        </div>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+          <svg width="120" height="120" viewBox="0 0 140 140">
             <circle cx="70" cy="70" r={radius} className="gauge-bg" />
             <circle cx="70" cy="70" r={radius} className="gauge-fg" stroke={brainOk ? 'var(--success)' : 'var(--danger)'} strokeDasharray={`${dash} ${circ - dash}`} transform="rotate(-90 70 70)" />
             <text x="70" y="68" textAnchor="middle" className="donut-center">{Math.round((score / items.length) * 100)}%</text>
             <text x="70" y="86" textAnchor="middle" className="gauge-label">health</text>
           </svg>
-        </div>
-        <div className="stack stack-md mt-3">
-          {items.map((item) => (
-            <div key={item.label} className="row" style={{ justifyContent: 'space-between' }}>
-              <span>{item.label}</span>
-              <span className={`pill ${item.ok ? 'ok' : 'bad'}`}>{item.ok ? 'ok' : 'down'}</span>
-            </div>
-          ))}
+          <div className="stack stack-sm">
+            {items.map((item) => (
+              <div key={item.label} className="row" style={{ justifyContent: 'space-between' }}>
+                <span>{item.label}</span>
+                <span className={`pill ${item.ok ? 'ok' : 'bad'}`}>{item.ok ? 'ok' : 'down'}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -697,7 +697,7 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
           ]} />
         </div>
       </div>
-      <div className="stats cols-2 mt-4">
+      <div className="stack stack-md mt-4">
         <div className="card">
           <div className="section-header">
             <h2>Status timeline</h2>
