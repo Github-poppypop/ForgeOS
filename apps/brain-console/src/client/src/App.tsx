@@ -319,7 +319,7 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
       {CATEGORIES.map((cat) => (
         <div key={cat.title} className={`nav-category ${collapsed[cat.title] ? 'collapsed' : ''}`}>
           <div className="nav-category-header" onClick={() => toggle(cat.title)}>{cat.title}</div>
-          <div className="nav-category-items" style={{ maxHeight: collapsed[cat.title] ? '0px' : '240px' }}>
+          <div className="nav-category-items">
             {cat.items.map((r) => {
               const label = r.replace(/^\//, '').charAt(0).toUpperCase() + r.replace(/^\//, '').slice(1);
               return (
