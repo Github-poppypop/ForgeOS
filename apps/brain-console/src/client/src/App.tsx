@@ -316,7 +316,7 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
   const toggle = (title: string) => setCollapsed((p) => ({ ...p, [title]: !p[title] }));
 
   return (
-    <nav className="sidebar" aria-label="primary">
+    <nav className="sidenav" aria-label="primary">
       {CATEGORIES.map((cat) => (
         <div key={cat.title} className={`nav-category ${collapsed[cat.title] ? 'collapsed' : ''}`}>
           <div className="nav-category-header" onClick={() => toggle(cat.title)}>{cat.title}</div>
@@ -336,32 +336,34 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
   );
 }
 
-function Navbar({ route, theme, setTheme, contrast, setContrast, onShortcuts }: {
-  route: string;
+function Navbar({ theme, setTheme, contrast, setContrast, onShortcuts }: {
   theme: string;
   setTheme: (t: string) => void;
   contrast: string;
   setContrast: (t: string) => void;
   onShortcuts: () => void;
 }) {
-  const label = route ? route.replace(/^\//, '').charAt(0).toUpperCase() + route.replace(/^\//, '').slice(1) : 'Console';
   return (
-    <header className="navbar">
-      <button className="btn icon sm" aria-label="Menu" onClick={() => document.querySelector('.sidebar')?.classList.toggle('open')}>☰</button>
-      <div className="wordmark">ForgeOS <span className="os">Console</span></div>
-      <div className="spacer" />
-      <span className="caption" style={{ marginRight: 8 }}>{label}</span>
-      <ThemeSwatches value={theme} onChange={setTheme} />
-      <select
-        data-tooltip="Contrast mode"
-        value={contrast}
-        onChange={(e) => setContrast(e.target.value)}
-        className="select"
-        style={{ width: 140 }}
-      >
-        {CONTRASTS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-      </select>
-      <button className="btn secondary sm" onClick={onShortcuts}>Shortcuts</button>
+    <header className="topnav">
+      <div className="topnav-brand">
+        <span>ForgeOS</span>
+        <span className="topnav-divider" aria-hidden="true"></span>
+        <span className="os">Console</span>
+      </div>
+      <div className="topnav-actions">
+        <span className="pill" data-tooltip="Console port">7777</span>
+        <ThemeSwatches value={theme} onChange={setTheme} />
+        <select
+          data-tooltip="Contrast mode"
+          value={contrast}
+          onChange={(e) => setContrast(e.target.value)}
+          className="select"
+          style={{ width: 140 }}
+        >
+          {CONTRASTS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
+        <button className="btn secondary sm" onClick={onShortcuts}>Shortcuts</button>
+      </div>
     </header>
   );
 }
@@ -2894,20 +2896,19 @@ export default function App() {
   return (
     <div id="app">
       <Navbar
-        route={route}
         theme={theme}
         setTheme={setTheme}
         contrast={contrast}
         setContrast={setContrast}
         onShortcuts={() => setShowShortcuts(true)}
       />
-      <div className="layout">
+      <div className="app-shell">
         <Sidebar route={route} onNavigate={navigate} />
-        <main className="main">
+        <main className="main-canvas">
           <nav className="breadcrumb" aria-label="breadcrumb">
             <a href="/dashboard" onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }}>ForgeOS</a>
-            <span style={{ margin: '0 8px', color: 'var(--text-dim)' }}>/</span>
-            <span style={{ color: 'var(--text)' }}>{route.replace(/^\//, '')}</span>
+            <span className="breadcrumb-sep">/</span>
+            <span className="breadcrumb-current">{route.replace(/^\//, '')}</span>
           </nav>
           {renderPanel()}
         </main>
