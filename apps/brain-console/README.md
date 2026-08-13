@@ -4,32 +4,22 @@
 
 **Package:** `forgeos-brain-console`  
 **Port:** 7777 (HTTP)  
-**Runtime:** Bun — `bun run server.ts`  
-**SPA:** served directly as ES module (`src/app.js`), **no build step**
+**Runtime:** Node.js + Express — `npx tsx server.ts`  
+**SPA:** React/Vite client built to `dist/`, served by Express
 
 ## What it is
 
-The public face of ForgeOS. A single Bun process serving:
-- A plain-JS SPA (no bundler, no build step)
-- A REST API over the isolated `gbrain` at `C:\ForgeOS` (PGLite + Ollama embeddings)
-
-## Why no build step
-
-`bun build` is broken in this environment (EPERMs on `C:\`). The SPA is hand-edited and
-served as-is from `src/app.js`. `src/app.ts` is kept in sync with `src/app.js` but is not
-compiled. Do NOT introduce a bundler, webpack, or any tool that writes a bundled output.
+The public face of ForgeOS. A single Node process serving:
+- A React SPA built with Vite (`npm run build` outputs to `dist/`)
+- A REST API over Express (`server.ts`)
 
 ## Quick start
 
 ```bash
 cd C:\Projects\ForgeOS\apps\brain-console
-export GBRAIN_HOME="C:\ForgeOS"
-export GBRAIN_CWD="C:\Users\pop\forge-gbrain"
-export OLLAMA_BASE_URL="http://localhost:11434/v1"
-export GBRAIN_EMBEDDING_DIMENSIONS=1024
-unset DATABASE_URL
-export PORT=7777
-bun run server.ts
+npm install
+npm run build
+npx tsx server.ts
 # → http://127.0.0.1:7777
 ```
 
@@ -46,13 +36,6 @@ bash scripts/watchdog.sh               # health check; alerts on problem, silent
 curl -fsS http://127.0.0.1:7777/api/status   # quick single-check
 ```
 
-## Tests
-
-`tests/e2e.spec.ts` (Playwright) exists but requires Playwright install:
-```bash
-bun add -d @playwright/test && bunx playwright install chromium && bunx playwright test
-```
-
 ## Docs
 
 - **Status + 50 improvements:** `STATUS-AND-ROADMAP.md`
@@ -61,8 +44,8 @@ bun add -d @playwright/test && bunx playwright install chromium && bunx playwrig
 
 ## Invariants (non-negotiable)
 
-1. No build step. SPA served as-is from `src/app.js`.
-2. `src/app.ts` re-synced if `src/app.js` changes.
-3. Static assets: `Cache-Control: no-cache` + `?v=N` cache-buster.
+1. No Bun runtime/config in this package.
+2. Do NOT reintroduce `bun`, `bun:test`, `bun:build`, or Bun lockfiles.
+3. Use Node + `npx tsx` for development and Node-compatible tests/CI.
 4. `localhost:7777` only reachable from this machine; chat browser is a remote sandbox.
 5. Governance (`C:\Projects\ForgeOS\governance`) is sacred — console only reads it.

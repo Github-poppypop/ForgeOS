@@ -2,7 +2,7 @@
 
 ## Tooling
 
-Run `bun run scripts/perf-audit.ts` to collect a performance report.
+Run `node scripts/perf-audit.ts` to collect a performance report.
 The script emits `perf-report.json` and prints a human-readable summary
 to stdout.
 

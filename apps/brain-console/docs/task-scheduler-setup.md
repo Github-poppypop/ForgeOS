@@ -17,4 +17,4 @@ The `ForgeOSBrainConsole` task currently points to `launch.cmd`.
    ```
 6. Click **OK** and enter your password if prompted
 
-The wrapper script will automatically kill stale `bun.exe` processes on `:7777` before starting the server.
+The wrapper script will automatically kill stale Node processes on `:7777` before starting the server.

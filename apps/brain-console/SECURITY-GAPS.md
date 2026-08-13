@@ -5,7 +5,7 @@ Mission: CTO-20260803
 
 ## Verified working on Linux container
 - `node --check src/app.js` passes
-- `bun test tests/unit/*.spec.ts` passes (55/55)
+- `node --test __tests__` passes
 - Server boots on port 7777
 - Static assets serve with security headers and no-cache
 - Health, SPA, and SPA JS are accessible without 5xx

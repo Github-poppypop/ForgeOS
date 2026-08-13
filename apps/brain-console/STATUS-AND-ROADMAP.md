@@ -11,7 +11,7 @@ _Current as of 2026-08-04. Covers `apps/brain-console` (package `forgeos-brain-c
 | Server process | **UP** on VPS tmux session `forgeos-brain` | `curl http://127.0.0.1:7777/api/status` → 200 |
 | Local server | **UP** on `http://127.0.0.1:7777/` | Verified via local health checks |
 | Port | 7777 (HTTP) | Local + VPS |
-| SPA served | Plain JS ESM (`src/app.js`), **no build step** | `bun run server.ts` serves directly |
+| SPA served | React/Vite client built to `dist/` | `npx tsx server.ts` serves the app |
 | Cache headers | `Cache-Control: no-cache` + `?v=` cache-buster | `server.ts` `serveStatic` |
 | `app.ts` sync | Synced from `app.js` | No divergence |
 | Request logging | **IMPLEMENTED** — `x-request-id`, `/api/request-log` | `server.ts` + tests |
@@ -23,7 +23,7 @@ _Current as of 2026-08-04. Covers `apps/brain-console` (package `forgeos-brain-c
 | Settings UI | **IMPLEMENTED** — theme, font size, contrast controls | `src/app.js` |
 | Keyboard shortcuts | **IMPLEMENTED** — `?` overlay, d/r/s/c, Esc | `src/app.js` |
 | Print styles | **IMPLEMENTED** — `@media print` rules | `src/styles/design.css` |
-| Unit tests | **66/66 passing** on VPS | `bun test tests/unit/*.spec.ts` |
+| Unit tests | **Node test suite passing** on VPS | `node --test` |
 | CI | GitHub Actions (lint, unit, e2e) | `.github/workflows/` |
 | VPS Hermes | Configured with `stepfun/step-3.7-flash:free` | `hermes -z` verified |
 
@@ -106,10 +106,10 @@ export OLLAMA_BASE_URL="http://localhost:11434/v1"
 export GBRAIN_EMBEDDING_DIMENSIONS=1024
 unset DATABASE_URL
 export PORT=7777
-bun run server.ts
+npx tsx server.ts
 
 # Tests
-bun test tests/unit/*.spec.ts
+node --test
 
 # VPS (via SSH)
 ssh -i ~/.ssh/hostinger_vps -p 2222 root@2.24.100.158

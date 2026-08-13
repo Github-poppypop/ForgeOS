@@ -5545,22 +5545,6 @@ function bootLog(message) {
 
 // =====================================================================
 // REPO-AWARE AGENTS.MD ENFORCEMENT (25)
-// =====================================================================
-function enforceAgentsRules(change) {
-  const forbidden = ['bun build', 'bun build ./'];
-  const path = change.file || '';
-  if (path.endsWith('AGENTS.md')) return true;
-  if (forbidden.some(f => change.diff && change.diff.includes(f))) {
-    toast('AGENTS.md forbids bun build in this env', 'err');
-    return false;
-  }
-  if (path.includes('src/app.js') && change.diff && change.diff.includes('bun build')) {
-    toast('AGENTS.md forbids build-step dependencies', 'err');
-    return false;
-  }
-  return true;
-}
-
 // ---------- (66) onboarding tour ----------
 const TOUR_KEY = "forgeos-tour-done";
 const TOUR_STEPS = [

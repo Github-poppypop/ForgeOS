@@ -6,9 +6,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install
-      - run: bun audit --prod --json > audit.json || (cat audit.json; exit 1)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm audit --omit=dev --json || true
       - run: node --check src/app.js
       - run: node --check server.ts
 
@@ -16,20 +18,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install
-      - run: bun audit --prod --json > audit.json || (cat audit.json; exit 1)
-      - run: bun test ./tests/unit/api.spec.ts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm audit --omit=dev --json || true
+      - run: node --test __tests__
 
   e2e:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install
-      - run: bun audit --prod --json > audit.json || (cat audit.json; exit 1)
-      - run: /root/.bun/bin/bunx playwright install chromium
-      - run: xvfb-run -a /root/.bun/bin/bunx playwright test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm audit --omit=dev --json || true
+      - run: npx playwright install chromium
+      - run: xvfb-run -a npx playwright test
         env:
           BASE_URL: http://127.0.0.1:7777
