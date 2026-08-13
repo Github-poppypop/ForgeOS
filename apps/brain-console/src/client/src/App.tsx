@@ -657,7 +657,7 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
         </div>
       </div>
 
-      <div className="stats cols-4 mb-4">
+      <div className="stats cols-4 dashboard-stats mb-4">
         <StatCard title="Isolation" value={formatIsolation(status?.isolation)} subtitle="PGLite brain ownership" />
         <StatCard title="Roles seeded" value={`${seeded}/7`} subtitle="C-suite roles" />
         <StatCard title="Console port" value={String(status?.console_port || '—')} subtitle={status?.console_port ? 'Listening on 127.0.0.1' : 'Not listening'} />

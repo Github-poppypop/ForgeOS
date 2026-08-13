@@ -433,6 +433,9 @@ ul.mono { list-style: none; padding: 0; }
 .stat .delta { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .stat .delta.up { color: var(--success); }
 .stat .delta.down { color: var(--danger); }
+.dashboard-stats { gap: var(--s2); }
+.dashboard-stats .stat { padding: var(--s3); }
+.dashboard-stats .stat .value { font-size: 24px; }
 
 /* ---------- progress variants ---------- */
 .progress { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
