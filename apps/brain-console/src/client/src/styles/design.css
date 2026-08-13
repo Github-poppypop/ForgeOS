@@ -18,64 +18,67 @@ body {
 .topnav {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 10px 16px;
   background: var(--surface-container-lowest);
   border-bottom: 1px solid var(--border);
   z-index: 50;
+  position: sticky;
+  top: 0;
 }
 .topnav-brand {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--mono);
-  font-size: 12px;
+  font-family: var(--display);
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim);
+  letter-spacing: 0;
+  color: var(--on-surface);
 }
-.topnav-brand .os { color: var(--accent); }
-.topnav-divider { width: 1px; height: 14px; background: var(--border); }
+.topnav-brand .os { color: var(--primary); font-weight: 600; }
+.topnav-divider { width: 1px; height: 16px; background: var(--border); }
 .topnav-actions { display: flex; align-items: center; gap: 10px; }
 .spacer { flex: 1; }
 .app-shell { display: flex; flex: 1; overflow: hidden; }
-.sidebar, .sidenav {
+.sidenav {
   width: 260px;
   flex-shrink: 0;
   background: var(--surface-container-low);
   border-right: 1px solid var(--border);
-  padding: 16px 12px;
+  padding: 12px;
   overflow-y: auto;
 }
-.sidenav-items { display: flex; flex-direction: column; gap: 4px; }
+.sidenav-items { display: flex; flex-direction: column; gap: 2px; }
 .sidenav-items a {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: var(--radius-sm);
-  color: var(--text-dim);
+  color: var(--on-surface-variant);
   text-decoration: none;
   font-family: var(--mono);
   font-size: 13px;
   border-left: 2px solid transparent;
+  transition: background 120ms ease, color 120ms ease;
 }
-.sidenav-items a:hover, .sidenav-items a.active { background: var(--surface-container-high); color: var(--text); }
-.sidenav-items a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 700; }
+.sidenav-items a:hover { background: var(--surface-container-high); color: var(--on-surface); }
+.sidenav-items a.active { background: var(--surface-container-high); color: var(--primary); font-weight: 600; border-left-color: var(--primary); }
 .main-canvas { flex: 1; overflow-y: auto; padding: 0 24px 36px; }
 .main-canvas > .breadcrumb { padding: 10px 0; }
 .breadcrumb {
   padding: 8px 24px;
   font-size: 12px;
   background: var(--surface-container-lowest);
-  border-top: 1px solid var(--border);
-  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  color: var(--on-surface-variant);
   font-family: var(--mono);
 }
-.breadcrumb a { color: var(--accent); text-decoration: none; }
-.breadcrumb-sep { margin: 0 8px; color: var(--text-dim); }
-.breadcrumb-current { color: var(--text); }
+.breadcrumb a { color: var(--primary); text-decoration: none; }
+.breadcrumb-sep { margin: 0 8px; color: var(--on-surface-variant); }
+.breadcrumb-current { color: var(--on-surface); font-weight: 600; }
 .toasts { position: fixed; bottom: 16px; right: 16px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
 .cmdk { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: flex-start; justify-content: center; padding-top: 18vh; z-index: 200; }
 .cmdk.open { display: flex; }
@@ -117,9 +120,9 @@ p { margin: 0 0 10px; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: var(--surface-container-highest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
   padding: var(--s4);
 }
 .pill {
@@ -243,6 +246,16 @@ ul.mono { list-style: none; padding: 0; }
   --surface-container: #1c2028;
   --surface-container-high: #272a32;
   --surface-container-highest: #31353d;
+  --on-surface: #e0e2ed;
+  --on-surface-variant: #c1c6d7;
+  --outline: #414755;
+  --outline-variant: rgba(255,255,255,0.12);
+  --primary: #adc6ff;
+  --on-primary: #002e69;
+  --primary-container: rgba(173,198,255,0.12);
+  --on-primary-container: #adc6ff;
+  --secondary: #ffd393;
+  --tertiary: #c084fc;
   --border: #414755;
   --border-strong: #8b90a0;
   --accent: #adc6ff;
