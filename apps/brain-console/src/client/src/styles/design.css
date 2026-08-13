@@ -480,6 +480,7 @@ ul.mono { list-style: none; padding: 0; }
 
 /* ---------- chart base ---------- */
 .chart { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--s4); }
+.chart-compact { padding: var(--s3); }
 .chart svg { display:block; width: 100%; height: 100%; }
 .chart .axis { stroke: var(--border-strong); stroke-width: 1; }
 .chart .grid-line { stroke: var(--border); stroke-dasharray: 3 3; }
@@ -489,7 +490,7 @@ ul.mono { list-style: none; padding: 0; }
 .chart .title { font-family: var(--display); font-size: 13px; fill: var(--text); }
 .chart-legend { display: grid; gap: 6px; }
 .chart-legend .tag { font-size: 10px; padding: 2px 8px; gap: 4px; white-space: nowrap; }
-.chart-legend .sw { width: 8px; height: 8px; }
+.chart-legend .sw { width: 8px; height: 8px; border-radius: 999px; display:inline-block; }
 
 /* ---------- chart: bar ---------- */
 .bar-rect { rx: 3; transition: height 320ms ease, y 320ms ease, fill var(--trans); }

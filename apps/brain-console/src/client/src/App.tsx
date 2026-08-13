@@ -1024,8 +1024,7 @@ function PagePanel({ slug }: { slug: string }) {
   );
 }
 
-function Decisions() {
-  const { data } = useApi<any>('/api/ledger?from=2000-01-01');
+function Decisions({ data }: { data?: any }) {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<'table' | 'timeline' | 'heatmap'>('table');
   const entries = (data?.ledger || []) as any[];
@@ -1123,8 +1122,7 @@ function Decisions() {
   );
 }
 
-function TimelinePanel() {
-  const { data } = useApi<any>('/api/timeline');
+function TimelinePanel({ data }: { data?: any }) {
   const [q, setQ] = useState('');
   const [view, setView] = useState<'timeline' | 'chart' | 'heatmap'>('timeline');
   const items = (data?.timeline || []) as any[];
@@ -1217,8 +1215,7 @@ function TimelinePanel() {
   );
 }
 
-function LedgerPanel() {
-  const { data } = useApi<any>('/api/ledger?from=2000-01-01');
+function LedgerPanel({ data }: { data?: any }) {
   const entries = (data?.ledger || []) as any[];
   const approved = entries.filter((e) => e.outcome === 'approved').length;
   const pending = entries.filter((e) => e.outcome === 'pending').length;
@@ -1293,8 +1290,7 @@ function LedgerPanel() {
   );
 }
 
-function MissionsPanel() {
-  const { data } = useApi<any>('/api/missions');
+function MissionsPanel({ data }: { data?: any }) {
   const missions = (data?.missions || []) as any[];
   const active = missions.filter((m) => m.status === 'active' || m.status === 'in-progress').length;
   const proposed = missions.filter((m) => m.status === 'proposed').length;
@@ -1355,8 +1351,7 @@ function MissionsPanel() {
   );
 }
 
-function CompliancePanel() {
-  const { data } = useApi<any>('/api/compliance');
+function CompliancePanel({ data }: { data?: any }) {
   const policies = (data?.policies || []) as any[];
   const active = policies.filter((p) => p.status === 'active').length;
   const inactive = policies.filter((p) => p.status !== 'active').length;
@@ -1426,8 +1421,7 @@ function CompliancePanel() {
   );
 }
 
-function FederationPanel() {
-  const { data } = useApi<any>('/api/federation');
+function FederationPanel({ data }: { data?: any }) {
   const children = (data?.children || []).map((c: any) => ({ name: c?.name || c?.id || `node-${c?.id || 'x'}`, status: c?.status || 'unknown' }));
   const counts = Array.from({ length: 7 }, (_, i) => i + 1);
   const synced = children.filter((c: any) => c.status === 'synced').length;
@@ -1502,8 +1496,7 @@ function FederationPanel() {
   );
 }
 
-function WebhooksPanel() {
-  const { data } = useApi<any>('/api/webhooks');
+function WebhooksPanel({ data }: { data?: any }) {
   const items = (data?.webhooks || []) as any[];
   const dead = (data?.deadLetter || []) as any[];
   return (
@@ -1572,8 +1565,7 @@ function WebhooksPanel() {
   );
 }
 
-function McpPanel() {
-  const { data } = useApi<any>('/api/mcp');
+function McpPanel({ data }: { data?: any }) {
   const tools = (data?.tools || []) as any[];
   const transports = (data?.transports || []) as any[];
   return (
@@ -1634,8 +1626,7 @@ function McpPanel() {
   );
 }
 
-function VaultPanel() {
-  const { data } = useApi<any>('/api/vault');
+function VaultPanel({ data }: { data?: any }) {
   const items = (data?.items || []) as any[];
   return (
     <div className="fadein">
@@ -1687,8 +1678,7 @@ function VaultPanel() {
   );
 }
 
-function EmbedPanel() {
-  const { data } = useApi<any>('/api/embed');
+function EmbedPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Embed</h1>
@@ -1739,8 +1729,7 @@ function EmbedPanel() {
   );
 }
 
-function AuditPanel() {
-  const { data } = useApi<any>('/api/audit');
+function AuditPanel({ data }: { data?: any }) {
   const events = (data?.events || []) as any[];
   return (
     <div className="fadein">
@@ -1786,8 +1775,7 @@ function AuditPanel() {
   );
 }
 
-function ConfigPanel() {
-  const { data } = useApi<any>('/api/config');
+function ConfigPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Config</h1>
@@ -1900,8 +1888,7 @@ function CommandPanel() {
   );
 }
 
-function GovernancePanel() {
-  const { data } = useApi<any>('/api/governance');
+function GovernancePanel({ data }: { data?: any }) {
   const rules = (data?.rules || []) as any[];
   return (
     <div className="fadein">
@@ -1955,8 +1942,7 @@ function GovernancePanel() {
   );
 }
 
-function SchemaPanel() {
-  const { data } = useApi<any>('/api/schema');
+function SchemaPanel({ data }: { data?: any }) {
   const types = Object.keys(data?.types || {});
   const counts = types.map((t) => ({ label: t, value: (data?.types as any)?.[t]?.length || 1 }));
   return (
@@ -2010,8 +1996,7 @@ function SchemaPanel() {
   );
 }
 
-function MonitoringPanel() {
-  const { data } = useApi<any>('/api/monitoring');
+function MonitoringPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Monitoring</h1>
@@ -2075,8 +2060,7 @@ function MonitoringPanel() {
   );
 }
 
-function WorkflowsPanel() {
-  const { data } = useApi<any>('/api/workflows');
+function WorkflowsPanel({ data }: { data?: any }) {
   const workflows = (data?.workflows || []) as any[];
   return (
     <div className="fadein">
@@ -2129,8 +2113,7 @@ function WorkflowsPanel() {
   );
 }
 
-function MarketplacePanel() {
-  const { data } = useApi<any>('/api/marketplace');
+function MarketplacePanel({ data }: { data?: any }) {
   const packs = (data?.packs || []) as any[];
   return (
     <div className="fadein">
@@ -2190,9 +2173,8 @@ function MarketplacePanel() {
   );
 }
 
-function PluginsPanel() {
+function PluginsPanel({ data }: { data?: any }) {
   const { navigate } = usePathRoute();
-  const { data } = useApi<any>('/api/plugins');
   const plugins = (data?.plugins || []) as any[];
   return (
     <div className="fadein">
@@ -2232,8 +2214,7 @@ function PluginsPanel() {
   );
 }
 
-function ProjectsPanel() {
-  const { data } = useApi<any>('/api/projects');
+function ProjectsPanel({ data }: { data?: any }) {
   const projects = (data?.projects || []) as any[];
   const active = projects.filter((p) => p.active).length;
   const archived = projects.filter((p) => p.archived).length;
@@ -2285,8 +2266,7 @@ function ProjectsPanel() {
   );
 }
 
-function SettingsPanel() {
-  const { data } = useApi<any>('/api/settings');
+function SettingsPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Settings</h1>
@@ -2353,8 +2333,7 @@ function SettingsPanel() {
   );
 }
 
-function PoolLeaguePanel() {
-  const { data } = useApi<any>('/api/poolleague');
+function PoolLeaguePanel({ data }: { data?: any }) {
   const tables = (data?.tables || []) as any[];
   const players = (data?.players || []) as any[];
   const matches = (data?.matches || []) as any[];
@@ -2392,8 +2371,7 @@ function PoolLeaguePanel() {
   );
 }
 
-function AppStorePanel() {
-  const { data, reload } = useApi<any>('/api/apps');
+function AppStorePanel({ data }: { data?: any }) {
   const apps = (data?.apps || []) as any[];
   const runtimeCounts = apps.reduce<Record<string, number>>((acc, app) => { acc[app.runtime] = (acc[app.runtime] || 0) + 1; return acc; }, {});
   const statusCounts = apps.reduce<Record<string, number>>((acc, app) => { acc[app.status] = (acc[app.status] || 0) + 1; return acc; }, {});
@@ -2409,11 +2387,11 @@ function AppStorePanel() {
     const payload = { ...form, capabilities: form.capabilities.split(',').map((s) => s.trim()).filter(Boolean), port: Number(form.port) || 0 };
     await api('/api/apps', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
     setForm((p) => ({ ...p, name: '' }));
-    await reload();
+    window.location.reload();
   };
   const updateHealth = async (id: string, health: number) => {
     await api(`/api/apps/${encodeURIComponent(id)}/health`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ health }) });
-    await reload();
+    window.location.reload();
   };
   return (
     <div className="fadein">
@@ -2619,8 +2597,7 @@ function DeveloperPanel() {
   );
 }
 
-function SelfImprovePanel() {
-  const { data, reload } = useApi<any>('/api/self-improve');
+function SelfImprovePanel({ data }: { data?: any }) {
   const [feedback, setFeedback] = useState('');
   const [rating, setRating] = useState(5);
   const suggestions = (data?.suggestions || []) as any[];
@@ -2632,11 +2609,11 @@ function SelfImprovePanel() {
     await api('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rating, comment: feedback, source: 'user', date: new Date().toISOString().split('T')[0] }) });
     setFeedback('');
     setRating(5);
-    await reload();
+    window.location.reload();
   };
   const updateStatus = async (id: number, status: string) => {
     await api(`/api/self-improve/suggestions/${id}/status`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status }) });
-    await reload();
+    window.location.reload();
   };
   return (
     <div className="fadein">
@@ -2707,8 +2684,8 @@ function SelfImprovePanel() {
           <span className="subtitle">Self-improvement engine</span>
         </div>
         <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <button className="btn primary" onClick={async () => { await api('/api/self-improve/learning-loop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); await reload(); }}>Run learning loop</button>
-          <button className="btn secondary" onClick={async () => { await api('/api/telemetry', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'error', load_ms: 120, latency_ms: 45 }) }); await reload(); }}>Simulate error telemetry</button>
+          <button className="btn primary" onClick={async () => { await api('/api/self-improve/learning-loop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); window.location.reload(); }}>Run learning loop</button>
+          <button className="btn secondary" onClick={async () => { await api('/api/telemetry', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'error', load_ms: 120, latency_ms: 45 }) }); window.location.reload(); }}>Simulate error telemetry</button>
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -2785,15 +2762,30 @@ export default function App() {
 
   const statusApi = useApi('/api/status');
   const rolesApi = useApi('/api/roles');
-  const q = encodeURIComponent(new URLSearchParams(window.location.search.slice(1)).get('q') || '');
-  const searchApi = useApi('/api/search?q=' + q);
+  const searchApi = useApi('/api/search?q=' + encodeURIComponent(new URLSearchParams(window.location.search.slice(1)).get('q') || ''));
   const missionsApi = useApi('/api/missions');
   const timelineApi = useApi('/api/timeline');
   const complianceApi = useApi('/api/compliance');
   const federationApi = useApi('/api/federation');
   const webhooksApi = useApi('/api/webhooks');
   const ledgerApi = useApi('/api/ledger?from=2000-01-01');
-  void [missionsApi, timelineApi, complianceApi, federationApi, webhooksApi, ledgerApi];
+  const appsApi = useApi('/api/apps');
+  const developersApi = useApi('/api/developers');
+  const projectsApi = useApi('/api/projects');
+  const marketplaceApi = useApi('/api/marketplace');
+  const pluginsApi = useApi('/api/plugins');
+  const monitoringApi = useApi('/api/monitoring');
+  const workflowsApi = useApi('/api/workflows');
+  const configApi = useApi('/api/config');
+  const settingsApi = useApi('/api/settings');
+  const selfImproveApi = useApi('/api/self-improve');
+  const embedApi = useApi('/api/embed');
+  const vaultApi = useApi('/api/vault');
+  const mcpApi = useApi('/api/mcp');
+  const poolLeagueApi = useApi('/api/poolleague');
+  const schemaApi = useApi('/api/schema');
+  const governanceApi = useApi('/api/governance');
+  void [statusApi, rolesApi, searchApi, missionsApi, timelineApi, complianceApi, federationApi, webhooksApi, ledgerApi, appsApi, developersApi, projectsApi, marketplaceApi, pluginsApi, monitoringApi, workflowsApi, configApi, settingsApi, selfImproveApi, embedApi, vaultApi, mcpApi, poolLeagueApi, schemaApi, governanceApi];
 
   const renderPanel = () => {
     if (route.startsWith('/page/')) {
@@ -2812,53 +2804,53 @@ export default function App() {
       case '/decisions':
         return <Decisions />;
       case '/timeline':
-        return <TimelinePanel />;
+        return <TimelinePanel data={timelineApi.data} />;
       case '/ledger':
-        return <LedgerPanel />;
+        return <LedgerPanel data={ledgerApi.data} />;
       case '/missions':
-        return <MissionsPanel />;
+        return <MissionsPanel data={missionsApi.data} />;
       case '/compliance':
-        return <CompliancePanel />;
+        return <CompliancePanel data={complianceApi.data} />;
       case '/federation':
-        return <FederationPanel />;
+        return <FederationPanel data={federationApi.data} />;
       case '/webhooks':
-        return <WebhooksPanel />;
+        return <WebhooksPanel data={webhooksApi.data} />;
       case '/apps':
-        return <AppStorePanel />;
+        return <AppStorePanel data={appsApi.data} />;
       case '/developers':
         return <DeveloperPanel />;
       case '/self-improve':
-        return <SelfImprovePanel />;
+        return <SelfImprovePanel data={selfImproveApi.data} />;
       case '/mcp':
-        return <McpPanel />;
+        return <McpPanel data={mcpApi.data} />;
       case '/vault':
-        return <VaultPanel />;
+        return <VaultPanel data={vaultApi.data} />;
       case '/embed':
-        return <EmbedPanel />;
+        return <EmbedPanel data={embedApi.data} />;
       case '/audit':
         return <AuditPanel />;
       case '/schema':
-        return <SchemaPanel />;
+        return <SchemaPanel data={schemaApi.data} />;
       case '/config':
-        return <ConfigPanel />;
+        return <ConfigPanel data={configApi.data} />;
       case '/command':
         return <CommandPanel />;
       case '/governance':
-        return <GovernancePanel />;
+        return <GovernancePanel data={governanceApi.data} />;
       case '/monitoring':
-        return <MonitoringPanel />;
+        return <MonitoringPanel data={monitoringApi.data} />;
       case '/workflows':
-        return <WorkflowsPanel />;
+        return <WorkflowsPanel data={workflowsApi.data} />;
       case '/marketplace':
-        return <MarketplacePanel />;
+        return <MarketplacePanel data={marketplaceApi.data} />;
       case '/plugins':
-        return <PluginsPanel />;
+        return <PluginsPanel data={pluginsApi.data} />;
       case '/projects':
-        return <ProjectsPanel />;
+        return <ProjectsPanel data={projectsApi.data} />;
       case '/settings':
-        return <SettingsPanel />;
+        return <SettingsPanel data={settingsApi.data} />;
       case '/poolleague':
-        return <PoolLeaguePanel />;
+        return <PoolLeaguePanel data={poolLeagueApi.data} />;
       default:
         return <NotFound />;
     }
