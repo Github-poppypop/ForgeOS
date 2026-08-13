@@ -610,6 +610,22 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Dashboard</h1>
+      <div className="card mb-3">
+        <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <input type="search" placeholder="Search..." data-tooltip="Filter dashboard items" className="input" style={{ width: 220 }} />
+            <select data-tooltip="Status filter" className="select" style={{ width: 180 }}>
+              <option value="">All statuses</option>
+              <option value="healthy">Healthy</option>
+              <option value="degraded">Degraded</option>
+            </select>
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <span className="pill" data-tooltip="Visible dashboard sections">{items.length} services</span>
+            <button className="btn secondary sm" data-tooltip="Reload dashboard" onClick={() => window.location.reload()}>Refresh</button>
+          </div>
+        </div>
+      </div>
       <div className="row gap-3 mb-3">
         <StatusPill label={brainOk ? 'brain ok' : 'brain down'} ok={brainOk} title="Core brain service is healthy" />
         <StatusPill label={ollamaOk ? 'ollama' : 'ollama off'} ok={ollamaOk} title="Local LLM runtime available" />
