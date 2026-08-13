@@ -609,7 +609,7 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
   const dash = (score / items.length) * circ;
   return (
     <div className="fadein">
-      <div className="row" style={{ marginBottom: 24, gap: 10 }}>
+      <div className="row gap-3 mb-3">
         <StatusPill label={brainOk ? 'brain ok' : 'brain down'} ok={brainOk} title="Core brain service is healthy" />
         <StatusPill label={ollamaOk ? 'ollama' : 'ollama off'} ok={ollamaOk} title="Local LLM runtime available" />
         <span className="pill" data-tooltip="Embedding model for semantic search"><span className="dot" /> {status?.embedding_model || '—'}</span>
@@ -617,11 +617,11 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
         {status?.auth ? <span className="pill warn" data-tooltip="Authentication system is enabled"><span className="dot" /> auth on</span> : null}
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card mb-4">
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h2>System health</h2>
-            <p className="muted">{score}/{items.length} checks healthy</p>
+            <h2 className="h2">System health</h2>
+            <p className="muted caption">{score}/{items.length} checks healthy</p>
           </div>
           <svg width="140" height="140" viewBox="0 0 140 140">
             <circle cx="70" cy="70" r={radius} className="gauge-bg" />
@@ -630,7 +630,7 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
             <text x="70" y="86" textAnchor="middle" className="gauge-label">health</text>
           </svg>
         </div>
-        <div className="stack" style={{ marginTop: 14 }}>
+        <div className="stack stack-md mt-3">
           {items.map((item) => (
             <div key={item.label} className="row" style={{ justifyContent: 'space-between' }}>
               <span>{item.label}</span>
@@ -640,19 +640,19 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
         </div>
       </div>
 
-      <div className="stats cols-4" style={{ marginBottom: 16 }}>
+      <div className="stats cols-4 mb-4">
         <StatCard title="Isolation" value={formatIsolation(status?.isolation)} subtitle="PGLite brain ownership" />
         <StatCard title="Roles seeded" value={`${seeded}/7`} subtitle="C-suite roles" />
         <StatCard title="Console port" value={String(status?.console_port || '—')} subtitle={status?.console_port ? 'Listening on 127.0.0.1' : 'Not listening'} />
         <StatCard title="Health" value={brainOk ? 'Healthy' : 'Degraded'} subtitle={brainOk ? 'All systems nominal' : 'Check dependencies'} accent={!brainOk} danger={!brainOk} />
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
+      <div className="card mt-4">
         <div className="section-header">
           <h2>Quick actions</h2>
           <span className="subtitle">Common tasks</span>
         </div>
-        <div className="row" style={{ gap: 8, marginTop: 10 }}>
+        <div className="row gap-2 mt-2">
           <a className="btn primary" onClick={() => navigate('/roles')}>Roles</a>
           <button className="btn secondary" data-tooltip="Reload dashboard data" onClick={() => window.location.reload()}>Refresh</button>
           <a className="btn secondary" onClick={() => navigate('/search')} data-tooltip="Search across all brains">Search</a>
@@ -662,13 +662,13 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
         </div>
       </div>
 
-      <p className="muted" style={{ marginTop: 12 }}>live: connecting… <span data-tooltip="Time of last successful data fetch">(refreshed —)</span></p>
-      <div className="card" style={{ marginTop: 16 }}>
+      <p className="muted mt-3">live: connecting… <span data-tooltip="Time of last successful data fetch">(refreshed —)</span></p>
+      <div className="card mt-4">
         <div className="section-header">
           <h2>Activity</h2>
           <span className="subtitle">Recent console events</span>
         </div>
-        <div style={{ marginTop: 10 }}>
+        <div className="mt-2">
           <TopBarChart data={[
             { label: 'Mon', value: 4 },
             { label: 'Tue', value: 7 },
@@ -680,13 +680,13 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
           ]} />
         </div>
       </div>
-      <div className="stats cols-2" style={{ marginTop: 16 }}>
+      <div className="stats cols-2 mt-4">
         <div className="card">
           <div className="section-header">
-          <h2>Status timeline</h2>
-          <span className="subtitle">Last 7 checks</span>
-        </div>
-          <div style={{ marginTop: 10 }}>
+            <h2>Status timeline</h2>
+            <span className="subtitle">Last 7 checks</span>
+          </div>
+          <div className="mt-2">
             <Sparkline data={[1, 3, 2, 5, 4, 6, 5]} color="var(--accent)" />
           </div>
         </div>
@@ -695,7 +695,7 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
             <h2>Load</h2>
             <span className="subtitle">System resources</span>
           </div>
-          <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <div className="mt-2" style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             <GaugeChart value={68} label="CPU" />
             <GaugeChart value={45} label="MEM" />
             <GaugeChart value={82} label="DISK" />
