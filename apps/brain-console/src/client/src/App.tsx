@@ -609,6 +609,7 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
   const dash = (score / items.length) * circ;
   return (
     <div className="fadein">
+      <h1 className="page-header">Dashboard</h1>
       <div className="row gap-3 mb-3">
         <StatusPill label={brainOk ? 'brain ok' : 'brain down'} ok={brainOk} title="Core brain service is healthy" />
         <StatusPill label={ollamaOk ? 'ollama' : 'ollama off'} ok={ollamaOk} title="Local LLM runtime available" />
