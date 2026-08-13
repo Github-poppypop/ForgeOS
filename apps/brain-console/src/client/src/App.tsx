@@ -1401,8 +1401,8 @@ function CompliancePanel() {
         </div>
         <div style={{ marginTop: 10 }}>
           <DonutChart data={[
-            { label: 'active', value: active, color: 'var(--success)' },
-            { label: 'inactive', value: inactive, color: 'var(--danger)' },
+            { label: 'active', value: active || 1, color: 'var(--success)' },
+            { label: 'inactive', value: inactive || 0, color: 'var(--danger)' },
           ]} size={160} />
         </div>
       </div>
@@ -1411,7 +1411,7 @@ function CompliancePanel() {
           <h2>Category coverage</h2>
           <span className="subtitle">Active vs inactive</span>
         </div>
-        <BarChart data={Object.entries(categoryCounts).map(([label, value]) => ({ label, value }))} height={110} />
+        <BarChart data={Object.keys(categoryCounts).length ? Object.entries(categoryCounts).map(([label, value]) => ({ label, value })) : [{ label: 'none', value: 1 }]} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
@@ -1419,7 +1419,7 @@ function CompliancePanel() {
           <span className="subtitle">Latest monitoring</span>
         </div>
         <div className="stack" style={{ marginTop: 10 }}>
-          {policies.slice(0, 10).map((p, i) => (
+          {policies.length ? policies.slice(0, 10).map((p, i) => (
             <div key={p.id} className="card" style={{ padding: 12 }}>
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <div>
@@ -1434,7 +1434,7 @@ function CompliancePanel() {
                 <span className="pill">updated {i + 1}d ago</span>
               </div>
             </div>
-          ))}
+          )) : <EmptyState title="No policies yet" body="Policies will appear here after governance setup." />}
         </div>
       </div>
       <div className="card">
@@ -1447,7 +1447,6 @@ function CompliancePanel() {
           <GaugeChart value={inactive ? 40 : 90} label="Coverage" />
         </div>
       </div>
-      {!policies.length && <EmptyState title="No policies yet" body="Policies will appear here after governance setup." />}
     </div>
   );
 }
@@ -1640,11 +1639,11 @@ function McpPanel() {
                 <span className="pill ok">{t.status || 'open'}</span>
               </div>
             </div>
-          )) : <p className="muted">No transports registered yet.</p>}
+          )) : <EmptyState title="No transports registered" body="Add MCP transports to see connection metrics here." />}
         </div>
       </div>
       <div className="stack">
-        {tools.map((t: any, i: number) => (
+        {tools.length ? tools.map((t: any, i: number) => (
           <div key={i} className="card" style={{ padding: 12 }}>
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div>
@@ -1654,9 +1653,8 @@ function McpPanel() {
               <span className="pill ok">{t.version || 'v1'}</span>
             </div>
           </div>
-        ))}
+        )) : <EmptyState title="No tools registered" body="Add MCP tools to see usage metrics here." />}
       </div>
-      {!tools.length && <EmptyState title="No tools registered" body="Add MCP tools to see usage metrics here." />}
     </div>
   );
 }
@@ -1698,7 +1696,7 @@ function VaultPanel() {
         ]} size={160} />
       </div>
       <div className="stack">
-        {items.slice(0, 10).map((item: any, i: number) => (
+        {items.length ? items.slice(0, 10).map((item: any, i: number) => (
           <div key={i} className="card" style={{ padding: 12 }}>
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div>
@@ -1708,9 +1706,8 @@ function VaultPanel() {
               <span className="pill ok">encrypted</span>
             </div>
           </div>
-        ))}
+        )) : <EmptyState title="Vault empty" body="Add secrets to see activity and load metrics." />}
       </div>
-      {!items.length && <EmptyState title="Vault empty" body="Add secrets to see activity and load metrics." />}
     </div>
   );
 }
