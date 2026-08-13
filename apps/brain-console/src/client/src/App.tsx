@@ -117,11 +117,12 @@ const SHORTCUTS: [string, string, string][] = [
 ];
 
 const CATEGORIES = [
-  { title: 'Core', items: ['/dashboard', '/roles', '/search', '/capture', '/apps', '/developers'] },
-  { title: 'Knowledge', items: ['/decisions', '/timeline', '/ledger', '/vault', '/embed'] },
-  { title: 'Governance', items: ['/missions', '/federation', '/audit', '/schema', '/governance', '/compliance', '/webhooks'] },
-  { title: 'Platform', items: ['/mcp', '/plugins', '/marketplace', '/workflows', '/monitoring', '/projects', '/poolleague'] },
-  { title: 'System', items: ['/config', '/command', '/settings', '/self-improve'] },
+  { title: 'Core', items: ['/dashboard', '/roles', '/search', '/capture'] },
+  { title: 'Knowledge', items: ['/decisions', '/timeline', '/ledger', '/vault'] },
+  { title: 'Governance', items: ['/missions', '/federation', '/audit', '/schema', '/governance'] },
+  { title: 'Platform', items: ['/mcp', '/plugins', '/marketplace', '/workflows', '/monitoring'] },
+  { title: 'System', items: ['/config', '/command', '/settings', '/projects', '/poolleague', '/webhooks', '/apps'] },
+  { title: 'Developers', items: ['/developers'] },
 ];
 
 function usePathRoute() {
