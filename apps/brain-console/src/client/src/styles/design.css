@@ -141,6 +141,21 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   border-radius: var(--radius);
   background: linear-gradient(180deg, rgba(110,168,254,0.06), rgba(110,168,254,0.0));
 }
+.empty-state-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.empty-state-title {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+}
+.empty-state-body {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
 .code, pre.json, pre.code { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; overflow: auto; }
 table.tbl { width: 100%; border-collapse: collapse; }
 table.tbl th, table.tbl td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }

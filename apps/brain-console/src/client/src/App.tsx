@@ -627,8 +627,10 @@ function Skeleton({ rows = 3 }: { rows?: number }) {
 function EmptyState({ title, body, action }: { title: string; body?: string; action?: React.ReactNode }) {
   return (
     <div className="empty-state">
-      <h3>{title}</h3>
-      {body ? <p className="muted">{body}</p> : null}
+      <div className="empty-state-header">
+        <div className="empty-state-title">{title}</div>
+        {body ? <div className="empty-state-body">{body}</div> : null}
+      </div>
       {action || null}
     </div>
   );
