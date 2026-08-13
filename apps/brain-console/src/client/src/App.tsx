@@ -1454,26 +1454,34 @@ function CompliancePanel() {
 
 function FederationPanel() {
   const { data } = useApi<any>('/api/federation');
-  const children = (data?.children || []) as string[];
+  const children = (data?.children || []).map((c: any) => ({ name: c?.name || c?.id || `node-${c?.id || 'x'}`, status: c?.status || 'unknown' }));
   const counts = Array.from({ length: 7 }, (_, i) => i + 1);
+  const synced = children.filter((c: any) => c.status === 'synced').length;
+  const pending = children.filter((c: any) => c.status === 'pending').length;
   return (
     <div className="fadein">
       <h1>Federation</h1>
+      <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <StatCard title="Root" value={data?.root || 'ForgeOS'} subtitle="federation" accent />
+        <StatCard title="Children" value={children.length} subtitle="nodes" />
+        <StatCard title="Synced" value={synced} subtitle="ready" accent={!pending} danger={!!pending} />
+      </div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h3>Topology</h3>
-        <p className="mono">{data?.root}</p>
-        <p className="muted">{data?.model}</p>
+        <div className="section-header">
+          <h2>Topology</h2>
+          <span className="subtitle">{data?.model || 'read-down'}</span>
+        </div>
         <div style={{ marginTop: 12 }}>
           <svg viewBox="0 0 600 220" style={{ width: '100%', height: 'auto' }}>
             <rect x="10" y="10" width="120" height="40" rx="8" className="node root" />
             <text x="70" y="35" textAnchor="middle" className="node-label">{data?.root || 'ForgeOS'}</text>
-            {children.map((c, i) => {
+            {children.map((c: any, i: number) => {
               const y = 70 + i * 40;
               return (
-                <g key={i}>
+                <g key={c.name + i}>
                   <line x1="70" y1="50" x2="70" y2={y} className="edge" />
                   <rect x="140" y={y - 16} width="120" height="32" rx="8" className="node leaf" />
-                  <text x="200" y={y + 4} textAnchor="middle" className="node-label">{c}</text>
+                  <text x="200" y={y + 4} textAnchor="middle" className="node-label">{c.name}</text>
                 </g>
               );
             })}
@@ -1483,7 +1491,9 @@ function FederationPanel() {
           </svg>
         </div>
         <div className="tags" style={{ marginTop: 12 }}>
-          {children.map((c, i) => <span key={i} className="tag info">{c}</span>)}
+          {children.map((c: any, i: number) => (
+            <span key={c.name + i} className={`tag ${c.status === 'synced' ? 'success' : 'warn'}`}>{c.name}: {c.status}</span>
+          ))}
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -1491,7 +1501,7 @@ function FederationPanel() {
           <h2>Member distribution</h2>
           <span className="subtitle">Team makeup</span>
         </div>
-        <BarChart data={children.length ? children.map((c, i) => ({ label: c, value: 3 + i })) : [{ label: 'none', value: 1 }]} height={110} />
+        <BarChart data={children.length ? children.map((c: any, i: number) => ({ label: c.name, value: 3 + i })) : [{ label: 'none', value: 1 }]} height={110} />
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
