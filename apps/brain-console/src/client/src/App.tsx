@@ -854,7 +854,7 @@ function Search({ data }: { data: any }) {
   });
   return (
     <div className="fadein">
-      <h1>Semantic Search</h1>
+      <h1 className="page-header">Semantic Search</h1>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="row" style={{ gap: 8 }}>
           <input className="input" style={{ flex: 1 }} placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} />
@@ -908,7 +908,7 @@ function Capture() {
   };
   return (
     <div className="fadein">
-      <h1>Capture</h1>
+      <h1 className="page-header">Capture</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Target" value={slug} subtitle="page" />
         <StatCard title="Type" value={type} subtitle="format" accent />
@@ -1024,7 +1024,7 @@ function Decisions() {
   }).length);
   return (
     <div className="fadein">
-      <h1>Decisions & Incidents</h1>
+      <h1 className="page-header">Decisions & Incidents</h1>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -1123,7 +1123,7 @@ function TimelinePanel() {
   }).length);
   return (
     <div className="fadein">
-      <h1>Timeline Engine</h1>
+      <h1 className="page-header">Timeline Engine</h1>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -1216,7 +1216,7 @@ function LedgerPanel() {
   const rows = Object.entries(typeCounts).map(([label, value]) => ({ label, value }));
   return (
     <div className="fadein">
-      <h1>Decision Ledger</h1>
+      <h1 className="page-header">Decision Ledger</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Total" value={entries.length} subtitle="decisions" />
         <StatCard title="Approved" value={approved} subtitle={entries.length ? `${Math.round((approved / entries.length) * 100)}%` : '0%'} accent />
@@ -1287,7 +1287,7 @@ function MissionsPanel() {
   const ownerCounts = missions.reduce<Record<string, number>>((acc, m) => { acc[m.owner] = (acc[m.owner] || 0) + 1; return acc; }, {});
   return (
     <div className="fadein">
-      <h1>Missions</h1>
+      <h1 className="page-header">Missions</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Active" value={active} subtitle="in flight" accent={!!active} />
         <StatCard title="Proposed" value={proposed} subtitle="awaiting approval" />
@@ -1346,7 +1346,7 @@ function CompliancePanel() {
   const categoryCounts = policies.reduce<Record<string, number>>((acc, p) => { acc[p.category || 'general'] = (acc[p.category || 'general'] || 0) + 1; return acc; }, {});
   return (
     <div className="fadein">
-      <h1>Compliance</h1>
+      <h1 className="page-header">Compliance</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Policies" value={policies.length} subtitle="total" />
         <StatCard title="Active" value={active} subtitle="in compliance" accent />
@@ -1417,7 +1417,7 @@ function FederationPanel() {
   const pending = children.filter((c: any) => c.status === 'pending').length;
   return (
     <div className="fadein">
-      <h1>Federation</h1>
+      <h1 className="page-header">Federation</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Root" value={data?.root || 'ForgeOS'} subtitle="federation" accent />
         <StatCard title="Children" value={children.length} subtitle="nodes" />
@@ -1491,7 +1491,7 @@ function WebhooksPanel() {
   const dead = (data?.deadLetter || []) as any[];
   return (
     <div className="fadein">
-      <h1>Webhooks</h1>
+      <h1 className="page-header">Webhooks</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Webhooks" value={items.length} subtitle="registered" />
         <StatCard title="Dead letter" value={dead.length} subtitle="needs retry" danger={!!dead.length} />
@@ -1561,7 +1561,7 @@ function McpPanel() {
   const transports = (data?.transports || []) as any[];
   return (
     <div className="fadein">
-      <h1>MCP</h1>
+      <h1 className="page-header">MCP</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Tools" value={tools.length} subtitle="available" />
         <StatCard title="Transports" value={transports.length} subtitle="connections" />
@@ -1622,7 +1622,7 @@ function VaultPanel() {
   const items = (data?.items || []) as any[];
   return (
     <div className="fadein">
-      <h1>Vault</h1>
+      <h1 className="page-header">Vault</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Items" value={items.length} subtitle="stored" />
         <StatCard title="Encryption" value={data?.encrypted ? 'On' : 'Off'} subtitle={data?.encrypted ? 'AES-256-GCM' : 'plaintext'} accent={data?.encrypted} />
@@ -1674,7 +1674,7 @@ function EmbedPanel() {
   const { data } = useApi<any>('/api/embed');
   return (
     <div className="fadein">
-      <h1>Embed</h1>
+      <h1 className="page-header">Embed</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Queued" value={data?.queued ?? 0} subtitle="pending chunks" />
         <StatCard title="Model" value={(data?.model || '—').split(':')[1] || '—'} subtitle={data?.model || 'local'} accent />
@@ -1727,7 +1727,7 @@ function AuditPanel() {
   const events = (data?.events || []) as any[];
   return (
     <div className="fadein">
-      <h1>Audit</h1>
+      <h1 className="page-header">Audit</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Events" value={events.length} subtitle="recorded" />
         <StatCard title="Window" value="7d" subtitle="retention" />
@@ -1773,7 +1773,7 @@ function ConfigPanel() {
   const { data } = useApi<any>('/api/config');
   return (
     <div className="fadein">
-      <h1>Config</h1>
+      <h1 className="page-header">Config</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Ollama" value={(data?.ollama || '—').replace(/https?:\/\//, '').split('/')[0]} subtitle="endpoint" />
         <StatCard title="Dimensions" value={data?.dimensions ?? '—'} subtitle="embeddings" />
@@ -1837,7 +1837,7 @@ function CommandPanel() {
   };
   return (
     <div className="fadein">
-      <h1>Command</h1>
+      <h1 className="page-header">Command</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Input" value={cmd || '—'} subtitle="current command" />
         <StatCard title="History" value={history.length} subtitle="recent" />
@@ -1888,7 +1888,7 @@ function GovernancePanel() {
   const rules = (data?.rules || []) as any[];
   return (
     <div className="fadein">
-      <h1>Governance</h1>
+      <h1 className="page-header">Governance</h1>
       <div className="card" style={{ marginBottom: 16 }}>
         <h3>Scope</h3>
         <p className="mono">{data?.root}</p>
@@ -1944,7 +1944,7 @@ function SchemaPanel() {
   const counts = types.map((t) => ({ label: t, value: (data?.types as any)?.[t]?.length || 1 }));
   return (
     <div className="fadein">
-      <h1>Schema</h1>
+      <h1 className="page-header">Schema</h1>
       <div className="card" style={{ marginBottom: 16 }}>
         <h3>Active schema</h3>
         <p className="mono">{data?.active || 'forgeos'}</p>
@@ -1997,7 +1997,7 @@ function MonitoringPanel() {
   const { data } = useApi<any>('/api/monitoring');
   return (
     <div className="fadein">
-      <h1>Monitoring</h1>
+      <h1 className="page-header">Monitoring</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="CPU" value={`${data?.cpu ?? 0}%`} subtitle="current" />
         <StatCard title="Memory" value={`${data?.memory ?? 0}MB`} subtitle="RSS" />
@@ -2063,7 +2063,7 @@ function WorkflowsPanel() {
   const workflows = (data?.workflows || []) as any[];
   return (
     <div className="fadein">
-      <h1>Workflows</h1>
+      <h1 className="page-header">Workflows</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Workflows" value={workflows.length} subtitle="registered" />
         <StatCard title="Running" value={workflows.filter((w) => w.status === 'running').length} subtitle="active" accent />
@@ -2117,7 +2117,7 @@ function MarketplacePanel() {
   const packs = (data?.packs || []) as any[];
   return (
     <div className="fadein">
-      <h1>Marketplace</h1>
+      <h1 className="page-header">Marketplace</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Packs" value={packs.length} subtitle="available" />
         <StatCard title="Installed" value={packs.filter((p) => p.installed).length} subtitle="enabled" accent />
@@ -2179,7 +2179,7 @@ function PluginsPanel() {
   const plugins = (data?.plugins || []) as any[];
   return (
     <div className="fadein">
-      <h1>Plugins</h1>
+      <h1 className="page-header">Plugins</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Plugins" value={plugins.length} subtitle="installed" />
         <StatCard title="Enabled" value={plugins.filter((p) => p.enabled).length} subtitle="active" accent />
@@ -2223,7 +2223,7 @@ function ProjectsPanel() {
   const totalTasks = projects.reduce((s, p) => s + (p.tasks || 0), 0);
   return (
     <div className="fadein">
-      <h1>Projects</h1>
+      <h1 className="page-header">Projects</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Projects" value={projects.length} subtitle="workspaces" />
         <StatCard title="Active" value={active} subtitle="in use" accent />
@@ -2272,7 +2272,7 @@ function SettingsPanel() {
   const { data } = useApi<any>('/api/settings');
   return (
     <div className="fadein">
-      <h1>Settings</h1>
+      <h1 className="page-header">Settings</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Auth" value={data?.auth ? 'On' : 'Off'} subtitle={data?.auth ? 'enabled' : 'disabled'} accent={!data?.auth} />
         <StatCard title="Telemetry" value={data?.telemetry ? 'On' : 'Off'} subtitle={data?.telemetry ? 'enabled' : 'disabled'} />
@@ -2343,7 +2343,7 @@ function PoolLeaguePanel() {
   const matches = (data?.matches || []) as any[];
   return (
     <div className="fadein">
-      <h1>PoolLeague</h1>
+      <h1 className="page-header">PoolLeague</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Tables" value={tables.length} subtitle="open" />
         <StatCard title="Players" value={players.length} subtitle="ranked" accent />
@@ -2400,7 +2400,7 @@ function AppStorePanel() {
   };
   return (
     <div className="fadein">
-      <h1>App Store</h1>
+      <h1 className="page-header">App Store</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Apps" value={apps.length} subtitle="registered" />
         <StatCard title="Running" value={apps.filter((a) => a.status === 'running').length} subtitle="live" accent />
@@ -2531,7 +2531,7 @@ function DeveloperPanel() {
   const { navigate } = usePathRoute();
   return (
     <div className="fadein">
-      <h1>Developer onboarding</h1>
+      <h1 className="page-header">Developer onboarding</h1>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
           <h2>Onboarding checklist</h2>
@@ -2623,7 +2623,7 @@ function SelfImprovePanel() {
   };
   return (
     <div className="fadein">
-      <h1>Self Improve</h1>
+      <h1 className="page-header">Self Improve</h1>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Learning rate" value={`${learningRate}%`} subtitle="model confidence" accent />
         <StatCard title="Confidence" value={`${confidence}%`} subtitle="prediction accuracy" />
@@ -2749,7 +2749,7 @@ function NotFound() {
   const { navigate } = usePathRoute();
   return (
     <div className="fadein">
-      <h1>404</h1>
+      <h1 className="page-header">404</h1>
       <p className="muted">This panel hasn't been wired yet.</p>
       <a className="btn primary" onClick={() => navigate('/dashboard')}>Back to Dashboard</a>
     </div>
