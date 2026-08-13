@@ -464,6 +464,8 @@ ul.mono { list-style: none; padding: 0; }
 .mb-2 { margin-bottom: var(--s2); }
 .mb-3 { margin-bottom: var(--s3); }
 .mb-4 { margin-bottom: var(--s4); }
+.wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
 
 /* ---------- animations ---------- */
 @keyframes fadein { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }

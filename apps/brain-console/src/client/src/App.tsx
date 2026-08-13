@@ -626,7 +626,7 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
           </div>
         </div>
       </div>
-      <div className="row gap-3 mb-3">
+      <div className="row gap-3 mb-3 wrap items-center">
         <StatusPill label={brainOk ? 'brain ok' : 'brain down'} ok={brainOk} title="Core brain service is healthy" />
         <StatusPill label={ollamaOk ? 'ollama' : 'ollama off'} ok={ollamaOk} title="Local LLM runtime available" />
         <span className="pill" data-tooltip="Embedding model for semantic search"><span className="dot" /> {status?.embedding_model || '—'}</span>
@@ -669,7 +669,7 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
           <h2>Quick actions</h2>
           <span className="subtitle">Common tasks</span>
         </div>
-        <div className="row gap-2 mt-2">
+        <div className="row gap-2 mt-2 wrap items-center">
           <a className="btn primary" onClick={() => navigate('/roles')}>Roles</a>
           <button className="btn secondary" data-tooltip="Reload dashboard data" onClick={() => window.location.reload()}>Refresh</button>
           <a className="btn secondary" onClick={() => navigate('/search')} data-tooltip="Search across all brains">Search</a>
@@ -677,9 +677,9 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
           <button className="btn secondary" data-tooltip="Copy current status as JSON" onClick={() => navigator.clipboard.writeText(JSON.stringify(status, null, 2))}>Copy status</button>
           <a className="btn secondary" onClick={() => navigate('/embed')} data-tooltip="Re-embed all knowledge">Re-embed</a>
         </div>
+        <p className="muted mt-3">live: connecting… <span data-tooltip="Time of last successful data fetch">(refreshed —)</span></p>
       </div>
 
-      <p className="muted mt-3">live: connecting… <span data-tooltip="Time of last successful data fetch">(refreshed —)</span></p>
       <div className="card mt-4">
         <div className="section-header">
           <h2>Activity</h2>
