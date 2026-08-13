@@ -66,6 +66,8 @@ body {
 }
 .sidenav-items a:hover { background: var(--surface-container-high); color: var(--on-surface); }
 .sidenav-items a.active { background: var(--surface-container-high); color: var(--primary); font-weight: 600; border-left-color: var(--primary); }
+.nav-category-items a:hover { background: var(--surface-container-high); color: var(--on-surface); }
+.nav-category-items a.active { background: var(--surface-container-high); color: var(--primary); font-weight: 600; border-left-color: var(--primary); }
 .main-canvas { flex: 1; overflow-y: auto; padding: 0 24px 36px; }
 .main-canvas > .breadcrumb { padding: 10px 0; }
 .breadcrumb {
@@ -282,9 +284,9 @@ ul.mono { list-style: none; padding: 0; }
   --text-dim: #c1c6d7;
   --text-muted: #556070;
   --text-on-accent: #002e69;
-  --mono: "JetBrains Mono", ui-monospace, monospace;
-  --sans: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --display: "Hanken Grotesk", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
+  --sans: "Hanken Grotesk", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --display: "Hanken Grotesk", "Inter", "Segoe UI", system-ui, sans-serif;
 
   --s1: 4px; --s2: 8px; --s3: 16px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
   --radius: 0.25rem; --radius-sm: 0.125rem; --radius-xs: 0.125rem; --radius-lg: 0.5rem; --radius-xl: 0.75rem;
