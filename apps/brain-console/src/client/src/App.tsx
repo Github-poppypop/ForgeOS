@@ -117,12 +117,11 @@ const SHORTCUTS: [string, string, string][] = [
 ];
 
 const CATEGORIES = [
-  { title: 'Core', items: ['/dashboard', '/roles', '/search', '/capture'] },
-  { title: 'Knowledge', items: ['/decisions', '/timeline', '/ledger', '/vault'] },
-  { title: 'Governance', items: ['/missions', '/federation', '/audit', '/schema', '/governance'] },
-  { title: 'Platform', items: ['/mcp', '/plugins', '/marketplace', '/workflows', '/monitoring'] },
-  { title: 'System', items: ['/config', '/command', '/settings', '/projects', '/poolleague', '/webhooks', '/apps'] },
-  { title: 'Developers', items: ['/developers'] },
+  { title: 'Core', items: ['/dashboard', '/roles', '/search', '/capture', '/apps', '/developers'] },
+  { title: 'Knowledge', items: ['/decisions', '/timeline', '/ledger', '/vault', '/embed'] },
+  { title: 'Governance', items: ['/missions', '/federation', '/audit', '/schema', '/governance', '/compliance', '/webhooks'] },
+  { title: 'Platform', items: ['/mcp', '/plugins', '/marketplace', '/workflows', '/monitoring', '/projects', '/poolleague'] },
+  { title: 'System', items: ['/config', '/command', '/settings', '/self-improve'] },
 ];
 
 function usePathRoute() {
@@ -333,51 +332,6 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
         </div>
       ))}
     </nav>
-  );
-}
-
-function Navbar({ theme, setTheme, contrast, setContrast, onShortcuts }: {
-  theme: string;
-  setTheme: (t: string) => void;
-  contrast: string;
-  setContrast: (t: string) => void;
-  onShortcuts: () => void;
-}) {
-  return (
-    <header className="topnav">
-      <div className="topnav-brand">
-        <span>ForgeOS</span>
-        <span className="topnav-divider" aria-hidden="true"></span>
-        <span className="os">Console</span>
-      </div>
-      <div className="topnav-actions">
-        <span className="pill" data-tooltip="Console port">7777</span>
-        <ThemeSwatches value={theme} onChange={setTheme} />
-        <select
-          data-tooltip="Contrast mode"
-          value={contrast}
-          onChange={(e) => setContrast(e.target.value)}
-          className="select"
-          style={{ width: 140 }}
-        >
-          {CONTRASTS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-        </select>
-        <button className="btn secondary sm" onClick={onShortcuts}>Shortcuts</button>
-      </div>
-    </header>
-  );
-}
-
-function StatusBar({ status }: { status: any }) {
-  const brainOk = !!status?.gbrain_health?.status && status.gbrain_health.status !== 'degraded';
-  const ollamaOk = !!status?.ollama?.status && status.ollama.status !== 'offline';
-  return (
-    <div className="status-bar">
-      <StatusPill label={brainOk ? 'brain ok' : 'brain down'} ok={brainOk} title="Core brain service" />
-      <StatusPill label={ollamaOk ? 'ollama' : 'ollama off'} ok={ollamaOk} title="Local LLM runtime" />
-      <span className="pill" data-tooltip="Console port">{status?.console_port ?? 7777}</span>
-      <span className="muted" style={{ marginLeft: 'auto' }}>ForgeOS Brain Console • React/Express</span>
-    </div>
   );
 }
 
@@ -2895,13 +2849,27 @@ export default function App() {
 
   return (
     <div id="app">
-      <Navbar
-        theme={theme}
-        setTheme={setTheme}
-        contrast={contrast}
-        setContrast={setContrast}
-        onShortcuts={() => setShowShortcuts(true)}
-      />
+      <header className="topnav">
+        <div className="topnav-brand">
+          <span>ForgeOS</span>
+          <span className="topnav-divider" aria-hidden="true"></span>
+          <span className="os">Console</span>
+        </div>
+        <div className="topnav-actions">
+          <span className="pill" data-tooltip="Console port">7777</span>
+          <ThemeSwatches value={theme} onChange={setTheme} />
+          <select
+            data-tooltip="Contrast mode"
+            value={contrast}
+            onChange={(e) => setContrast(e.target.value)}
+            className="select"
+            style={{ width: 140 }}
+          >
+            {CONTRASTS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+          <button className="btn secondary sm" onClick={() => setShowShortcuts(true)}>Shortcuts</button>
+        </div>
+      </header>
       <div className="app-shell">
         <Sidebar route={route} onNavigate={navigate} />
         <main className="main-canvas">
@@ -2913,7 +2881,9 @@ export default function App() {
           {renderPanel()}
         </main>
       </div>
-      <StatusBar status={statusApi.data} />
+      <div className="status-bar">
+        <span className="muted" style={{ marginLeft: 'auto' }}>ForgeOS Brain Console • React/Express</span>
+      </div>
       {showShortcuts ? <ShortcutsOverlay onClose={() => setShowShortcuts(false)} /> : null}
       <div className="toasts" id="toasts" />
     </div>
