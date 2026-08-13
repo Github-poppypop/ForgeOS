@@ -4970,7 +4970,7 @@ document.addEventListener("click", e => {
 
 // ---------- helpers: SVG chart skeletons ----------
 function svgWrap(w=600, h=220) {
-  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">`;
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">`;
 }
 function svgEnd() { return `</svg>`; }
 function xAxisLabels(labels, w=600, h=220) {
@@ -4996,7 +4996,7 @@ function barChart(series, w=600, h=220) {
     return `<rect class="bar-rect ${s.cls||""}" x="${x}" y="${y}" width="${barW}" height="${bh}" rx="3"><title>${DOMPurify.sanitize(s.label)}: ${s.value}</title></rect>
       <text class="label" x="${x+barW/2}" y="${h-6}" text-anchor="middle">${DOMPurify.sanitize(s.label)}</text>`;
   }).join("");
-  return `<div class="chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${gridLines(h)}${bars}${svgEnd()}</svg></div>`;
+  return `<div class="chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${gridLines(h)}${bars}${svgEnd()}</svg></div>`;
 }
 
 // ---------- (52) donut chart ----------
@@ -5030,7 +5030,7 @@ function lineChart(points, w=600, h=220, color="var(--accent)") {
   const d = coords.map((c,i)=> (i? "L":"M") + `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
   const area = d + ` L${coords[coords.length-1].x},${h-20} L0,${h-20} Z`;
   const dots = coords.map(c => `<circle class="dot" cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" fill="var(--surface)"><title>${v=>v}</title></circle>`).join("");
-  return `<div class="chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${gridLines(h)}
+  return `<div class="chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${gridLines(h)}
     <path class="line-area" d="${area}" fill="${color}"/>
     <path class="line-path" d="${d}" stroke="${color}"/>
     ${dots}${svgEnd()}</svg></div>`;
