@@ -668,11 +668,15 @@ ul.mono { list-style: none; padding: 0; }
   padding: 10px 12px 6px;
   font-weight: 700;
 }
+.nav-category-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
 .sidebar .nav-category a {
   padding-left: 12px;
   font-size: 13px;
   border-radius: var(--radius-sm);
-  margin-bottom: 1px;
 }
 
 /* ---------- collapsible nav categories ---------- */
