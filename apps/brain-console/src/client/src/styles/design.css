@@ -3,6 +3,62 @@
    Rich dark palette, vibrant accents, refined surfaces, polished charts.
    ========================================================================= */
 
+:root {
+  --bg: #0b0e14;
+  --surface: #121620;
+  --surface-2: #181d2a;
+  --surface-3: #1f2536;
+  --surface-4: #262c40;
+  --surface-5: #2e354a;
+  --surface-bright: #384060;
+  --surface-dim: #0b0e14;
+  --surface-container-lowest: #0b0e14;
+  --surface-container-low: #121620;
+  --surface-container-high: #1f2536;
+  --surface-container-highest: #262c40;
+
+  --border: #2a3040;
+  --border-strong: #384060;
+  --outline-variant: #2a3040;
+
+  --text: #e6eaf2;
+  --text-dim: #9aa3b2;
+  --text-muted: #6b7280;
+  --on-surface: #e6eaf2;
+  --on-surface-variant: #9aa3b2;
+
+  --primary: #6ea8ff;
+  --primary-press: #5a92e0;
+  --accent: #6ea8ff;
+  --accent-press: #5a92e0;
+  --accent-2: #a78bfa;
+
+  --success: #34d399;
+  --success-dim: rgba(52, 211, 153, 0.18);
+  --warn: #fbbf24;
+  --warn-dim: rgba(251, 191, 36, 0.18);
+  --danger: #f87171;
+  --danger-dim: rgba(248, 113, 113, 0.18);
+  --info: #60a5fa;
+  --info-dim: rgba(96, 165, 250, 0.18);
+
+  --text-on-accent: #0b0e14;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.45);
+  --trans: 180ms ease;
+
+  --sans: "Hanken Grotesk", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+  --display: "Hanken Grotesk", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+}
+
 /* ---------- base reset + layout ---------- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; }
 html, body { height: 100%; }
