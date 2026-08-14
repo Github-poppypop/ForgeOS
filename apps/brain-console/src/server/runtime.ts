@@ -286,8 +286,8 @@ function persistStore(store: Store) {
   saveJson(DATA_FILE, store);
 }
 
-function validateRequired(body: Dict, fields: string[]) {
-  const missing = fields.filter((f) => !(f in body) || body[f] === null || body[f] === undefined || sanitizeString(body[f]) === "");
+function validateRequired(body: Dict, fields: string[]): string | null {
+  const missing: string[] = fields.filter((f) => !(f in body) || body[f] === null || body[f] === undefined || sanitizeString(body[f]) === "");
   if (missing.length) return `missing required fields: ${missing.join(", ")}`;
   return null;
 }
