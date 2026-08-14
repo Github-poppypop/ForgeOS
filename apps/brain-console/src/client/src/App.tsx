@@ -1,5 +1,22 @@
 import { Component, useEffect, useMemo, useCallback, useState } from 'react';
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', async () => {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(async (reg) => {
+      try {
+        await reg.unregister();
+      } catch {}
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames
+          .filter((name) => name.startsWith('forgeos-'))
+          .map((name) => caches.delete(name))
+      );
+    }));
+  });
+}
+
 export class DebugErrorBoundary extends Component<{ children?: React.ReactNode }, { error: Error | null; info: any }> {
   state = { error: null as Error | null, info: null as any };
   static getDerivedStateFromError(error: Error) {
