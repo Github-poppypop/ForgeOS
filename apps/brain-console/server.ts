@@ -7,7 +7,7 @@ import { match } from "path-to-regexp";
 import { createRuntime } from "./src/server/runtime.js";
 
 const PORT = Number(process.env.PORT ?? 7777);
-const ROOT = fileURLToPath(new URL(".", import.meta.url));
+const ROOT = path.resolve(fileURLToPath(new URL("server.ts", import.meta.url)), "..");
 const PUBLIC = path.join(ROOT, "public");
 const DIST = path.join(ROOT, "dist");
 
