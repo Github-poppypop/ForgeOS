@@ -335,6 +335,23 @@ export function createRuntime() {
     persist();
   }
 
+  const requestLog: Array<{ ts: string; method: string; path: string; status: number; durationMs: number }> = [];
+
+  router.use((_req, res, next) => {
+    const start = Date.now();
+    res.on("finish", () => {
+      requestLog.unshift({
+        ts: new Date().toISOString(),
+        method: _req.method,
+        path: _req.path,
+        status: res.statusCode,
+        durationMs: Date.now() - start,
+      });
+      if (requestLog.length > 500) requestLog.length = 500;
+    });
+    next();
+  });
+
   router.get("/api/health", (_req, res) => {
     jsonResponse(res, { ok: true, ts: Date.now() });
   });
@@ -1238,6 +1255,130 @@ export function createRuntime() {
     if (!secret) return badRequest(res, "reload secret required");
     pushAudit("hotreload.request", "server", "system");
     return jsonResponse(res, { ok: true, reloaded: false, reason: "handled by dev workflow" });
+  });
+
+  router.get("/api/logs", (_req, res) => {
+    const limit = clamp(sanitizeNumber((_req.query.limit as string) ?? "20", 20), 1, 200);
+    jsonResponse(res, { logs: requestLog.slice(0, limit), count: Math.min(limit, requestLog.length) });
+  });
+
+  router.get("/api/metrics", (_req, res) => {
+    const logs = requestLog;
+    const byRoute: Dict = {};
+    for (const entry of logs) {
+      const key = `${entry.method} ${entry.path}`;
+      const current = byRoute[key] || { count: 0, errors: 0, totalMs: 0, maxMs: 0 };
+      current.count += 1;
+      current.totalMs += entry.durationMs;
+      current.maxMs = Math.max(current.maxMs, entry.durationMs);
+      if (entry.status >= 500) current.errors += 1;
+      else if (entry.status >= 400) current.errors += 1;
+      byRoute[key] = current;
+    }
+    const items = Object.entries(byRoute).map(([route, metric]: [string, any]) => ({
+      route,
+      count: metric.count,
+      errors: metric.errors,
+      avgMs: Math.round(metric.totalMs / metric.count),
+      maxMs: metric.maxMs,
+    }));
+    const total = logs.length;
+    const errors = logs.filter((l) => l.status >= 400).length;
+    jsonResponse(res, { total, errors, avgMs: total ? Math.round(logs.reduce((s, l) => s + l.durationMs, 0) / total) : 0, byRoute: items });
+  });
+
+  router.get("/api/agent/:id/workflows", (_req, res) => {
+    const id = sanitizeString(_req.params.id, "");
+    jsonResponse(res, { agent: id, workflows: store.workflows });
+  });
+
+  router.get("/api/agent/:id/messages", (_req, res) => {
+    const id = sanitizeString(_req.params.id, "");
+    const limit = clamp(sanitizeNumber((_req.query.limit as string) ?? "20", 20), 1, 200);
+    const messages = [
+      { ts: new Date().toISOString(), direction: "inbound", subject: "heartbeat", body: `Agent ${id} checked in` },
+      { ts: new Date(Date.now() - 1000 * 60).toISOString(), direction: "outbound", subject: "task", body: `Delegated task to agent ${id}` },
+    ].slice(0, limit);
+    jsonResponse(res, { agent: id, messages });
+  });
+
+  router.get("/api/agent/:id/metrics", (_req, res) => {
+    const id = sanitizeString(_req.params.id, "");
+    jsonResponse(res, { agent: id, tasks: 12, successRate: 0.94, avgLatencyMs: 140, lastSeen: new Date().toISOString() });
+  });
+
+  router.post("/api/auth/login", express.json(), (req, res) => {
+    const body = req.body ?? {};
+    const username = sanitizeString((body as Dict).username as string, "");
+    const password = sanitizeString((body as Dict).password as string, "");
+    if (!username || !password) return badRequest(res, "username and password required");
+    const fakeToken = Buffer.from(`${username}:${Date.now()}`).toString("base64");
+    pushAudit("auth.login", username, "system");
+    return jsonResponse(res, { ok: true, token: fakeToken, user: { username, role: "operator" } });
+  });
+
+  router.get("/api/state", (_req, res) => {
+    jsonResponse(res, { store, generatedAt: new Date().toISOString() });
+  });
+
+  router.post("/api/restore", express.json(), (_req, res) => {
+    pushAudit("restore.request", "store", "system");
+    return jsonResponse(res, { ok: true, restored: false, reason: "restore requires verified backup payload" });
+  });
+
+  router.post("/api/capture/batch", express.json(), (req, res) => {
+    const items = Array.isArray((req.body as Dict).items) ? (req.body as Dict).items : [];
+    const pages = ensureArray(store.pages) as Dict[];
+    const created: Dict[] = [];
+    for (const raw of items.slice(0, 50)) {
+      const item = raw as Dict;
+      const slug = sanitizeString(item.slug as string, "");
+      const type = sanitizeString(item.type as string, "note");
+      const title = sanitizeString(item.title as string, slug);
+      const body = sanitizeString(item.body as string, "");
+      const status = sanitizeString(item.status as string, "draft");
+      if (!slug) continue;
+      const existing = pages.find((p) => p.slug === slug);
+      if (existing) {
+        existing.title = title || existing.title;
+        existing.body = body || existing.body;
+        existing.type = type || existing.type;
+        existing.status = status;
+        existing.updated_at = new Date().toISOString().split("T")[0];
+        created.push(existing);
+      } else {
+        const entry = { slug, type, title, body, status, created_at: new Date().toISOString().split("T")[0], updated_at: new Date().toISOString().split("T")[0] };
+        pages.push(entry);
+        created.push(entry);
+      }
+    }
+    store.pages = pages;
+    persist();
+    pushAudit("capture.batch", `items=${created.length}`, "system");
+    return res.status(201).json({ ok: true, created: created.length, pages: created });
+  });
+
+  router.post("/api/import", express.json(), (req, res) => {
+    const body = req.body ?? {};
+    const format = sanitizeString((body as Dict).format as string, "json");
+    if (format !== "json") return badRequest(res, "unsupported import format");
+    pushAudit("import.request", format, "system");
+    return jsonResponse(res, { ok: true, imported: 0, format });
+  });
+
+  router.get("/api/export/*slug", (req, res) => {
+    const raw = Array.isArray((req.params as any).slug) ? (req.params as any).slug.join("/") : sanitizeString((req.params as any).slug as string, "");
+    const slug = decodeURIComponent(raw.replace(/^\//, "")) || raw;
+    const page = (ensureArray(store.pages) as Dict[]).find((p) => p.slug === slug);
+    if (!page) return notFound(res, "page not found");
+    pushAudit("export.page", slug, "system");
+    return jsonResponse(res, { export: "json", slug, page: sanitizeEntity(page) });
+  });
+
+  router.get("/api/federation/remote", (_req, res) => {
+    const children = ensureArray(store.federation.children) as Dict[];
+    const remote = children.map((node) => ({ ...node, remote: true, syncStatus: node.status === "synced" ? "ok" : "degraded" }));
+    jsonResponse(res, { root: store.federation.root, nodes: remote });
   });
 
   router.get("/api/agent/:id/log", (req, res) => {

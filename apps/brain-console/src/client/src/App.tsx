@@ -232,6 +232,18 @@ function useTheme() {
   return { theme, setTheme, contrast, setContrast, apply };
 }
 
+function useShortcuts() {
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  useEffect(() => {
+    const handler = (ev: KeyboardEvent) => {
+      if (ev.key === '?') { ev.preventDefault(); setShowShortcuts(true); }
+    };
+    window.addEventListener('keydown', handler, false);
+    return () => window.removeEventListener('keydown', handler, false);
+  }, []);
+  return { showShortcuts, setShowShortcuts };
+}
+
 function StatusPill({ label, ok, title }: { label: string; ok: boolean; title?: string }) {
   return (
     <span className={`pill ${ok ? 'ok' : 'bad'}`} data-tooltip={title}>
@@ -300,18 +312,6 @@ function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   );
-}
-
-function useShortcuts() {
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  useEffect(() => {
-    const handler = (ev: KeyboardEvent) => {
-      if (ev.key === '?') { ev.preventDefault(); setShowShortcuts(true); }
-    };
-    window.addEventListener('keydown', handler, false);
-    return () => window.removeEventListener('keydown', handler, false);
-  }, []);
-  return { showShortcuts, setShowShortcuts };
 }
 
 function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string) => void }) {
@@ -2610,6 +2610,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
   const telemetry = data?.telemetry || {};
   const learningRate = Math.round((data?.learning_rate || 0) * 100);
   const confidence = Math.round((data?.confidence || 0) * 100);
+  const loading = !data;
   const submit = async () => {
     await api('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rating, comment: feedback, source: 'user', date: new Date().toISOString().split('T')[0] }) });
     setFeedback('');
@@ -2623,6 +2624,12 @@ function SelfImprovePanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Self Improve</h1>
+      {loading ? (
+        <div className="stack">
+          <Skeleton rows={3} />
+        </div>
+      ) : (
+        <>
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Learning rate" value={`${learningRate}%`} subtitle="model confidence" accent />
         <StatCard title="Confidence" value={`${confidence}%`} subtitle="prediction accuracy" />
@@ -2726,6 +2733,8 @@ function SelfImprovePanel({ data }: { data?: any }) {
           <button className="btn primary" onClick={submit} disabled={!feedback.trim()}>Submit</button>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }
@@ -2894,7 +2903,9 @@ export default function App() {
             <span className="breadcrumb-sep">/</span>
             <span className="breadcrumb-current">{route.replace(/^\//, '')}</span>
           </nav>
-          {renderPanel()}
+          <DebugErrorBoundary>
+            {renderPanel()}
+          </DebugErrorBoundary>
           {routeError ? <div className="page-error" role="alert">{routeError}</div> : null}
         </main>
       </div>

@@ -15,7 +15,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 
-const REPO_ROOT = join(import.meta.dir, '..');
+import { fileURLToPath } from 'node:url';
+const REPO_ROOT = process.cwd();
 
 export interface DuplicateGroup {
   hash: string;
@@ -59,7 +60,7 @@ export function findDuplicates(dir: string = REPO_ROOT): DuplicateGroup[] {
   }
 
   const groups: DuplicateGroup[] = [];
-  for (const [hash, fileList] of hashMap.entries()) {
+  for (const [hash, fileList] of Array.from(hashMap.entries())) {
     if (fileList.length > 1) {
       groups.push({ hash, files: fileList.sort() });
     }
