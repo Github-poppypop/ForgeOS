@@ -1249,7 +1249,7 @@ export function createRuntime() {
     jsonResponse(res, { id, logs });
   });
 
-  router.use((_req, res) => notFound(res));
+  router.use((_req, res, next) => next());
 
   return router;
 }
