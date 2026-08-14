@@ -2764,15 +2764,36 @@ function NotFound() {
   );
 }
 
+function OnboardingTour({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState(0);
+  const steps = [
+    { title: 'Welcome to ForgeOS', body: 'Use the sidebar to navigate between governance, knowledge, and platform panels.' },
+    { title: 'Keyboard shortcuts', body: 'Press ? to view shortcuts, or Ctrl/Cmd+K to open the command palette.' },
+    { title: 'Stay synced', body: 'The runtime persists state and feedback automatically as you work.' },
+  ];
+  const current = steps[step];
+  return (
+    <div className="cmdk open" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ padding: 16, maxWidth: 420 }}>
+        <div className="h3">{current.title}</div>
+        <p className="muted" style={{ marginTop: 8 }}>{current.body}</p>
+        <div className="row" style={{ justifyContent: 'space-between', marginTop: 14, gap: 8 }}>
+          <button className="btn secondary" onClick={onClose}>Skip</button>
+          <button className="btn primary" onClick={() => { if (step + 1 >= steps.length) { localStorage.setItem('forgeos-tour-done', 'true'); onClose(); } else setStep((s) => s + 1); }}>{step + 1 >= steps.length ? 'Finish' : 'Next'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const { path, navigate } = usePathRoute();
   const route = useMemo(() => matchRoute(path), [path]);
   const { theme, setTheme, contrast, setContrast } = useTheme();
   const { showShortcuts, setShowShortcuts } = useShortcuts();
-
-  useEffect(() => {
-    api('/api/telemetry', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'page_view', route: route || '/dashboard', load_ms: performance?.timeOrigin ? Math.round(performance.now()) : 0 }) }).catch(() => {});
-  }, [route]);
+  const [showTour, setShowTour] = useState<boolean>(() => {
+    try { return localStorage.getItem('forgeos-tour-done') !== 'true'; } catch { return true; }
+  });
 
   const statusApi = useApi('/api/status');
   const rolesApi = useApi('/api/roles');
@@ -2801,7 +2822,7 @@ export default function App() {
   const governanceApi = useApi('/api/governance');
   const apiErrors = [statusApi, rolesApi, searchApi, missionsApi, timelineApi, complianceApi, federationApi, webhooksApi, ledgerApi, appsApi, developersApi, projectsApi, marketplaceApi, pluginsApi, monitoringApi, workflowsApi, configApi, settingsApi, selfImproveApi, embedApi, vaultApi, mcpApi, poolLeagueApi, schemaApi, governanceApi];
   const routeError = apiErrors.find((api) => api.error)?.error || null;
-  void [statusApi, rolesApi, searchApi, missionsApi, timelineApi, complianceApi, federationApi, webhooksApi, ledgerApi, appsApi, developersApi, projectsApi, marketplaceApi, pluginsApi, monitoringApi, workflowsApi, configApi, settingsApi, selfImproveApi, embedApi, vaultApi, mcpApi, poolLeagueApi, schemaApi, governanceApi];
+  void apiErrors;
 
   const renderPanel = () => {
     if (route.startsWith('/page/')) {
@@ -2888,16 +2909,17 @@ export default function App() {
             value={contrast}
             onChange={(e) => setContrast(e.target.value)}
             className="select"
+            aria-label="Contrast mode"
             style={{ width: 140 }}
           >
             {CONTRASTS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
-          <button className="btn secondary sm" onClick={() => setShowShortcuts(true)}>Shortcuts</button>
+          <button className="btn secondary sm" aria-label="Show keyboard shortcuts" onClick={() => setShowShortcuts(true)}>Shortcuts</button>
         </div>
       </header>
       <div className="app-shell">
         <Sidebar route={route} onNavigate={navigate} />
-        <main className="main-canvas">
+        <main className="main-canvas" aria-label="Main content">
           <nav className="breadcrumb" aria-label="breadcrumb">
             <a href="/dashboard" onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }}>ForgeOS</a>
             <span className="breadcrumb-sep">/</span>
@@ -2913,6 +2935,7 @@ export default function App() {
         <span className="muted" style={{ marginLeft: 'auto' }}>ForgeOS Brain Console • React/Express</span>
       </div>
       {showShortcuts ? <ShortcutsOverlay onClose={() => setShowShortcuts(false)} /> : null}
+      {showTour ? <OnboardingTour onClose={() => setShowTour(false)} /> : null}
       <div className="toasts" id="toasts" />
     </div>
   );
