@@ -10,6 +10,7 @@ const PORT = Number(process.env.PORT ?? 7777);
 const ROOT = path.resolve(fileURLToPath(new URL("server.ts", import.meta.url)), "..");
 const PUBLIC = path.join(ROOT, "public");
 const DIST = path.join(ROOT, "dist");
+const CLIENT = path.join(ROOT, "src", "client");
 
 function content_type(p: string): string | null {
   const ext = path.extname(p).toLowerCase();
@@ -98,9 +99,27 @@ async function main() {
     next();
   });
 
+  const useVite = process.env.NODE_ENV !== "production" && fs.existsSync(CLIENT) && (process.env.FORCE_VITE === "1" || !fs.existsSync(path.join(DIST, "index.html")));
+  let viteInstance: Awaited<ReturnType<import("vite").createServer>> | null = null;
+
+  if (useVite) {
+    try {
+      const { createServer: createViteServer } = await import("vite");
+      viteInstance = await createViteServer({
+        root: CLIENT,
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(viteInstance.middlewares);
+    } catch (err) {
+      console.warn("[react-express] vite dev middleware unavailable:", err?.message ?? err);
+    }
+  }
+
   app.use(createRuntime());
 
   app.use((req, res, next) => {
+    if (viteInstance) return next();
     const asset = resolveAsset(req.path);
     if (asset.path) {
       return res.sendFile(asset.path, { headers: cache_headers(asset.path, asset.headers || {}) });
@@ -108,23 +127,29 @@ async function main() {
     next();
   });
 
-  app.get('/', (_req, res) => {
-    const indexAsset = resolveAsset('/index.html');
-    if (indexAsset.path) {
-      return res.sendFile(indexAsset.path, { headers: cache_headers(indexAsset.path, indexAsset.headers || {}) });
+  const sendIndex = async () => {
+    if (viteInstance) {
+      const html = fs.readFileSync(path.join(CLIENT, "index.html"), "utf8");
+      return await viteInstance.transformIndexHtml("/", html);
     }
-    return res.status(404).send('not found');
+    const indexAsset = resolveAsset("/index.html");
+    if (indexAsset.path) return indexAsset.path;
+    return null;
+  };
+
+  app.get("/", async (_req, res) => {
+    const html = await sendIndex();
+    if (html) return typeof html === "string" ? res.send(html) : res.sendFile(html);
+    return res.status(404).send("not found");
   });
 
-  app.get(/^\/[^?#]*$/, (_req, res) => {
-    const indexAsset = resolveAsset('/index.html');
-    if (indexAsset.path) {
-      return res.sendFile(indexAsset.path, { headers: cache_headers(indexAsset.path, indexAsset.headers || {}) });
-    }
-    return res.status(404).send('not found');
+  app.get(/^\/[^?#]*$/, async (_req, res) => {
+    const html = await sendIndex();
+    if (html) return typeof html === "string" ? res.send(html) : res.sendFile(html);
+    return res.status(404).send("not found");
   });
 
-  app.listen(port, '127.0.0.1', () => {
+  app.listen(port, "127.0.0.1", () => {
     console.log(`[react-express] on http://127.0.0.1:${port}`);
   });
 }
