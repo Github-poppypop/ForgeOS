@@ -45,11 +45,12 @@ function loadJson<T>(filePath: string, fallback: T): T {
     ensureDataDir();
     if (!fs.existsSync(filePath)) return fallback;
     const raw = fs.readFileSync(filePath, "utf8");
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(fallback)) {
-      return Array.isArray(parsed) ? parsed : fallback;
+      return (Array.isArray(parsed) ? parsed : fallback) as T;
     }
-    return { ...fallback, ...(typeof parsed === "object" && parsed ? parsed : {}) };
+    const merged = { ...fallback, ...(typeof parsed === "object" && parsed ? (parsed as Record<string, unknown>) : {}) };
+    return merged as T;
   } catch {
     return fallback;
   }
