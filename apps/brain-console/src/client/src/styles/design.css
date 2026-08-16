@@ -496,7 +496,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .code, pre.json, pre.code { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; overflow: auto; }
 table.tbl { width: 100%; border-collapse: collapse; }
 table.tbl th, table.tbl td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
-table.tbl th { color: var(--text-dim); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+table.tbl th { color: var(--text-dim); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; background: var(--surface-2); }
 table.tbl tbody tr:hover { background: var(--surface-2); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
 ul.mono { list-style: none; padding: 0; }
@@ -727,6 +727,8 @@ ul.mono { list-style: none; padding: 0; }
 .tag.success { background: var(--success-dim); color: var(--success); border-color: rgba(52,211,153,0.55); }
 .tag.danger { background: var(--danger-dim); color: var(--danger); border-color: rgba(248,113,113,0.55); }
 .tag.warn { background: var(--warn-dim); color: var(--warn); border-color: rgba(251,191,36,0.55); }
+.tag.info { background: rgba(110,168,255,0.12); color: var(--primary); border-color: rgba(110,168,255,0.55); }
+.tag.done { background: var(--success-dim); color: var(--success); border-color: rgba(52,211,153,0.55); }
 .card-sm { padding: var(--s3); }
 .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 .chart-legend {

@@ -2040,7 +2040,7 @@ function GovernancePanel({ data }: { data?: any }) {
           <span className="subtitle">Active policies</span>
         </div>
         {rules.length ? (
-          <div className="stack" style={{ marginTop: 10 }}>
+          <div className="stack" style={{ marginTop: 10, gap: 10 }}>
             {rules.map((r: any, i: number) => (
               <div key={i} className="card card-sm">
                 <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -2676,7 +2676,7 @@ function DeveloperPanel() {
           <h2>App templates</h2>
           <span className="subtitle">Scaffold a new app</span>
         </div>
-        <div className="stack" style={{ marginTop: 10, gap: 12 }}>
+        <div className="stack" style={{ marginTop: 10, gap: 10 }}>
           {[
             { name: 'Display App', runtime: 'static', capabilities: 'display', port: 4173, desc: 'Public UI with SSR hydration.' },
             { name: 'API Service', runtime: 'node', capabilities: 'api', port: 3003, desc: 'Express backend with health checks.' },
@@ -2790,7 +2790,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
           <h2>Improvement suggestions</h2>
           <span className="subtitle">Prioritized backlog</span>
         </div>
-        <div className="stack" style={{ marginTop: 10 }}>
+        <div className="stack stack-sm" style={{ marginTop: 10 }}>
           {suggestions.map((s) => (
             <div key={s.id} className="card card-sm">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
