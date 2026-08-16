@@ -3,6 +3,24 @@
    Rich dark palette, vibrant accents, refined surfaces, polished charts.
    ========================================================================= */
 
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scrollbar-color: var(--surface-3) var(--surface);
+  scrollbar-width: thin;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 999px; border: 2px solid var(--surface); }
+::-webkit-scrollbar-thumb:hover { background: var(--surface-bright); }
+
 :root {
   --bg: #0b0e14;
   --surface: #121620;
@@ -405,9 +423,11 @@ p { margin: 0 0 10px; }
 }
 .btn:hover { background: var(--surface-3); border-color: var(--border-strong); box-shadow: var(--shadow); }
 .btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--text-on-accent); box-shadow: 0 6px 20px rgba(110,168,255,0.35); }
 .btn.primary:hover { background: var(--accent-press); border-color: var(--accent-press); box-shadow: 0 8px 24px rgba(110,168,255,0.45); }
 .btn.secondary { background: var(--surface-2); }
+.btn.secondary:hover { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(110,168,255,0.35), var(--shadow); }
 .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn.sm { padding: 6px 12px; font-size: 12px; border-radius: var(--radius-sm); }
 .btn.icon { padding: var(--s2); aspect-ratio: 1; justify-content: center; }
