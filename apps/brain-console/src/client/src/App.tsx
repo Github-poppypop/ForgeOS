@@ -422,25 +422,44 @@ function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose:
 
 function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string) => void }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [query, setQuery] = useState('');
   const toggle = (title: string) => setCollapsed((p) => ({ ...p, [title]: !p[title] }));
+  const q = query.trim().toLowerCase();
 
   return (
     <nav className="sidenav" aria-label="primary">
-      {CATEGORIES.map((cat) => (
-        <div key={cat.title} className={`nav-category ${collapsed[cat.title] ? 'collapsed' : ''}`}>
-          <div className="nav-category-header" onClick={() => toggle(cat.title)}>{cat.title}</div>
-          <div className="nav-category-items">
-            {cat.items.map((r) => {
-              const label = r.replace(/^\//, '').charAt(0).toUpperCase() + r.replace(/^\//, '').slice(1);
-              return (
-                <a key={r} href={r} className={route === r ? 'active' : ''} onClick={(e) => { e.preventDefault(); onNavigate(r); }}>
-                  {label}
-                </a>
-              );
-            })}
+      <div className="sidebar-search">
+        <input
+          type="search"
+          placeholder="Filter navigation..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Filter navigation"
+        />
+      </div>
+      {CATEGORIES.map((cat) => {
+        const items = cat.items.filter((r) => {
+          if (!q) return true;
+          const label = r.replace(/^\//, '').toLowerCase();
+          return label.includes(q) || r.toLowerCase().includes(q);
+        });
+        if (!items.length) return null;
+        return (
+          <div key={cat.title} className={`nav-category ${collapsed[cat.title] ? 'collapsed' : ''}`}>
+            <div className="nav-category-header" onClick={() => toggle(cat.title)}>{cat.title}</div>
+            <div className="nav-category-items">
+              {items.map((r) => {
+                const label = r.replace(/^\//, '').charAt(0).toUpperCase() + r.replace(/^\//, '').slice(1);
+                return (
+                  <a key={r} href={r} className={route === r ? 'active' : ''} onClick={(e) => { e.preventDefault(); onNavigate(r); }}>
+                    {label}
+                  </a>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }

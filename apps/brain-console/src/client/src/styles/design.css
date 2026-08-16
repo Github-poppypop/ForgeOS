@@ -284,6 +284,17 @@ body {
   padding: 12px;
   overflow-y: auto;
 }
+.sidebar-search { padding: 0 0 10px; }
+.sidebar-search input {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+}
+.sidebar-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(110,168,255,0.28); }
 .sidenav-items { display: flex; flex-direction: column; gap: 2px; }
 .sidenav-items a {
   display: flex;
