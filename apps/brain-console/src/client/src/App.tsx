@@ -261,6 +261,18 @@ function useShortcuts() {
   return { showShortcuts, setShowShortcuts };
 }
 
+function useCommandPalette() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const handler = (ev: KeyboardEvent) => {
+      if ((ev.ctrlKey || ev.metaKey) && ev.key === 'k') { ev.preventDefault(); setOpen(true); }
+    };
+    window.addEventListener('keydown', handler, false);
+    return () => window.removeEventListener('keydown', handler, false);
+  }, []);
+  return { open, setOpen };
+}
+
 function StatusPill({ label, ok, title }: { label: string; ok: boolean; title?: string }) {
   return (
     <span className={`pill ${ok ? 'ok' : 'bad'}`} data-tooltip={title}>
@@ -325,6 +337,61 @@ function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
         </table>
         <div className="row" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
           <button className="btn secondary" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose: () => void; onNavigate: (r: string) => void }) {
+  const [query, setQuery] = useState('');
+  const items = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const entries: { route: string; label: string }[] = [];
+    for (const cat of CATEGORIES) {
+      for (const item of cat.items) {
+        const label = item.replace(/^\//, '').charAt(0).toUpperCase() + item.replace(/^\//, '').slice(1);
+        if (!q || label.toLowerCase().includes(q) || item.toLowerCase().includes(q)) entries.push({ route: item, label });
+      }
+    }
+    return entries;
+  }, [query]);
+
+  useEffect(() => {
+    const handler = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler, false);
+    return () => window.removeEventListener('keydown', handler, false);
+  }, [onClose]);
+
+  useEffect(() => {
+    const el = document.getElementById('command-palette');
+    if (el) el.classList.toggle('open', open);
+    return () => { if (el) el.classList.remove('open'); };
+  }, [open]);
+
+  return (
+    <div id="command-palette" className={`cmdk ${open ? 'open' : ''}`} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}>
+        <input
+          autoFocus
+          placeholder="Type a route..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <ul>
+          {items.slice(0, 20).map((item) => (
+            <li key={item.route} className={item.route === '/dashboard' ? 'sel' : ''} onClick={() => { onNavigate(item.route); onClose(); }}>
+              <span className="mono muted" style={{ marginRight: 8 }}>{item.route}</span>
+              <span>{item.label}</span>
+            </li>
+          ))}
+          {items.length === 0 ? <li className="muted">No routes found</li> : null}
+        </ul>
+        <div className="row" style={{ justifyContent: 'space-between', padding: '8px 12px' }}>
+          <span className="muted mono"><span className="kbd">↑↓</span> navigate · <span className="kbd">↵</span> open · <span className="kbd">esc</span> close</span>
+          <button className="btn sm secondary" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>
@@ -2808,6 +2875,7 @@ export default function App() {
   const route = useMemo(() => matchRoute(path), [path]);
   const { theme, setTheme, contrast, setContrast } = useTheme();
   const { showShortcuts, setShowShortcuts } = useShortcuts();
+  const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
   const [showTour, setShowTour] = useState<boolean>(() => {
     try { return localStorage.getItem('forgeos-tour-done') !== 'true'; } catch { return true; }
   });
@@ -2932,6 +3000,7 @@ export default function App() {
             {CONTRASTS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
           <button className="btn secondary sm" aria-label="Show keyboard shortcuts" onClick={() => setShowShortcuts(true)}>Shortcuts</button>
+          <button className="btn secondary sm" aria-label="Open command palette" onClick={() => setCommandOpen(true)}>Command</button>
         </div>
       </header>
       <div className="app-shell">
@@ -2952,6 +3021,7 @@ export default function App() {
         <span className="muted" style={{ marginLeft: 'auto' }}>ForgeOS Brain Console • React/Express</span>
       </div>
       {showShortcuts ? <ShortcutsOverlay onClose={() => setShowShortcuts(false)} /> : null}
+      {commandOpen ? <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onNavigate={navigate} /> : null}
       {showTour ? <OnboardingTour onClose={() => setShowTour(false)} /> : null}
       <div className="toasts" id="toasts" />
     </div>
