@@ -139,7 +139,7 @@ async function main() {
       return await viteInstance.transformIndexHtml("/", html);
     }
     const indexAsset = resolveAsset("/index.html");
-    if (indexAsset.path) return indexAsset.path;
+    if (indexAsset.path) return fs.readFileSync(indexAsset.path, "utf8");
     return null;
   };
 
@@ -155,7 +155,8 @@ async function main() {
     return res.status(404).send("not found");
   });
 
-  app.get(/^\/[^?#]*$/, async (_req, res) => {
+  app.get(/^\/(?!.*\.\w{1,5}$)[^?#]*$/, async (req, res) => {
+    if (req.path.includes('.') && !req.path.endsWith('/')) return next();
     const html = await sendIndex();
     if (html) return typeof html === "string" ? res.send(html) : res.sendFile(html);
     return res.status(404).send("not found");
