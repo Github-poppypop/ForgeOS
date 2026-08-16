@@ -1460,7 +1460,7 @@ function MissionsPanel({ data }: { data?: any }) {
       </div>
       <div className="stack">
         {missions.slice(0, 10).map((m: any) => (
-          <div key={m.id} className="card">
+          <div key={m.id} className="card card-sm">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div>
                 <h3>{m.title}</h3>
@@ -1521,7 +1521,7 @@ function CompliancePanel({ data }: { data?: any }) {
         </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {policies.length ? policies.slice(0, 10).map((p, i) => (
-            <div key={p.id} className="card" style={{ padding: 12 }}>
+            <div key={p.id} className="card card-sm">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <div>
                   <div className="h3">{p.name}</div>

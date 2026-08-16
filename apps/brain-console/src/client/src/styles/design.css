@@ -255,11 +255,12 @@ body {
   justify-content: space-between;
   gap: 10px;
   padding: 12px 18px;
-  background: var(--surface-container-lowest);
+  background: rgba(18,22,32,0.85);
   border-bottom: 1px solid var(--border);
   z-index: 50;
   position: sticky;
   top: 0;
+  backdrop-filter: saturate(120%) blur(14px);
 }
 .topnav-brand {
   display: flex;
@@ -268,7 +269,7 @@ body {
   font-family: var(--display);
   font-size: 16px;
   font-weight: 700;
-  letter-spacing: 0;
+  letter-spacing: -0.2px;
   color: var(--on-surface);
 }
 .topnav-brand .os { color: var(--primary); font-weight: 700; letter-spacing: 0.04em; }
@@ -705,6 +706,7 @@ ul.mono { list-style: none; padding: 0; }
 }
 .tag.success { background: var(--success-dim); color: var(--success); border-color: rgba(52,211,153,0.55); }
 .tag.danger { background: var(--danger-dim); color: var(--danger); border-color: rgba(248,113,113,0.55); }
+.tag.warn { background: var(--warn-dim); color: var(--warn); border-color: rgba(251,191,36,0.55); }
 .card-sm { padding: var(--s3); }
 .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 .chart-legend {
