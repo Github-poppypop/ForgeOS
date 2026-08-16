@@ -1659,7 +1659,7 @@ function WebhooksPanel({ data }: { data?: any }) {
         </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {dead.length ? dead.slice(0, 10).map((w: any, i: number) => (
-            <div key={i} className="card" style={{ padding: 12 }}>
+            <div key={i} className="card card-sm">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <div>
                   <div className="h3">{w.event || w.name || `dead-${i + 1}`}</div>
@@ -1676,7 +1676,7 @@ function WebhooksPanel({ data }: { data?: any }) {
       </div>
       <div className="stack">
         {items.map((w: any, i: number) => (
-          <div key={i} className="card" style={{ padding: 12 }}>
+          <div key={i} className="card card-sm">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div>
                 <div className="h3">{w.event || w.name || `webhook-${i + 1}`}</div>
