@@ -1792,7 +1792,7 @@ function VaultPanel({ data }: { data?: any }) {
           { label: 'token', value: Math.max(1, Math.floor(items.length * 0.2)), color: 'var(--success)' },
         ]} size={160} />
       </div>
-      <div className="stack">
+      <div className="stack stack-sm">
         {items.length ? items.slice(0, 10).map((item: any, i: number) => (
           <div key={i} className="card card-sm">
             <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -1837,7 +1837,7 @@ function EmbedPanel({ data }: { data?: any }) {
           <h2>Readiness</h2>
           <span className="subtitle">Monitoring health</span>
         </div>
-        <div style={{ marginTop: 10 }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Model', done: !!data?.model },
             { label: 'Dimensions', done: !!data?.dimensions },
@@ -1888,7 +1888,7 @@ function AuditPanel({ data }: { data?: any }) {
           { label: 'error', value: 1, color: 'var(--danger)' },
         ]} size={160} />
       </div>
-      <div className="stack">
+      <div className="stack stack-sm">
         {events.slice(0, 20).map((ev: any, i: number) => (
           <div key={i} className="card card-sm">
             <div className="row" style={{ justifyContent: 'space-between' }}>
