@@ -732,8 +732,8 @@ ul.mono { list-style: none; padding: 0; }
 
 /* ---------- chart visualizations ---------- */
 .chart {
-  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.00)), var(--surface-2);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.00)), var(--surface-container-highest);
+  border: 1px solid var(--outline-variant);
   border-radius: var(--radius-lg);
   padding: var(--s4);
   box-shadow: var(--shadow);
@@ -745,6 +745,59 @@ ul.mono { list-style: none; padding: 0; }
 .chart .title { font-family: var(--display); font-size: 13px; fill: var(--text); }
 .bar-rect { rx: 4; transition: height 320ms ease, y 320ms ease, fill var(--trans); }
 .bar-rect:hover { fill: var(--accent); filter: drop-shadow(0 0 8px rgba(110,168,255,0.45)); }
+
+.chart-grid { stroke: var(--border); stroke-dasharray: 3 3; }
+.line-area { opacity: 0.18; }
+.line-path { fill: none; stroke-width: 2; }
+
+.donut-seg { transition: stroke-dasharray 320ms ease; }
+.donut-hole { fill: var(--surface-2); }
+.donut-center {
+  font-family: var(--display);
+  font-size: 22px;
+  fill: var(--text);
+  font-weight: 750;
+}
+.donut-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  fill: var(--text-dim);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.donut-legend {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gauge-bg { stroke: var(--border); }
+.gauge-fg { transition: stroke-dasharray 320ms ease; }
+.gauge-ticks { stroke: var(--text-muted); stroke-width: 1; }
+.gauge-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  fill: var(--text-dim);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.heatmap {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.chart-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
 
 /* ---------- mobile ---------- */
 @media (max-width: 768px) {
