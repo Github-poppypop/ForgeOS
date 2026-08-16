@@ -161,6 +161,13 @@ async function main() {
     return res.status(404).send("not found");
   });
 
+  app.use("/assets", express.static(path.join(DIST, "assets"), {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".css")) res.setHeader("content-type", "text/css; charset=utf-8");
+      if (filePath.endsWith(".js")) res.setHeader("content-type", "application/javascript; charset=utf-8");
+    }
+  }));
+
   app.get(/^\/[^?#]*$/, async (req, res, next) => {
     if (req.path.includes('.') && !req.path.endsWith('/')) return next();
     const html = await sendIndex();
