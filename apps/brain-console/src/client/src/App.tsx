@@ -970,7 +970,7 @@ function Roles({ roles }: { roles: any }) {
         </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {list.slice(0, 5).map((r, i) => (
-            <div key={r.slug} className="card" style={{ padding: 12 }}>
+            <div key={r.slug} className="card card-sm">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <div>
                   <div className="h3">{r.role || r.slug}</div>
@@ -1097,7 +1097,7 @@ function Capture() {
         </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {Object.entries(templates).map(([k, v]) => (
-            <div key={k} className="card" style={{ padding: 12 }}>
+            <div key={k} className="card card-sm">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <div>
                   <div className="h3">{k}</div>
@@ -1728,7 +1728,7 @@ function McpPanel({ data }: { data?: any }) {
         </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {transports.length ? transports.map((t: any, i: number) => (
-            <div key={i} className="card" style={{ padding: 12 }}>
+            <div key={i} className="card card-sm">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <div>
                   <div className="h3">{t.name || `transport-${i + 1}`}</div>
@@ -1742,7 +1742,7 @@ function McpPanel({ data }: { data?: any }) {
       </div>
       <div className="stack">
         {tools.length ? tools.map((t: any, i: number) => (
-          <div key={i} className="card" style={{ padding: 12 }}>
+          <div key={i} className="card card-sm">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div>
                 <div className="h3">{t.name || `tool-${i + 1}`}</div>
@@ -1794,7 +1794,7 @@ function VaultPanel({ data }: { data?: any }) {
       </div>
       <div className="stack">
         {items.length ? items.slice(0, 10).map((item: any, i: number) => (
-          <div key={i} className="card" style={{ padding: 12 }}>
+          <div key={i} className="card card-sm">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div>
                 <div className="h3">{item.title || item.slug || `item-${i + 1}`}</div>
@@ -1890,7 +1890,7 @@ function AuditPanel({ data }: { data?: any }) {
       </div>
       <div className="stack">
         {events.slice(0, 20).map((ev: any, i: number) => (
-          <div key={i} className="card" style={{ padding: 12 }}>
+          <div key={i} className="card card-sm">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div>
                 <div className="h3">{ev.action || ev.type || 'event'}</div>
@@ -2042,7 +2042,7 @@ function GovernancePanel({ data }: { data?: any }) {
         {rules.length ? (
           <div className="stack" style={{ marginTop: 10 }}>
             {rules.map((r: any, i: number) => (
-              <div key={i} className="card" style={{ padding: 12 }}>
+              <div key={i} className="card card-sm">
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <div>
                     <div className="h3">{r.name || r.id || `rule-${i + 1}`}</div>
@@ -2161,7 +2161,7 @@ function MonitoringPanel({ data }: { data?: any }) {
         </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="card" style={{ padding: 12 }}>
+            <div key={i} className="card card-sm">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <div>
                   <div className="h3">Health check {i + 1}</div>
@@ -2227,7 +2227,7 @@ function WorkflowsPanel({ data }: { data?: any }) {
       </div>
       <div className="stack">
         {workflows.map((w: any, i: number) => (
-          <div key={i} className="card" style={{ padding: 12 }}>
+          <div key={i} className="card card-sm">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div>
                 <div className="h3">{w.name || w.id || `workflow-${i + 1}`}</div>
@@ -2284,7 +2284,7 @@ function MarketplacePanel({ data }: { data?: any }) {
       </div>
       <div className="stack">
         {packs.slice(0, 20).map((p: any, i: number) => (
-          <div key={i} className="card" style={{ padding: 12 }}>
+          <div key={i} className="card card-sm">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div>
                 <div className="h3">{p.name || `pack-${i + 1}`}</div>
@@ -2328,7 +2328,7 @@ function PluginsPanel({ data }: { data?: any }) {
       </div>
       <div className="stack">
         {plugins.map((p: any, i: number) => (
-          <div key={i} className="card" style={{ padding: 12 }}>
+          <div key={i} className="card card-sm">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div>
                 <div className="h3">{p.name || `plugin-${i + 1}`}</div>
@@ -2664,11 +2664,11 @@ function DeveloperPanel() {
           <span className="subtitle">Get started in minutes</span>
         </div>
         <ul className="stack" style={{ marginTop: 10 }}>
-          <li className="card" style={{ padding: 12 }}>Run the local console on <span className="mono">:7777</span></li>
-          <li className="card" style={{ padding: 12 }}>Open <span className="mono">/apps</span> and create an app manifest</li>
-          <li className="card" style={{ padding: 12 }}>Use <span className="mono">/api/page/:slug</span> to create app pages</li>
-          <li className="card" style={{ padding: 12 }}>Send telemetry events to <span className="mono">/api/telemetry</span></li>
-          <li className="card" style={{ padding: 12 }}>Submit feedback via <span className="mono">/api/feedback</span></li>
+          <li className="card card-sm">Run the local console on <span className="mono">:7777</span></li>
+          <li className="card card-sm">Open <span className="mono">/apps</span> and create an app manifest</li>
+          <li className="card card-sm">Use <span className="mono">/api/page/:slug</span> to create app pages</li>
+          <li className="card card-sm">Send telemetry events to <span className="mono">/api/telemetry</span></li>
+          <li className="card card-sm">Submit feedback via <span className="mono">/api/feedback</span></li>
         </ul>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -2683,7 +2683,7 @@ function DeveloperPanel() {
             { name: 'Plugin', runtime: 'node', capabilities: 'plugin,sdk', port: 0, desc: 'Extend ForgeOS with hooks.' },
             { name: 'Embedding Worker', runtime: 'node', capabilities: 'embed,worker', port: 3004, desc: 'Background jobs for embeddings.' },
           ].map((t) => (
-            <div key={t.name} className="card" style={{ padding: 12 }}>
+            <div key={t.name} className="card card-sm">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div>
                   <div className="h3">{t.name}</div>
@@ -2792,7 +2792,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
         </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {suggestions.map((s) => (
-            <div key={s.id} className="card" style={{ padding: 12 }}>
+            <div key={s.id} className="card card-sm">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div>
                   <div className="h3">{s.title}</div>
@@ -2833,7 +2833,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
         </div>
         <div className="stack" style={{ marginTop: 10 }}>
           {feedbacks.map((f) => (
-            <div key={f.id} className="card" style={{ padding: 12 }}>
+            <div key={f.id} className="card card-sm">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <div>
                   <div className="h3">{f.source} feedback</div>
