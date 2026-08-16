@@ -1939,7 +1939,7 @@ function ConfigPanel({ data }: { data?: any }) {
           <h2>Change timeline</h2>
           <span className="subtitle">Recent updates</span>
         </div>
-        <div style={{ marginTop: 10 }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <TimelineChart items={[
             { date: '2026-08-01', title: 'Config created', status: 'done' },
             { date: '2026-08-05', title: 'Dimensions updated', status: 'done' },
@@ -2370,9 +2370,9 @@ function ProjectsPanel({ data }: { data?: any }) {
           <h2>Progress</h2>
           <span className="subtitle">Completion tracking</span>
         </div>
-        <div className="stack" style={{ marginTop: 10 }}>
+        <div className="stack stack-sm" style={{ marginTop: 10 }}>
           {projects.slice(0, 10).map((p: any, i: number) => (
-            <div key={i}>
+            <div key={i} className="card card-sm">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <span>{p.name || `project-${i + 1}`}</span>
                 <span className="pill">{p.progress ?? 0}%</span>
@@ -2418,7 +2418,7 @@ function SettingsPanel({ data }: { data?: any }) {
           <h2>Environment</h2>
           <span className="subtitle">Runtime details</span>
         </div>
-        <div className="stack" style={{ marginTop: 10 }}>
+        <div className="stack stack-sm" style={{ marginTop: 10 }}>
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span>Runtime</span>
             <span className="pill">Node 24</span>
@@ -2591,7 +2591,7 @@ function AppStorePanel({ data }: { data?: any }) {
           <h2>Compatibility matrix</h2>
           <span className="subtitle">Compatibility Matrix overview</span>
         </div>
-        <div style={{ overflowX: 'auto', marginTop: 10 }}>
+        <div className="table-wrap" style={{ marginTop: 10 }}>
           <table className="tbl">
             <thead>
               <tr><th>App</th><th>Version</th><th>Runtime</th><th>Port</th><th>Status</th><th>Health</th><th>Owner</th><th>Updated</th></tr>
