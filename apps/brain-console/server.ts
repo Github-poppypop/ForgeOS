@@ -155,7 +155,13 @@ async function main() {
     return res.status(404).send("not found");
   });
 
-  app.get(/^\/(?!.*\.\w{1,5}$)[^?#]*$/, async (req, res) => {
+  app.get("/src/styles/design.css", (_req, res) => {
+    const asset = resolveAsset("/src/styles/design.css");
+    if (asset.path) return res.sendFile(asset.path, { headers: { ...(asset.headers || {}), 'content-type': 'text/css; charset=utf-8' } });
+    return res.status(404).send("not found");
+  });
+
+  app.get(/^\/[^?#]*$/, async (req, res, next) => {
     if (req.path.includes('.') && !req.path.endsWith('/')) return next();
     const html = await sendIndex();
     if (html) return typeof html === "string" ? res.send(html) : res.sendFile(html);
