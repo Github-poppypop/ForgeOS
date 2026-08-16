@@ -1023,7 +1023,7 @@ function Search({ data }: { data: any }) {
             const slug = m ? m[2] : l;
             const body = m ? m[3] : '';
             return (
-              <div key={i} className="card">
+              <div key={i} className="card card-sm">
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <a className="link mono" onClick={() => navigate(`/page/${encodeURIComponent(slug)}`)}>{slug}</a>
                   <span className="pill">{score}</span>
