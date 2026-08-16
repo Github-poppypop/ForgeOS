@@ -99,6 +99,12 @@ async function main() {
     next();
   });
 
+  app.get("/sw.js", (_req, res) => {
+    const asset = resolveAsset("/sw.js");
+    if (asset.path) return res.sendFile(asset.path, { headers: { ...(asset.headers || {}), 'content-type': 'application/javascript; charset=utf-8' } });
+    return res.status(404).send("not found");
+  });
+
   const useVite = process.env.NODE_ENV !== "production" && fs.existsSync(CLIENT) && (process.env.FORCE_VITE === "1" || !fs.existsSync(path.join(DIST, "index.html")));
   let viteInstance: Awaited<ReturnType<import("vite").createServer>> | null = null;
 
@@ -140,6 +146,12 @@ async function main() {
   app.get("/", async (_req, res) => {
     const html = await sendIndex();
     if (html) return typeof html === "string" ? res.send(html) : res.sendFile(html);
+    return res.status(404).send("not found");
+  });
+
+  app.get("/sw.js", (_req, res) => {
+    const asset = resolveAsset("/sw.js");
+    if (asset.path) return res.sendFile(asset.path, { headers: { ...(asset.headers || {}), 'content-type': 'application/javascript; charset=utf-8' } });
     return res.status(404).send("not found");
   });
 
