@@ -345,6 +345,7 @@ function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
 
 function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose: () => void; onNavigate: (r: string) => void }) {
   const [query, setQuery] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
     const entries: { route: string; label: string }[] = [];
@@ -358,12 +359,33 @@ function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose:
   }, [query]);
 
   useEffect(() => {
+    if (open) setSelectedIndex(0);
+  }, [open, items.length]);
+
+  useEffect(() => {
     const handler = (ev: KeyboardEvent) => {
       if (ev.key === 'Escape') onClose();
+      if (!open) return;
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        setSelectedIndex((i) => Math.min(i + 1, items.length - 1));
+      }
+      if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        setSelectedIndex((i) => Math.max(i - 1, 0));
+      }
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        const target = items[selectedIndex];
+        if (target) {
+          onNavigate(target.route);
+          onClose();
+        }
+      }
     };
     window.addEventListener('keydown', handler, false);
     return () => window.removeEventListener('keydown', handler, false);
-  }, [onClose]);
+  }, [open, items, selectedIndex, onClose, onNavigate]);
 
   useEffect(() => {
     const el = document.getElementById('command-palette');
@@ -381,8 +403,8 @@ function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose:
           onChange={(e) => setQuery(e.target.value)}
         />
         <ul>
-          {items.slice(0, 20).map((item) => (
-            <li key={item.route} className={item.route === '/dashboard' ? 'sel' : ''} onClick={() => { onNavigate(item.route); onClose(); }}>
+          {items.slice(0, 20).map((item, idx) => (
+            <li key={item.route} className={`${idx === selectedIndex ? 'sel' : ''} ${item.route === '/dashboard' && idx !== selectedIndex ? '' : ''}`} onClick={() => { onNavigate(item.route); onClose(); }}>
               <span className="mono muted" style={{ marginRight: 8 }}>{item.route}</span>
               <span>{item.label}</span>
             </li>
