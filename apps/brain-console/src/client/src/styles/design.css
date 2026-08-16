@@ -60,7 +60,7 @@
 }
 
 /* ---------- theme variants ---------- */
-.theme-dark {
+.theme-dark, [data-theme="dark"] {
   --bg: #0b0e14;
   --surface: #121620;
   --surface-2: #181d2a;
@@ -104,7 +104,7 @@
   --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.45);
 }
 
-.theme-light {
+.theme-light, [data-theme="light"] {
   --bg: #f6f8fc;
   --surface: #ffffff;
   --surface-2: #eef1f6;
@@ -148,7 +148,7 @@
   --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.12);
 }
 
-.theme-system {
+.theme-system, [data-theme="system"] {
   --bg: #0b0e14;
   --surface: #121620;
   --surface-2: #181d2a;
@@ -193,7 +193,7 @@
 }
 
 @media (prefers-color-scheme: light) {
-  .theme-system {
+  .theme-system, [data-theme="system"] {
     --bg: #f6f8fc;
     --surface: #ffffff;
     --surface-2: #eef1f6;
