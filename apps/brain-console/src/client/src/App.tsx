@@ -2294,37 +2294,40 @@ function PluginsPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Plugins</h1>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Plugins" value={plugins.length} subtitle="installed" />
-        <StatCard title="Enabled" value={plugins.filter((p) => p.enabled).length} subtitle="active" accent />
-        <StatCard title="Errors" value={plugins.filter((p) => p.error).length} subtitle="failed" danger />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Status</h2>
-          <span className="subtitle">Capture state</span>
-        </div>
-        <DonutChart data={[
-          { label: 'enabled', value: plugins.filter((p) => p.enabled).length || 1, color: 'var(--success)' },
-          { label: 'disabled', value: plugins.filter((p) => !p.enabled).length || 0, color: 'var(--warn)' },
-          { label: 'errors', value: plugins.filter((p) => p.error).length || 0, color: 'var(--danger)' },
-        ]} size={160} />
-      </div>
-      <div className="stack stack-sm">
-        {plugins.map((p: any, i: number) => (
-          <div key={i} className="card card-sm">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <div>
-                <div className="h3">{p.name || `plugin-${i + 1}`}</div>
-                <p className="muted mono">{p.version || '1.0.0'}</p>
-              </div>
-              <span className={cn('tag', p.enabled ? 'success' : 'warn')}>{p.enabled ? 'enabled' : 'disabled'}</span>
-            </div>
-            {p.error && <p className="muted" style={{ marginTop: 8 }}>Error: {p.error}</p>}
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Status</h2>
+            <span className="subtitle">Capture state</span>
           </div>
-        ))}
+          <DonutChart data={[
+            { label: 'enabled', value: plugins.filter((p) => p.enabled).length || 1, color: 'var(--success)' },
+            { label: 'disabled', value: plugins.filter((p) => !p.enabled).length || 0, color: 'var(--warn)' },
+            { label: 'errors', value: plugins.filter((p) => p.error).length || 0, color: 'var(--danger)' },
+          ]} size={160} />
+        </div>
+        <div className="card">
+          <div className="section-header">
+            <h2>Installed plugins</h2>
+            <span className="subtitle">Plugin inventory</span>
+          </div>
+          <div className="stack stack-sm">
+            {plugins.map((p: any, i: number) => (
+              <div key={i} className="card card-sm">
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <div>
+                    <div className="h3">{p.name || `plugin-${i + 1}`}</div>
+                    <p className="muted mono">{p.version || '1.0.0'}</p>
+                  </div>
+                  <span className={cn('tag', p.enabled ? 'success' : 'warn')}>{p.enabled ? 'enabled' : 'disabled'}</span>
+                </div>
+                {p.error && <p className="muted" style={{ marginTop: 8 }}>Error: {p.error}</p>}
+              </div>
+            ))}
+          </div>
+          {!plugins.length && <EmptyState title="No plugins installed" body="Install plugins to extend ForgeOS." action={<button className="btn primary" onClick={() => navigate('/marketplace')}>Browse marketplace</button>} />}
+        </div>
       </div>
-      {!plugins.length && <EmptyState title="No plugins installed" body="Install plugins to extend ForgeOS." action={<button className="btn primary" onClick={() => navigate('/marketplace')}>Browse marketplace</button>} />}
     </div>
   );
 }
@@ -2502,126 +2505,123 @@ function AppStorePanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">App Store</h1>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Apps" value={apps.length} subtitle="registered" />
-        <StatCard title="Running" value={apps.filter((a) => a.status === 'running').length} subtitle="live" accent />
-        <StatCard title="Stable" value={apps.filter((a) => a.status === 'stable').length} subtitle="ready" />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Status</h2>
-          <span className="subtitle">App state distribution</span>
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Status</h2>
+            <span className="subtitle">App state distribution</span>
+          </div>
+          <DonutChart data={Object.entries(statusCounts).map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }))} size={160} />
         </div>
-        <DonutChart data={Object.entries(statusCounts).map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }))} size={160} />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Runtime distribution</h2>
-          <span className="subtitle">Runtime breakdown</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>Runtime distribution</h2>
+            <span className="subtitle">Runtime breakdown</span>
+          </div>
+          <BarChart data={Object.entries(runtimeCounts).map(([label, value]) => ({ label, value }))} height={110} />
         </div>
-        <BarChart data={Object.entries(runtimeCounts).map(([label, value]) => ({ label, value }))} height={110} />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Ownership</h2>
-          <span className="subtitle">App ownership map</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>Ownership</h2>
+            <span className="subtitle">App ownership map</span>
+          </div>
+          <DonutChart data={Object.entries(owners).map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }))} size={160} />
         </div>
-        <DonutChart data={Object.entries(owners).map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }))} size={160} />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>System health</h2>
-          <span className="subtitle">Live health per app</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>System health</h2>
+            <span className="subtitle">Live health per app</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            {apps.filter((a) => a.port > 0).map((a) => (
+              <GaugeChart key={a.id} value={a.health} label={a.name} />
+            ))}
+          </div>
         </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          {apps.filter((a) => a.port > 0).map((a) => (
-            <GaugeChart key={a.id} value={a.health} label={a.name} />
-          ))}
+        <div className="card">
+          <div className="section-header">
+            <h2>Dependency graph</h2>
+            <span className="subtitle">Dependency Graph overview</span>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <svg viewBox="0 0 700 220" style={{ width: '100%', height: 'auto' }}>
+              {apps.map((a, i) => {
+                const x = 60 + (i % 3) * 220;
+                const y = 50 + Math.floor(i / 3) * 110;
+                return (
+                  <g key={a.id}>
+                    <rect x={x} y={y} width="180" height="64" rx="10" className="node leaf" />
+                    <text x={x + 10} y={y + 20} className="node-label">{a.name}</text>
+                    <text x={x + 10} y={y + 38} className="node-label" style={{ fontSize: 10 }}>{a.version} • {a.runtime}</text>
+                    <text x={x + 10} y={y + 54} className="node-label" style={{ fontSize: 10, fill: 'var(--text-dim)' }}>{a.owner} • {a.status}</text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
         </div>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Dependency graph</h2>
-          <span className="subtitle">Dependency Graph overview</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>Compatibility matrix</h2>
+            <span className="subtitle">Compatibility Matrix overview</span>
+          </div>
+          <div className="table-wrap" style={{ marginTop: 10 }}>
+            <table className="tbl">
+              <thead>
+                <tr><th>App</th><th>Version</th><th>Runtime</th><th>Port</th><th>Status</th><th>Health</th><th>Owner</th><th>Updated</th></tr>
+              </thead>
+              <tbody>
+                {apps.map((a) => (
+                  <tr key={a.id}>
+                    <td className="mono">{a.id}</td>
+                    <td><span className="pill">{a.version}</span></td>
+                    <td><span className="pill">{a.runtime}</span></td>
+                    <td className="mono">{a.port || '—'}</td>
+                    <td><span className={cn('tag', a.status === 'running' ? 'success' : a.status === 'stable' ? 'info' : 'warn')}>{a.status}</span></td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input type="range" min="0" max="100" value={a.health} onChange={(e) => updateHealth(a.id, Number(e.target.value))} />
+                        <span className="mono">{a.health}%</span>
+                      </div>
+                    </td>
+                    <td>{a.owner}</td>
+                    <td className="mono">{a.updated}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div style={{ marginTop: 10 }}>
-          <svg viewBox="0 0 700 220" style={{ width: '100%', height: 'auto' }}>
-            {apps.map((a, i) => {
-              const x = 60 + (i % 3) * 220;
-              const y = 50 + Math.floor(i / 3) * 110;
-              return (
-                <g key={a.id}>
-                  <rect x={x} y={y} width="180" height="64" rx="10" className="node leaf" />
-                  <text x={x + 10} y={y + 20} className="node-label">{a.name}</text>
-                  <text x={x + 10} y={y + 38} className="node-label" style={{ fontSize: 10 }}>{a.version} • {a.runtime}</text>
-                  <text x={x + 10} y={y + 54} className="node-label" style={{ fontSize: 10, fill: 'var(--text-dim)' }}>{a.owner} • {a.status}</text>
-                </g>
-              );
-            })}
-          </svg>
+        <div className="card">
+          <div className="section-header">
+            <h2>Quick start</h2>
+            <span className="subtitle">Quick Start overview</span>
+          </div>
+          <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            {templates.map((t) => (
+              <button key={t.name} className="btn secondary" onClick={() => setForm((p) => ({ ...p, name: t.name, runtime: t.runtime, capabilities: t.capabilities, port: t.port }))}>
+                {t.name}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="card">
-        <div className="section-header">
-          <h2>Compatibility matrix</h2>
-          <span className="subtitle">Compatibility Matrix overview</span>
-        </div>
-        <div className="table-wrap" style={{ marginTop: 10 }}>
-          <table className="tbl">
-            <thead>
-              <tr><th>App</th><th>Version</th><th>Runtime</th><th>Port</th><th>Status</th><th>Health</th><th>Owner</th><th>Updated</th></tr>
-            </thead>
-            <tbody>
-              {apps.map((a) => (
-                <tr key={a.id}>
-                  <td className="mono">{a.id}</td>
-                  <td><span className="pill">{a.version}</span></td>
-                  <td><span className="pill">{a.runtime}</span></td>
-                  <td className="mono">{a.port || '—'}</td>
-                  <td><span className={cn('tag', a.status === 'running' ? 'success' : a.status === 'stable' ? 'info' : 'warn')}>{a.status}</span></td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input type="range" min="0" max="100" value={a.health} onChange={(e) => updateHealth(a.id, Number(e.target.value))} />
-                      <span className="mono">{a.health}%</span>
-                    </div>
-                  </td>
-                  <td>{a.owner}</td>
-                  <td className="mono">{a.updated}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div className="card">
-        <div className="section-header">
-          <h2>Quick start</h2>
-          <span className="subtitle">Quick Start overview</span>
-        </div>
-        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          {templates.map((t) => (
-            <button key={t.name} className="btn secondary" onClick={() => setForm((p) => ({ ...p, name: t.name, runtime: t.runtime, capabilities: t.capabilities, port: t.port }))}>
-              {t.name}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="card">
-        <div className="section-header">
-          <h2>Register app</h2>
-          <span className="subtitle">Register App overview</span>
-        </div>
-        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-          <input className="input" style={{ width: 120 }} placeholder="version" value={form.version} onChange={(e) => setForm((p) => ({ ...p, version: e.target.value }))} />
-          <input className="input" style={{ width: 140 }} placeholder="owner" value={form.owner} onChange={(e) => setForm((p) => ({ ...p, owner: e.target.value }))} />
-          <select className="select" style={{ width: 120 }} value={form.runtime} onChange={(e) => setForm((p) => ({ ...p, runtime: e.target.value }))}>
-            <option value="static">static</option>
-            <option value="node">node</option>
-          </select>
-          <input className="input" style={{ width: 180 }} placeholder="capabilities" value={form.capabilities} onChange={(e) => setForm((p) => ({ ...p, capabilities: e.target.value }))} />
-          <input className="input" style={{ width: 120 }} placeholder="port" type="number" value={form.port} onChange={(e) => setForm((p) => ({ ...p, port: Number(e.target.value) }))} />
-          <button className="btn primary" disabled={!form.name.trim()} onClick={submitApp}>Register</button>
+        <div className="card">
+          <div className="section-header">
+            <h2>Register app</h2>
+            <span className="subtitle">Register App overview</span>
+          </div>
+          <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+            <input className="input" style={{ width: 120 }} placeholder="version" value={form.version} onChange={(e) => setForm((p) => ({ ...p, version: e.target.value }))} />
+            <input className="input" style={{ width: 140 }} placeholder="owner" value={form.owner} onChange={(e) => setForm((p) => ({ ...p, owner: e.target.value }))} />
+            <select className="select" style={{ width: 120 }} value={form.runtime} onChange={(e) => setForm((p) => ({ ...p, runtime: e.target.value }))}>
+              <option value="static">static</option>
+              <option value="node">node</option>
+            </select>
+            <input className="input" style={{ width: 180 }} placeholder="capabilities" value={form.capabilities} onChange={(e) => setForm((p) => ({ ...p, capabilities: e.target.value }))} />
+            <input className="input" style={{ width: 120 }} placeholder="port" type="number" value={form.port} onChange={(e) => setForm((p) => ({ ...p, port: Number(e.target.value) }))} />
+            <button className="btn primary" disabled={!form.name.trim()} onClick={submitApp}>Register</button>
+          </div>
         </div>
       </div>
     </div>
