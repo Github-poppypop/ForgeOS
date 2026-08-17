@@ -2065,11 +2065,13 @@ function GovernancePanel({ data }: { data?: any }) {
           <h2>Enforcement timeline</h2>
           <span className="subtitle">Policy checks</span>
         </div>
-        <TimelineChart items={[
-          { date: '2026-08-01', title: 'Governance initialized', status: 'done' },
-          { date: '2026-08-05', title: 'Ruleset updated', status: 'done' },
-          { date: '2026-08-10', title: 'Audit pass', status: 'in-progress' },
-        ]} />
+        <div className="stack" style={{ marginTop: 10 }}>
+          <TimelineChart items={[
+            { date: '2026-08-01', title: 'Governance initialized', status: 'done' },
+            { date: '2026-08-05', title: 'Ruleset updated', status: 'done' },
+            { date: '2026-08-10', title: 'Audit pass', status: 'in-progress' },
+          ]} />
+        </div>
       </div>
     </div>
   );
@@ -2109,7 +2111,7 @@ function SchemaPanel({ data }: { data?: any }) {
           <h2>Readiness</h2>
           <span className="subtitle">Monitoring health</span>
         </div>
-        <div style={{ marginTop: 10 }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Schema loaded', done: !!data?.active },
             { label: 'Types validated', done: types.length > 0 },
@@ -2143,7 +2145,7 @@ function MonitoringPanel({ data }: { data?: any }) {
           <h2>Load</h2>
           <span className="subtitle">Resource gauges</span>
         </div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <GaugeChart value={Math.min(100, data?.cpu ?? 0)} label="CPU" />
           <GaugeChart value={Math.min(100, ((data?.memory || 0) / 200) * 100)} label="MEM" />
           <GaugeChart value={Math.min(100, ((data?.uptime || 0) / 600) * 100)} label="TIME" />
@@ -2180,7 +2182,7 @@ function MonitoringPanel({ data }: { data?: any }) {
           <h2>Readiness</h2>
           <span className="subtitle">Monitoring health</span>
         </div>
-        <div style={{ marginTop: 10 }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Start', done: true },
             { label: 'Bind port', done: true },
