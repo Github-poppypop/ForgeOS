@@ -2005,50 +2005,49 @@ function GovernancePanel({ data }: { data?: any }) {
     <div className="fadein">
       <h1 className="page-header">Governance</h1>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h3>Scope</h3>
+        <div className="section-header">
+          <h2>Scope</h2>
+          <span className="subtitle">{data?.model || 'delegated'}</span>
+        </div>
         <p className="mono">{data?.root}</p>
-        <p className="muted">{data?.model || 'delegated'}</p>
       </div>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Rules" value={rules.length} subtitle="enforced" />
-        <StatCard title="Model" value={data?.model || 'delegated'} subtitle="authority" accent />
-        <StatCard title="Root" value={(data?.root || '—').split(' ')[0]} subtitle="scope" />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Rules</h2>
-          <span className="subtitle">Active policies</span>
-        </div>
-        {rules.length ? (
-          <div className="stack" style={{ marginTop: 10, gap: 10 }}>
-            {rules.map((r: any, i: number) => (
-              <div key={i} className="card card-sm">
-                <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <div>
-                    <div className="h3">{r.name || r.id || `rule-${i + 1}`}</div>
-                    <p className="muted mono">{r.id}</p>
-                  </div>
-                  <span className="pill ok">active</span>
-                </div>
-                <p className="muted" style={{ marginTop: 8 }}>{r.description || 'Governance rule enforced.'}</p>
-              </div>
-            ))}
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Rules</h2>
+            <span className="subtitle">Active policies</span>
           </div>
-        ) : (
-          <EmptyState title="No rules" body="Add governance rules to monitor enforcement here." />
-        )}
-      </div>
-      <div className="card">
-        <div className="section-header">
-          <h2>Enforcement timeline</h2>
-          <span className="subtitle">Policy checks</span>
+          {rules.length ? (
+            <div className="stack" style={{ marginTop: 10, gap: 10 }}>
+              {rules.map((r: any, i: number) => (
+                <div key={i} className="card card-sm">
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <div>
+                      <div className="h3">{r.name || r.id || `rule-${i + 1}`}</div>
+                      <p className="muted mono">{r.id}</p>
+                    </div>
+                    <span className="pill ok">active</span>
+                  </div>
+                  <p className="muted" style={{ marginTop: 8 }}>{r.description || 'Governance rule enforced.'}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="No rules" body="Add governance rules to monitor enforcement here." />
+          )}
         </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <TimelineChart items={[
-            { date: '2026-08-01', title: 'Governance initialized', status: 'done' },
-            { date: '2026-08-05', title: 'Ruleset updated', status: 'done' },
-            { date: '2026-08-10', title: 'Audit pass', status: 'in-progress' },
-          ]} />
+        <div className="card">
+          <div className="section-header">
+            <h2>Enforcement timeline</h2>
+            <span className="subtitle">Policy checks</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <TimelineChart items={[
+              { date: '2026-08-01', title: 'Governance initialized', status: 'done' },
+              { date: '2026-08-05', title: 'Ruleset updated', status: 'done' },
+              { date: '2026-08-10', title: 'Audit pass', status: 'in-progress' },
+            ]} />
+          </div>
         </div>
       </div>
     </div>
@@ -2113,60 +2112,57 @@ function MonitoringPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Monitoring</h1>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="CPU" value={`${data?.cpu ?? 0}%`} subtitle="current" />
-        <StatCard title="Memory" value={`${data?.memory ?? 0}MB`} subtitle="RSS" />
-        <StatCard title="Uptime" value={`${Math.round((data?.uptime || 0) / 60)}m`} subtitle="process" accent />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Load</h2>
-          <span className="subtitle">Resource gauges</span>
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Load</h2>
+            <span className="subtitle">Resource gauges</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <GaugeChart value={Math.min(100, data?.cpu ?? 0)} label="CPU" />
+            <GaugeChart value={Math.min(100, ((data?.memory || 0) / 200) * 100)} label="MEM" />
+            <GaugeChart value={Math.min(100, ((data?.uptime || 0) / 600) * 100)} label="TIME" />
+          </div>
         </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <GaugeChart value={Math.min(100, data?.cpu ?? 0)} label="CPU" />
-          <GaugeChart value={Math.min(100, ((data?.memory || 0) / 200) * 100)} label="MEM" />
-          <GaugeChart value={Math.min(100, ((data?.uptime || 0) / 600) * 100)} label="TIME" />
+        <div className="card">
+          <div className="section-header">
+            <h2>Trend</h2>
+            <span className="subtitle">Last reads</span>
+          </div>
+          <Sparkline data={Array.from({ length: 20 }, (_, i) => i + 1)} color="var(--accent)" />
         </div>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Trend</h2>
-          <span className="subtitle">Last reads</span>
-        </div>
-        <Sparkline data={Array.from({ length: 20 }, (_, i) => i + 1)} color="var(--accent)" />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Recent checks</h2>
-          <span className="subtitle">Latest monitoring</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="card card-sm">
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <div>
-                  <div className="h3">Health check {i + 1}</div>
-                  <p className="muted mono">{new Date(Date.now() - i * 60000).toISOString()}</p>
+        <div className="card">
+          <div className="section-header">
+            <h2>Recent checks</h2>
+            <span className="subtitle">Latest monitoring</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="card card-sm">
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <div>
+                    <div className="h3">Health check {i + 1}</div>
+                    <p className="muted mono">{new Date(Date.now() - i * 60000).toISOString()}</p>
+                  </div>
+                  <span className="pill ok">ok</span>
                 </div>
-                <span className="pill ok">ok</span>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="card">
-        <div className="section-header">
-          <h2>Readiness</h2>
-          <span className="subtitle">Monitoring health</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <Stepper steps={[
-            { label: 'Start', done: true },
-            { label: 'Bind port', done: true },
-            { label: 'Health', active: true },
-            { label: 'Traffic', done: false },
-          ]} />
+        <div className="card">
+          <div className="section-header">
+            <h2>Readiness</h2>
+            <span className="subtitle">Monitoring health</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <Stepper steps={[
+              { label: 'Start', done: true },
+              { label: 'Bind port', done: true },
+              { label: 'Health', active: true },
+              { label: 'Traffic', done: false },
+            ]} />
+          </div>
         </div>
       </div>
     </div>
