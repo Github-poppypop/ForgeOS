@@ -145,7 +145,7 @@ async function main() {
 
   app.get("/", async (_req, res) => {
     const html = await sendIndex();
-    if (html) return typeof html === "string" ? res.send(html) : res.send(html);
+    if (html) return res.send(html);
     return res.status(404).send("not found");
   });
 
