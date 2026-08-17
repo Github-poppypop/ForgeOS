@@ -976,9 +976,7 @@ function Search({ data }: { data: any }) {
     return m ? parseFloat(m[1]) : 0;
   });
   return (
-    <div className="fadein">
-      <h1 className="page-header">Semantic Search</h1>
-      <div className="card" style={{ marginBottom: 16 }}>
+    <div className="fadein">      <div className="card" style={{ marginBottom: 16 }}>
         <div className="row" style={{ gap: 8 }}>
           <input className="input" style={{ flex: 1 }} placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} />
           <button className="btn primary" onClick={() => navigate(`/search?q=${encodeURIComponent(q)}`)}>Search</button>
@@ -1030,9 +1028,7 @@ function Capture() {
     action: '# Action Item\n\n## Owner\n\n## Due Date\n\n## Status\n\n',
   };
   return (
-    <div className="fadein">
-      <h1 className="page-header">Capture</h1>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
+    <div className="fadein">      <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Target" value={slug} subtitle="page" />
         <StatCard title="Type" value={type} subtitle="format" accent />
         <StatCard title="Valid" value={validate() ? 'Yes' : 'No'} subtitle="slug" danger={!validate()} />
@@ -1117,6 +1113,7 @@ function PagePanel({ slug }: { slug: string }) {
   };
   return (
     <div className="fadein">
+        <div className="bento-grid">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h1 className="mono">{slug}</h1>
         <div className="row" style={{ gap: 8 }}>
@@ -1129,7 +1126,8 @@ function PagePanel({ slug }: { slug: string }) {
       ) : (
         <pre className="code json" style={{ marginTop: 12 }}>{data?.body || 'Not found'}</pre>
       )}
-    </div>
+            </div>
+</div>
   );
 }
 
@@ -1148,9 +1146,7 @@ function Decisions({ data }: { data?: any }) {
     return d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth();
   }).length);
   return (
-    <div className="fadein">
-      <h1 className="page-header">Decisions & Incidents</h1>
-      <div className="card" style={{ marginBottom: 16 }}>
+    <div className="fadein">      <div className="card" style={{ marginBottom: 16 }}>
         <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <span className="pill">{entries.length} total</span>
@@ -1247,7 +1243,7 @@ function TimelinePanel({ data }: { data?: any }) {
   }).length);
   return (
     <div className="fadein">
-      <h1 className="page-header">Timeline Engine</h1>
+        <div className="bento-grid">
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -1320,7 +1316,8 @@ function TimelinePanel({ data }: { data?: any }) {
           <GaugeChart value={Math.round((blocked / Math.max(1, items.length)) * 100)} label="Blocked" />
         </div>
       </div>
-    </div>
+            </div>
+</div>
   );
 }
 
@@ -1339,7 +1336,7 @@ function LedgerPanel({ data }: { data?: any }) {
   const rows = Object.entries(typeCounts).map(([label, value]) => ({ label, value }));
   return (
     <div className="fadein">
-      <h1 className="page-header">Decision Ledger</h1>
+        <div className="bento-grid">
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Total" value={entries.length} subtitle="decisions" />
         <StatCard title="Approved" value={approved} subtitle={entries.length ? `${Math.round((approved / entries.length) * 100)}%` : '0%'} accent />
@@ -1395,7 +1392,8 @@ function LedgerPanel({ data }: { data?: any }) {
         </div>
       </div>
       {!entries.length && <EmptyState title="No ledger entries" body="Decisions will appear here after governance actions." />}
-    </div>
+            </div>
+</div>
   );
 }
 
@@ -1409,7 +1407,7 @@ function MissionsPanel({ data }: { data?: any }) {
   const ownerCounts = missions.reduce<Record<string, number>>((acc, m) => { acc[m.owner] = (acc[m.owner] || 0) + 1; return acc; }, {});
   return (
     <div className="fadein">
-      <h1 className="page-header">Missions</h1>
+        <div className="bento-grid">
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Active" value={active} subtitle="in flight" accent={!!active} />
         <StatCard title="Proposed" value={proposed} subtitle="awaiting approval" />
@@ -1456,7 +1454,8 @@ function MissionsPanel({ data }: { data?: any }) {
         ))}
       </div>
       {!missions.length && <EmptyState title="No missions" body="Create a mission to track progress here." />}
-    </div>
+            </div>
+</div>
   );
 }
 
@@ -1467,7 +1466,7 @@ function CompliancePanel({ data }: { data?: any }) {
   const categoryCounts = policies.reduce<Record<string, number>>((acc, p) => { acc[p.category || 'general'] = (acc[p.category || 'general'] || 0) + 1; return acc; }, {});
   return (
     <div className="fadein">
-      <h1 className="page-header">Compliance</h1>
+        <div className="bento-grid">
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Policies" value={policies.length} subtitle="total" />
         <StatCard title="Active" value={active} subtitle="in compliance" accent />
@@ -1526,7 +1525,8 @@ function CompliancePanel({ data }: { data?: any }) {
           <GaugeChart value={inactive ? 40 : 90} label="Coverage" />
         </div>
       </div>
-    </div>
+            </div>
+</div>
   );
 }
 
@@ -1537,7 +1537,7 @@ function FederationPanel({ data }: { data?: any }) {
   const pending = children.filter((c: any) => c.status === 'pending').length;
   return (
     <div className="fadein">
-      <h1 className="page-header">Federation</h1>
+        <div className="bento-grid">
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Root" value={data?.root || 'ForgeOS'} subtitle="federation" accent />
         <StatCard title="Children" value={children.length} subtitle="nodes" />
@@ -1601,7 +1601,8 @@ function FederationPanel({ data }: { data?: any }) {
           ]} />
         </div>
       </div>
-    </div>
+            </div>
+</div>
   );
 }
 
@@ -1610,7 +1611,7 @@ function WebhooksPanel({ data }: { data?: any }) {
   const dead = (data?.deadLetter || []) as any[];
   return (
     <div className="fadein">
-      <h1 className="page-header">Webhooks</h1>
+        <div className="bento-grid">
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Webhooks" value={items.length} subtitle="registered" />
         <StatCard title="Dead letter" value={dead.length} subtitle="needs retry" danger={!!dead.length} />
@@ -1670,7 +1671,8 @@ function WebhooksPanel({ data }: { data?: any }) {
         ))}
       </div>
       {!items.length && <EmptyState title="No webhooks" body="Register webhooks to monitor delivery here." />}
-    </div>
+            </div>
+</div>
   );
 }
 
@@ -1679,7 +1681,7 @@ function McpPanel({ data }: { data?: any }) {
   const transports = (data?.transports || []) as any[];
   return (
     <div className="fadein">
-      <h1 className="page-header">MCP</h1>
+        <div className="bento-grid">
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Tools" value={tools.length} subtitle="available" />
         <StatCard title="Transports" value={transports.length} subtitle="connections" />
@@ -1731,7 +1733,8 @@ function McpPanel({ data }: { data?: any }) {
           </div>
         )) : <EmptyState title="No tools registered" body="Add MCP tools to see usage metrics here." />}
       </div>
-    </div>
+            </div>
+</div>
   );
 }
 
@@ -1739,7 +1742,7 @@ function VaultPanel({ data }: { data?: any }) {
   const items = (data?.items || []) as any[];
   return (
     <div className="fadein">
-      <h1 className="page-header">Vault</h1>
+        <div className="bento-grid">
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Items" value={items.length} subtitle="stored" />
         <StatCard title="Encryption" value={data?.encrypted ? 'On' : 'Off'} subtitle={data?.encrypted ? 'AES-256-GCM' : 'plaintext'} accent={data?.encrypted} />
@@ -1783,14 +1786,15 @@ function VaultPanel({ data }: { data?: any }) {
           </div>
         )) : <EmptyState title="Vault empty" body="Add secrets to see activity and load metrics." />}
       </div>
-    </div>
+            </div>
+</div>
   );
 }
 
 function EmbedPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
-      <h1 className="page-header">Embed</h1>
+        <div className="bento-grid">
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Queued" value={data?.queued ?? 0} subtitle="pending chunks" />
         <StatCard title="Model" value={(data?.model || '—').split(':')[1] || '—'} subtitle={data?.model || 'local'} accent />
@@ -1834,7 +1838,8 @@ function EmbedPanel({ data }: { data?: any }) {
           <GaugeChart value={Math.min(100, ((data?.dimensions || 0) / 1024) * 100)} label="Dim utilization" />
         </div>
       </div>
-    </div>
+            </div>
+</div>
   );
 }
 
@@ -1842,7 +1847,7 @@ function AuditPanel({ data }: { data?: any }) {
   const events = (data?.events || []) as any[];
   return (
     <div className="fadein">
-      <h1 className="page-header">Audit</h1>
+        <div className="bento-grid">
       <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Events" value={events.length} subtitle="recorded" />
         <StatCard title="Window" value="7d" subtitle="retention" />
@@ -1880,15 +1885,14 @@ function AuditPanel({ data }: { data?: any }) {
         ))}
       </div>
       {!events.length && <EmptyState title="No audit events" body="Audit logs will appear here after activity." />}
-    </div>
+            </div>
+</div>
   );
 }
 
 function ConfigPanel({ data }: { data?: any }) {
   return (
-    <div className="fadein">
-      <h1 className="page-header">Config</h1>
-      <div className="bento-grid">
+    <div className="fadein">      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Current config</h2>
@@ -1949,9 +1953,7 @@ function CommandPanel() {
     setHistory((h) => [cmd, ...h.slice(0, 19)]);
   };
   return (
-    <div className="fadein">
-      <h1 className="page-header">Command</h1>
-      <div className="bento-grid">
+    <div className="fadein">      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Input</h2>
@@ -2000,9 +2002,7 @@ function CommandPanel() {
 function GovernancePanel({ data }: { data?: any }) {
   const rules = (data?.rules || []) as any[];
   return (
-    <div className="fadein">
-      <h1 className="page-header">Governance</h1>
-      <div className="card" style={{ marginBottom: 16 }}>
+    <div className="fadein">      <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
           <h2>Scope</h2>
           <span className="subtitle">{data?.model || 'delegated'}</span>
@@ -2057,7 +2057,7 @@ function SchemaPanel({ data }: { data?: any }) {
   const counts = types.map((t) => ({ label: t, value: (data?.types as any)?.[t]?.length || 1 }));
   return (
     <div className="fadein">
-      <h1 className="page-header">Schema</h1>
+        <div className="bento-grid">
       <div className="card" style={{ marginBottom: 16 }}>
         <h3>Active schema</h3>
         <p className="mono">{data?.active || 'forgeos'}</p>
@@ -2102,15 +2102,14 @@ function SchemaPanel({ data }: { data?: any }) {
         </div>
         <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(data, null, 2)}</pre>
       </div>
-    </div>
+            </div>
+</div>
   );
 }
 
 function MonitoringPanel({ data }: { data?: any }) {
   return (
-    <div className="fadein">
-      <h1 className="page-header">Monitoring</h1>
-      <div className="bento-grid">
+    <div className="fadein">      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Load</h2>
@@ -2170,9 +2169,7 @@ function MonitoringPanel({ data }: { data?: any }) {
 function WorkflowsPanel({ data }: { data?: any }) {
   const workflows = (data?.workflows || []) as any[];
   return (
-    <div className="fadein">
-      <h1 className="page-header">Workflows</h1>
-      <div className="bento-grid">
+    <div className="fadein">      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Throughput</h2>
@@ -2226,9 +2223,7 @@ function WorkflowsPanel({ data }: { data?: any }) {
 function MarketplacePanel({ data }: { data?: any }) {
   const packs = (data?.packs || []) as any[];
   return (
-    <div className="fadein">
-      <h1 className="page-header">Marketplace</h1>
-      <div className="bento-grid">
+    <div className="fadein">      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Popularity</h2>
@@ -2290,9 +2285,7 @@ function PluginsPanel({ data }: { data?: any }) {
   const { navigate } = usePathRoute();
   const plugins = (data?.plugins || []) as any[];
   return (
-    <div className="fadein">
-      <h1 className="page-header">Plugins</h1>
-      <div className="bento-grid">
+    <div className="fadein">      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Status</h2>
@@ -2334,9 +2327,7 @@ function ProjectsPanel({ data }: { data?: any }) {
   const projects = (data?.projects || []) as any[];
   const totalTasks = projects.reduce((s, p) => s + (p.tasks || 0), 0);
   return (
-    <div className="fadein">
-      <h1 className="page-header">Projects</h1>
-      <div className="bento-grid">
+    <div className="fadein">      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Activity</h2>
@@ -2379,9 +2370,7 @@ function ProjectsPanel({ data }: { data?: any }) {
 
 function SettingsPanel({ data }: { data?: any }) {
   return (
-    <div className="fadein">
-      <h1 className="page-header">Settings</h1>
-      <div className="bento-grid">
+    <div className="fadein">      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Current settings</h2>
@@ -2444,9 +2433,7 @@ function SettingsPanel({ data }: { data?: any }) {
 function PoolLeaguePanel({ data }: { data?: any }) {
   const players = (data?.players || []) as any[];
   return (
-    <div className="fadein">
-      <h1 className="page-header">PoolLeague</h1>
-      <div className="bento-grid">
+    <div className="fadein">      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Player wins</h2>
@@ -2497,9 +2484,7 @@ function AppStorePanel({ data }: { data?: any }) {
     window.location.reload();
   };
   return (
-    <div className="fadein">
-      <h1 className="page-header">App Store</h1>
-      <div className="bento-grid">
+    <div className="fadein">      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Status</h2>
@@ -2625,9 +2610,7 @@ function AppStorePanel({ data }: { data?: any }) {
 function DeveloperPanel() {
   const { navigate } = usePathRoute();
   return (
-    <div className="fadein">
-      <h1 className="page-header">Developer onboarding</h1>
-      <div className="bento-grid">
+    <div className="fadein">      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Onboarding checklist</h2>
@@ -2719,9 +2702,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
     window.location.reload();
   };
   return (
-    <div className="fadein">
-      <h1 className="page-header">Self Improve</h1>
-      {loading ? (
+    <div className="fadein">      {loading ? (
         <div className="stack">
           <Skeleton rows={3} />
         </div>
@@ -2865,9 +2846,7 @@ function TimelineChart({ items }: { items: { date: string; title: string; status
 function NotFound() {
   const { navigate } = usePathRoute();
   return (
-    <div className="fadein">
-      <h1 className="page-header">404</h1>
-      <p className="muted">This panel hasn't been wired yet.</p>
+    <div className="fadein">      <p className="muted">This panel hasn't been wired yet.</p>
       <a className="btn primary" onClick={() => navigate('/dashboard')}>Back to Dashboard</a>
     </div>
   );
@@ -3037,7 +3016,7 @@ export default function App() {
         <main className="main-canvas" aria-label="Main content">
           <div className="page-header-row">
             <div>
-              <h1 className="page-header">{route === '/dashboard' ? 'Mission Control' : route.replace(/^\//, '').charAt(0).toUpperCase() + route.replace(/^\//, '').slice(1)}</h1>
+              <h1 className="page-header">Mission Control</h1>
               <p className="page-subtitle">Real-time monitoring of synaptic pathways and cognitive nodes.</p>
             </div>
             <span className="pill ok"><span className="dot"></span>CORE ACTIVE</span>
