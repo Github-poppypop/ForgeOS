@@ -743,13 +743,6 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
   const dash = (score / items.length) * circ;
   return (
     <div className="fadein">
-      <div className="page-header-row">
-        <div>
-          <h1 className="page-header">Mission Control</h1>
-          <p className="page-subtitle">Real-time monitoring of synaptic pathways and cognitive nodes.</p>
-        </div>
-        <span className="pill ok"><span className="dot"></span>CORE ACTIVE</span>
-      </div>
       <div className="bento-grid">
         <div className="card">
           <div className="section-header">
@@ -3043,7 +3036,7 @@ export default function App() {
         <main className="main-canvas" aria-label="Main content">
           <div className="page-header-row">
             <div>
-              <h1 className="page-header">{route.replace(/^\//, '').charAt(0).toUpperCase() + route.replace(/^\//, '').slice(1)}</h1>
+              <h1 className="page-header">{route === '/dashboard' ? 'Mission Control' : route.replace(/^\//, '').charAt(0).toUpperCase() + route.replace(/^\//, '').slice(1)}</h1>
               <p className="page-subtitle">Real-time monitoring of synaptic pathways and cognitive nodes.</p>
             </div>
             <span className="pill ok"><span className="dot"></span>CORE ACTIVE</span>
