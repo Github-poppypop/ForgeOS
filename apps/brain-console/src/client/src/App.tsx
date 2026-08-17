@@ -1066,19 +1066,20 @@ function Capture() {
           <h2>New capture</h2>
           <span className="subtitle">Create a knowledge page</span>
         </div>
-        <div className="row" style={{ marginTop: 10 }}><label>slug</label><input className={`mono ${!validate() && slug.length ? 'input-error' : ''}`} value={slug} onChange={(e) => setSlug(e.target.value)} style={{ flex: 1 }} /><button className="btn secondary" onClick={() => navigator.clipboard.writeText(slug)}>Copy</button></div>
-        {!validate() && slug.length ? <div className="field-error">Slug must be alphanumeric and contain a category, like decisions/demo</div> : null}
-        <div className="row" style={{ marginTop: 8 }}><label>type</label><input value={type} onChange={(e) => setType(e.target.value)} /></div>
-        <div className="row" style={{ marginTop: 8 }}>
-          <label>template</label>
-          <select value="" onChange={(e) => { if (e.target.value) setBody(templates[e.target.value]); }} className="select">
-            <option value="">-- choose template --</option>
-            {Object.keys(templates).map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} style={{ width: '100%', marginTop: 8, fontFamily: 'var(--mono)' }} />
-        {preview ? <pre className="code json" style={{ marginTop: 8 }}>{preview}</pre> : null}
-        <div className="row" style={{ marginTop: 8, gap: 8 }}>
+        <div className="stack" style={{ marginTop: 10 }}>
+          <div className="row" style={{ gap: 8 }}><label>slug</label><input className={`mono ${!validate() && slug.length ? 'input-error' : ''}`} value={slug} onChange={(e) => setSlug(e.target.value)} style={{ flex: 1 }} /><button className="btn secondary" onClick={() => navigator.clipboard.writeText(slug)}>Copy</button></div>
+          {!validate() && slug.length ? <div className="field-error">Slug must be alphanumeric and contain a category, like decisions/demo</div> : null}
+          <div className="row" style={{ gap: 8 }}><label>type</label><input value={type} onChange={(e) => setType(e.target.value)} /></div>
+          <div className="row" style={{ gap: 8 }}>
+            <label>template</label>
+            <select value="" onChange={(e) => { if (e.target.value) setBody(templates[e.target.value]); }} className="select">
+              <option value="">-- choose template --</option>
+              {Object.keys(templates).map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} style={{ width: '100%', fontFamily: 'var(--mono)' }} />
+          {preview ? <pre className="code json" style={{ marginTop: 8 }}>{preview}</pre> : null}
+          <div className="row" style={{ gap: 8 }}>
           <button className="btn primary" disabled={!validate() || loading} onClick={async () => {
             setLoading(true);
             try {
@@ -1088,6 +1089,7 @@ function Capture() {
           }}>{loading ? 'Saving…' : 'Capture'}</button>
           <button className="btn secondary" onClick={() => setPreview(body)}>Preview</button>
           <button className="btn secondary" onClick={() => { setSlug('decisions/demo'); setType('note'); setBody('# Demo\nWrite something for the brain.'); setPreview(''); }}>Clear</button>
+        </div>
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
