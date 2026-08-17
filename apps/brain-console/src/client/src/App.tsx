@@ -2332,7 +2332,7 @@ function PluginsPanel({ data }: { data?: any }) {
           { label: 'errors', value: plugins.filter((p) => p.error).length || 0, color: 'var(--danger)' },
         ]} size={160} />
       </div>
-      <div className="stack">
+      <div className="stack stack-sm">
         {plugins.map((p: any, i: number) => (
           <div key={i} className="card card-sm">
             <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -2697,7 +2697,7 @@ function DeveloperPanel() {
                 </div>
                 <span className="pill">{t.runtime}</span>
               </div>
-              <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
+              <div className="stack stack-sm" style={{ marginTop: 8 }}>
                 <code className="code json">runtime: {t.runtime}</code>
                 <code className="code json">capabilities: {t.capabilities}</code>
                 <code className="code json">port: {t.port}</code>
@@ -2785,7 +2785,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
           <h2>Learning progress</h2>
           <span className="subtitle">Model improvement over time</span>
         </div>
-        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <GaugeChart value={learningRate} label="Learning" />
           <GaugeChart value={confidence} label="Confidence" />
           <GaugeChart value={Math.min(100, ((data?.iterations || 0) / 200) * 100)} label="Iterations" />
