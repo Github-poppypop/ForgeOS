@@ -1888,53 +1888,50 @@ function ConfigPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Config</h1>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Ollama" value={(data?.ollama || '—').replace(/https?:\/\//, '').split('/')[0]} subtitle="endpoint" />
-        <StatCard title="Dimensions" value={data?.dimensions ?? '—'} subtitle="embeddings" />
-        <StatCard title="Isolation" value={(data?.isolation || '—').split(' ')[0]} subtitle="brain root" accent />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Current config</h2>
-          <span className="subtitle">Live settings</span>
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Current config</h2>
+            <span className="subtitle">Live settings</span>
+          </div>
+          <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(data, null, 2)}</pre>
         </div>
-        <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(data, null, 2)}</pre>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Environment stability</h2>
-          <span className="subtitle">Uptime and health</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>Environment stability</h2>
+            <span className="subtitle">Uptime and health</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <Stepper steps={[
+              { label: 'Read config', done: true },
+              { label: 'Validate paths', done: !!data?.isolation },
+              { label: 'Check ollama', active: true },
+              { label: 'Ready', done: false },
+            ]} />
+          </div>
         </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <Stepper steps={[
-            { label: 'Read config', done: true },
-            { label: 'Validate paths', done: !!data?.isolation },
-            { label: 'Check ollama', active: true },
-            { label: 'Ready', done: false },
-          ]} />
+        <div className="card">
+          <div className="section-header">
+            <h2>Change timeline</h2>
+            <span className="subtitle">Recent updates</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <TimelineChart items={[
+              { date: '2026-08-01', title: 'Config created', status: 'done' },
+              { date: '2026-08-05', title: 'Dimensions updated', status: 'done' },
+              { date: '2026-08-10', title: 'Isolation changed', status: 'in-progress' },
+            ]} />
+          </div>
         </div>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Change timeline</h2>
-          <span className="subtitle">Recent updates</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <TimelineChart items={[
-            { date: '2026-08-01', title: 'Config created', status: 'done' },
-            { date: '2026-08-05', title: 'Dimensions updated', status: 'done' },
-            { date: '2026-08-10', title: 'Isolation changed', status: 'in-progress' },
-          ]} />
-        </div>
-      </div>
-      <div className="card">
-        <div className="section-header">
-          <h2>Readiness</h2>
-          <span className="subtitle">Monitoring health</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <GaugeChart value={!!data?.isolation ? 80 : 20} label="Config" />
-          <GaugeChart value={!!data?.ollama ? 60 : 20} label="Ollama" />
+        <div className="card">
+          <div className="section-header">
+            <h2>Readiness</h2>
+            <span className="subtitle">Monitoring health</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <GaugeChart value={!!data?.isolation ? 80 : 20} label="Config" />
+            <GaugeChart value={!!data?.ollama ? 60 : 20} label="Ollama" />
+          </div>
         </div>
       </div>
     </div>
@@ -1954,45 +1951,46 @@ function CommandPanel() {
   return (
     <div className="fadein">
       <h1 className="page-header">Command</h1>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Input" value={cmd || '—'} subtitle="current command" />
-        <StatCard title="History" value={history.length} subtitle="recent" />
-        <StatCard title="Output" value={res ? 'Ready' : '—'} subtitle="last result" accent={!!res} />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="row" style={{ gap: 8 }}>
-          <input className="input" style={{ flex: 1 }} value={cmd} onChange={(e) => setCmd(e.target.value)} placeholder="command" />
-          <button className="btn primary" onClick={run}>Run</button>
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Input</h2>
+            <span className="subtitle">Current command</span>
+          </div>
+          <div className="row" style={{ gap: 8, marginTop: 10 }}>
+            <input className="input" style={{ flex: 1 }} value={cmd} onChange={(e) => setCmd(e.target.value)} placeholder="command" />
+            <button className="btn primary" onClick={run}>Run</button>
+          </div>
         </div>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>History</h2>
-          <span className="subtitle">Change log</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>History</h2>
+            <span className="subtitle">Change log</span>
+          </div>
+          <div className="tabs" style={{ marginTop: 10 }}>
+            {history.map((h, i) => <button key={i} className={cn('tab', i === 0 && 'active')} onClick={() => setCmd(h)}>{h}</button>)}
+          </div>
+          {!history.length && <p className="muted">No commands run yet.</p>}
         </div>
-        <div className="tabs" style={{ marginTop: 10 }}>
-          {history.map((h, i) => <button key={i} className={cn('tab', i === 0 && 'active')} onClick={() => setCmd(h)}>{h}</button>)}
+        <div className="card">
+          <div className="section-header">
+            <h2>Output</h2>
+            <span className="subtitle">Recent results</span>
+          </div>
+          {res ? <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(res, null, 2)}</pre> : <Skeleton rows={3} />}
         </div>
-        {!history.length && <p className="muted">No commands run yet.</p>}
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Output</h2>
-          <span className="subtitle">Recent results</span>
-        </div>
-        {res ? <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(res, null, 2)}</pre> : <Skeleton rows={3} />}
-      </div>
-      <div className="card">
-        <div className="section-header">
-          <h2>Status</h2>
-          <span className="subtitle">Capture state</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <Stepper steps={[
-            { label: 'Input', done: !!cmd },
-            { label: 'Execute', active: !!cmd },
-            { label: 'Output', done: !!res },
-          ]} />
+        <div className="card">
+          <div className="section-header">
+            <h2>Status</h2>
+            <span className="subtitle">Capture state</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <Stepper steps={[
+              { label: 'Input', done: !!cmd },
+              { label: 'Execute', active: !!cmd },
+              { label: 'Output', done: !!res },
+            ]} />
+          </div>
         </div>
       </div>
     </div>
@@ -2334,8 +2332,6 @@ function PluginsPanel({ data }: { data?: any }) {
 
 function ProjectsPanel({ data }: { data?: any }) {
   const projects = (data?.projects || []) as any[];
-  const active = projects.filter((p) => p.active).length;
-  const archived = projects.filter((p) => p.archived).length;
   const totalTasks = projects.reduce((s, p) => s + (p.tasks || 0), 0);
   return (
     <div className="fadein">
@@ -2446,9 +2442,7 @@ function SettingsPanel({ data }: { data?: any }) {
 }
 
 function PoolLeaguePanel({ data }: { data?: any }) {
-  const tables = (data?.tables || []) as any[];
   const players = (data?.players || []) as any[];
-  const matches = (data?.matches || []) as any[];
   return (
     <div className="fadein">
       <h1 className="page-header">PoolLeague</h1>
@@ -2633,71 +2627,73 @@ function DeveloperPanel() {
   return (
     <div className="fadein">
       <h1 className="page-header">Developer onboarding</h1>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Onboarding checklist</h2>
-          <span className="subtitle">Get started in minutes</span>
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Onboarding checklist</h2>
+            <span className="subtitle">Get started in minutes</span>
+          </div>
+          <ul className="stack" style={{ marginTop: 10 }}>
+            <li className="card card-sm">Run the local console on <span className="mono">:7777</span></li>
+            <li className="card card-sm">Open <span className="mono">/apps</span> and create an app manifest</li>
+            <li className="card card-sm">Use <span className="mono">/api/page/:slug</span> to create app pages</li>
+            <li className="card card-sm">Send telemetry events to <span className="mono">/api/telemetry</span></li>
+            <li className="card card-sm">Submit feedback via <span className="mono">/api/feedback</span></li>
+          </ul>
         </div>
-        <ul className="stack" style={{ marginTop: 10 }}>
-          <li className="card card-sm">Run the local console on <span className="mono">:7777</span></li>
-          <li className="card card-sm">Open <span className="mono">/apps</span> and create an app manifest</li>
-          <li className="card card-sm">Use <span className="mono">/api/page/:slug</span> to create app pages</li>
-          <li className="card card-sm">Send telemetry events to <span className="mono">/api/telemetry</span></li>
-          <li className="card card-sm">Submit feedback via <span className="mono">/api/feedback</span></li>
-        </ul>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>App templates</h2>
-          <span className="subtitle">Scaffold a new app</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10, gap: 10 }}>
-          {[
-            { name: 'Display App', runtime: 'static', capabilities: 'display', port: 4173, desc: 'Public UI with SSR hydration.' },
-            { name: 'API Service', runtime: 'node', capabilities: 'api', port: 3003, desc: 'Express backend with health checks.' },
-            { name: 'Plugin', runtime: 'node', capabilities: 'plugin,sdk', port: 0, desc: 'Extend ForgeOS with hooks.' },
-            { name: 'Embedding Worker', runtime: 'node', capabilities: 'embed,worker', port: 3004, desc: 'Background jobs for embeddings.' },
-          ].map((t) => (
-            <div key={t.name} className="card card-sm">
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                <div>
-                  <div className="h3">{t.name}</div>
-                  <p className="muted" style={{ marginTop: 4 }}>{t.desc}</p>
+        <div className="card">
+          <div className="section-header">
+            <h2>App templates</h2>
+            <span className="subtitle">Scaffold a new app</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10, gap: 10 }}>
+            {[
+              { name: 'Display App', runtime: 'static', capabilities: 'display', port: 4173, desc: 'Public UI with SSR hydration.' },
+              { name: 'API Service', runtime: 'node', capabilities: 'api', port: 3003, desc: 'Express backend with health checks.' },
+              { name: 'Plugin', runtime: 'node', capabilities: 'plugin,sdk', port: 0, desc: 'Extend ForgeOS with hooks.' },
+              { name: 'Embedding Worker', runtime: 'node', capabilities: 'embed,worker', port: 3004, desc: 'Background jobs for embeddings.' },
+            ].map((t) => (
+              <div key={t.name} className="card card-sm">
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div>
+                    <div className="h3">{t.name}</div>
+                    <p className="muted" style={{ marginTop: 4 }}>{t.desc}</p>
+                  </div>
+                  <span className="pill">{t.runtime}</span>
                 </div>
-                <span className="pill">{t.runtime}</span>
+                <div className="stack stack-sm" style={{ marginTop: 8 }}>
+                  <code className="code json">runtime: {t.runtime}</code>
+                  <code className="code json">capabilities: {t.capabilities}</code>
+                  <code className="code json">port: {t.port}</code>
+                  <button className="btn secondary" onClick={() => navigate('/apps')}>Use in App Store</button>
+                </div>
               </div>
-              <div className="stack stack-sm" style={{ marginTop: 8 }}>
-                <code className="code json">runtime: {t.runtime}</code>
-                <code className="code json">capabilities: {t.capabilities}</code>
-                <code className="code json">port: {t.port}</code>
-                <button className="btn secondary" onClick={() => navigate('/apps')}>Use in App Store</button>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>API playground</h2>
-          <span className="subtitle">Core endpoints</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>API playground</h2>
+            <span className="subtitle">Core endpoints</span>
+          </div>
+          <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            <a className="btn secondary" onClick={() => navigate('/apps')}>App registry</a>
+            <a className="btn secondary" onClick={() => navigate('/self-improve')}>Self-improve</a>
+            <a className="btn secondary" onClick={() => navigate('/monitoring')}>Monitoring</a>
+            <a className="btn secondary" href="https://developer.mozilla.org/en-US/docs/Learn/Server-side/Express_Nodejs" target="_blank" rel="noreferrer">Express docs</a>
+          </div>
         </div>
-        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <a className="btn secondary" onClick={() => navigate('/apps')}>App registry</a>
-          <a className="btn secondary" onClick={() => navigate('/self-improve')}>Self-improve</a>
-          <a className="btn secondary" onClick={() => navigate('/monitoring')}>Monitoring</a>
-          <a className="btn secondary" href="https://developer.mozilla.org/en-US/docs/Learn/Server-side/Express_Nodejs" target="_blank" rel="noreferrer">Express docs</a>
+        <div className="card">
+          <div className="section-header">
+            <h2>Contribute to self-improvement</h2>
+            <span className="subtitle">Help ForgeOS learn</span>
+          </div>
+          <p className="muted" style={{ marginTop: 8 }}>
+            Use <span className="mono">/api/telemetry</span> to report page views and load times.
+            Submit improvement feedback with <span className="mono">/api/feedback</span>.
+            Trigger the learning loop with <span className="mono">/api/self-improve/learning-loop</span>.
+          </p>
         </div>
-      </div>
-      <div className="card">
-        <div className="section-header">
-          <h2>Contribute to self-improvement</h2>
-          <span className="subtitle">Help ForgeOS learn</span>
-        </div>
-        <p className="muted" style={{ marginTop: 8 }}>
-          Use <span className="mono">/api/telemetry</span> to report page views and load times.
-          Submit improvement feedback with <span className="mono">/api/feedback</span>.
-          Trigger the learning loop with <span className="mono">/api/self-improve/learning-loop</span>.
-        </p>
       </div>
     </div>
   );
@@ -2731,109 +2727,121 @@ function SelfImprovePanel({ data }: { data?: any }) {
         </div>
       ) : (
         <>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Learning rate" value={`${learningRate}%`} subtitle="model confidence" accent />
-        <StatCard title="Confidence" value={`${confidence}%`} subtitle="prediction accuracy" />
-        <StatCard title="Iterations" value={data?.iterations ?? 0} subtitle="improvement cycles" accent />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Telemetry</h2>
-          <span className="subtitle">Live app metrics</span>
-        </div>
-        <div className="stats cols-3" style={{ marginTop: 10 }}>
-          <StatCard title="Page views" value={telemetry.page_views ?? 0} subtitle="total" />
-          <StatCard title="Errors (24h)" value={telemetry.errors_last_24h ?? 0} subtitle="last day" danger={!!telemetry.errors_last_24h} />
-          <StatCard title="P95 latency" value={`${telemetry.api_latency_p95_ms ?? 0}ms`} subtitle="API" />
-          <StatCard title="Avg load" value={`${telemetry.avg_load_ms ?? 0}ms`} subtitle="page" />
-          <StatCard title="Last improvement" value={new Date(data?.last_improvement || Date.now()).toLocaleDateString()} subtitle="auto-update" accent />
-        </div>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Learning progress</h2>
-          <span className="subtitle">Model improvement over time</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <GaugeChart value={learningRate} label="Learning" />
-          <GaugeChart value={confidence} label="Confidence" />
-          <GaugeChart value={Math.min(100, ((data?.iterations || 0) / 200) * 100)} label="Iterations" />
-        </div>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Improvement suggestions</h2>
-          <span className="subtitle">Prioritized backlog</span>
-        </div>
-        <div className="stack stack-sm" style={{ marginTop: 10 }}>
-          {suggestions.map((s) => (
-            <div key={s.id} className="card card-sm">
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                <div>
-                  <div className="h3">{s.title}</div>
-                  {s.detail ? <p className="muted" style={{ marginTop: 6 }}>{s.detail}</p> : null}
-                  <div className="row" style={{ marginTop: 6, gap: 8 }}>
-                    <span className={cn('tag', s.impact === 'high' ? 'success' : s.impact === 'medium' ? 'warn' : 'info')}>{s.impact} impact</span>
-                    <span className={cn('tag', s.effort === 'low' ? 'success' : s.effort === 'medium' ? 'warn' : 'danger')}>{s.effort} effort</span>
+          <div className="bento-grid">
+            <div className="card">
+              <div className="section-header">
+                <h2>Telemetry</h2>
+                <span className="subtitle">Live app metrics</span>
+              </div>
+              <div className="stack" style={{ marginTop: 10 }}>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span>Page views</span>
+                  <span className="pill">{telemetry.page_views ?? 0}</span>
+                </div>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span>Errors (24h)</span>
+                  <span className="pill">{telemetry.errors_last_24h ?? 0}</span>
+                </div>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span>P95 latency</span>
+                  <span className="pill">{`${telemetry.api_latency_p95_ms ?? 0}ms`}</span>
+                </div>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span>Avg load</span>
+                  <span className="pill">{`${telemetry.avg_load_ms ?? 0}ms`}</span>
+                </div>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span>Last improvement</span>
+                  <span className="pill">{new Date(data?.last_improvement || Date.now()).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <div className="section-header">
+                <h2>Learning progress</h2>
+                <span className="subtitle">Model improvement over time</span>
+              </div>
+              <div className="stack" style={{ marginTop: 10 }}>
+                <GaugeChart value={learningRate} label="Learning" />
+                <GaugeChart value={confidence} label="Confidence" />
+                <GaugeChart value={Math.min(100, ((data?.iterations || 0) / 200) * 100)} label="Iterations" />
+              </div>
+            </div>
+            <div className="card">
+              <div className="section-header">
+                <h2>Improvement suggestions</h2>
+                <span className="subtitle">Prioritized backlog</span>
+              </div>
+              <div className="stack stack-sm" style={{ marginTop: 10 }}>
+                {suggestions.map((s) => (
+                  <div key={s.id} className="card card-sm">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                      <div>
+                        <div className="h3">{s.title}</div>
+                        {s.detail ? <p className="muted" style={{ marginTop: 6 }}>{s.detail}</p> : null}
+                        <div className="row" style={{ marginTop: 6, gap: 8 }}>
+                          <span className={cn('tag', s.impact === 'high' ? 'success' : s.impact === 'medium' ? 'warn' : 'info')}>{s.impact} impact</span>
+                          <span className={cn('tag', s.effort === 'low' ? 'success' : s.effort === 'medium' ? 'warn' : 'danger')}>{s.effort} effort</span>
+                        </div>
+                      </div>
+                      <span className={cn('tag', s.status === 'done' ? 'success' : s.status === 'in-progress' ? 'warn' : 'info')}>{s.status}</span>
+                    </div>
+                    <div style={{ marginTop: 10 }}>
+                      <select className="select" style={{ width: 220 }} value={s.status} onChange={(e) => updateStatus(s.id, e.target.value)}>
+                        <option value="proposed">proposed</option>
+                        <option value="in-progress">in-progress</option>
+                        <option value="done">done</option>
+                        <option value="rejected">rejected</option>
+                      </select>
+                    </div>
                   </div>
-                </div>
-                <span className={cn('tag', s.status === 'done' ? 'success' : s.status === 'in-progress' ? 'warn' : 'info')}>{s.status}</span>
+                ))}
               </div>
-              <div style={{ marginTop: 10 }}>
-                <select className="select" style={{ width: 220 }} value={s.status} onChange={(e) => updateStatus(s.id, e.target.value)}>
-                  <option value="proposed">proposed</option>
-                  <option value="in-progress">in-progress</option>
-                  <option value="done">done</option>
-                  <option value="rejected">rejected</option>
+            </div>
+            <div className="card">
+              <div className="section-header">
+                <h2>Learning loop</h2>
+                <span className="subtitle">Self-improvement engine</span>
+              </div>
+              <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <button className="btn primary" onClick={async () => { await api('/api/self-improve/learning-loop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); window.location.reload(); }}>Run learning loop</button>
+                <button className="btn secondary" onClick={async () => { await api('/api/telemetry', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'error', load_ms: 120, latency_ms: 45 }) }); window.location.reload(); }}>Simulate error telemetry</button>
+              </div>
+            </div>
+            <div className="card">
+              <div className="section-header">
+                <h2>Feedback</h2>
+                <span className="subtitle">Community input</span>
+              </div>
+              <div className="stack" style={{ marginTop: 10 }}>
+                {feedbacks.map((f) => (
+                  <div key={f.id} className="card card-sm">
+                    <div className="row" style={{ justifyContent: 'space-between' }}>
+                      <div>
+                        <div className="h3">{f.source} feedback</div>
+                        <p className="muted mono">{f.date}</p>
+                      </div>
+                      <span className="pill">{f.rating}/5</span>
+                    </div>
+                    <p className="muted" style={{ marginTop: 8 }}>{f.comment}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="card">
+              <div className="section-header">
+                <h2>Submit feedback</h2>
+                <span className="subtitle">Submit Feedback overview</span>
+              </div>
+              <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="Your feedback..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+                <select className="select" style={{ width: 140 }} value={rating} onChange={(e) => setRating(Number(e.target.value))}>
+                  {[5, 4, 3, 2, 1].map((r) => <option key={r} value={r}>{r}/5</option>)}
                 </select>
+                <button className="btn primary" onClick={submit} disabled={!feedback.trim()}>Submit</button>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Learning loop</h2>
-          <span className="subtitle">Self-improvement engine</span>
-        </div>
-        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <button className="btn primary" onClick={async () => { await api('/api/self-improve/learning-loop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); window.location.reload(); }}>Run learning loop</button>
-          <button className="btn secondary" onClick={async () => { await api('/api/telemetry', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'error', load_ms: 120, latency_ms: 45 }) }); window.location.reload(); }}>Simulate error telemetry</button>
-        </div>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Feedback</h2>
-          <span className="subtitle">Community input</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          {feedbacks.map((f) => (
-            <div key={f.id} className="card card-sm">
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <div>
-                  <div className="h3">{f.source} feedback</div>
-                  <p className="muted mono">{f.date}</p>
-                </div>
-                <span className="pill">{f.rating}/5</span>
-              </div>
-              <p className="muted" style={{ marginTop: 8 }}>{f.comment}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="card">
-        <div className="section-header">
-          <h2>Submit feedback</h2>
-          <span className="subtitle">Submit Feedback overview</span>
-        </div>
-        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="Your feedback..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
-          <select className="select" style={{ width: 140 }} value={rating} onChange={(e) => setRating(Number(e.target.value))}>
-            {[5, 4, 3, 2, 1].map((r) => <option key={r} value={r}>{r}/5</option>)}
-          </select>
-          <button className="btn primary" onClick={submit} disabled={!feedback.trim()}>Submit</button>
-        </div>
-      </div>
+          </div>
         </>
       )}
     </div>
