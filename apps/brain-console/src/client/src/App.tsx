@@ -2174,50 +2174,53 @@ function WorkflowsPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Workflows</h1>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Workflows" value={workflows.length} subtitle="registered" />
-        <StatCard title="Running" value={workflows.filter((w) => w.status === 'running').length} subtitle="active" accent />
-        <StatCard title="Failed" value={workflows.filter((w) => w.status === 'failed').length} subtitle="last 24h" danger />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Throughput</h2>
-          <span className="subtitle">Runs by workflow</span>
-        </div>
-        <TopBarChart data={workflows.length ? workflows.map((w, i) => ({ label: w.id || `w-${i + 1}`, value: w.runs || i + 1 })) : [{ label: 'none', value: 1 }]} />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Success rate</h2>
-          <span className="subtitle">Completion health</span>
-        </div>
-        <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--success)" />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Load</h2>
-          <span className="subtitle">Activity vs health</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <GaugeChart value={workflows.length ? 70 : 10} label="Activity" />
-          <GaugeChart value={workflows.filter((w) => w.status === 'failed').length ? 45 : 90} label="Health" />
-        </div>
-      </div>
-      <div className="stack">
-        {workflows.map((w: any, i: number) => (
-          <div key={i} className="card card-sm">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <div>
-                <div className="h3">{w.name || w.id || `workflow-${i + 1}`}</div>
-                <p className="muted mono">{w.trigger || 'manual'}</p>
-              </div>
-              <span className={cn('pill', w.status === 'running' ? 'ok' : w.status === 'failed' ? 'bad' : 'warn')}>{w.status}</span>
-            </div>
-            <div className="progress" style={{ marginTop: 10 }}><i style={{ width: `${w.progress ?? 50}%` }} /></div>
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Throughput</h2>
+            <span className="subtitle">Runs by workflow</span>
           </div>
-        ))}
+          <TopBarChart data={workflows.length ? workflows.map((w, i) => ({ label: w.id || `w-${i + 1}`, value: w.runs || i + 1 })) : [{ label: 'none', value: 1 }]} />
+        </div>
+        <div className="card">
+          <div className="section-header">
+            <h2>Success rate</h2>
+            <span className="subtitle">Completion health</span>
+          </div>
+          <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--success)" />
+        </div>
+        <div className="card">
+          <div className="section-header">
+            <h2>Load</h2>
+            <span className="subtitle">Activity vs health</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <GaugeChart value={workflows.length ? 70 : 10} label="Activity" />
+            <GaugeChart value={workflows.filter((w: any) => w.status === 'failed').length ? 45 : 90} label="Health" />
+          </div>
+        </div>
+        <div className="card">
+          <div className="section-header">
+            <h2>Workflows</h2>
+            <span className="subtitle">Registered runs</span>
+          </div>
+          <div className="stack">
+            {workflows.map((w: any, i: number) => (
+              <div key={i} className="card card-sm">
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <div>
+                    <div className="h3">{w.name || w.id || `workflow-${i + 1}`}</div>
+                    <p className="muted mono">{w.trigger || 'manual'}</p>
+                  </div>
+                  <span className={cn('pill', w.status === 'running' ? 'ok' : w.status === 'failed' ? 'bad' : 'warn')}>{w.status}</span>
+                </div>
+                <div className="progress" style={{ marginTop: 10 }}><i style={{ width: `${w.progress ?? 50}%` }} /></div>
+              </div>
+            ))}
+          </div>
+          {!workflows.length && <EmptyState title="No workflows" body="Create workflows to monitor runs and errors here." />}
+        </div>
       </div>
-      {!workflows.length && <EmptyState title="No workflows" body="Create workflows to monitor runs and errors here." />}
     </div>
   );
 }
@@ -2227,57 +2230,60 @@ function MarketplacePanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Marketplace</h1>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Packs" value={packs.length} subtitle="available" />
-        <StatCard title="Installed" value={packs.filter((p) => p.installed).length} subtitle="enabled" accent />
-        <StatCard title="Updates" value={packs.filter((p) => p.updateAvailable).length} subtitle="pending" danger />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Popularity</h2>
-          <span className="subtitle">By downloads</span>
-        </div>
-        <TopBarChart data={packs.length ? packs.map((p, i) => ({ label: p.name || `pack-${i + 1}`, value: p.downloads || i + 1 })) : [{ label: 'none', value: 1 }]} />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Installs by category</h2>
-          <span className="subtitle">Pack adoption</span>
-        </div>
-        <DonutChart data={[
-          { label: 'tool', value: packs.filter((p) => p.category === 'tool').length || 1, color: 'var(--accent)' },
-          { label: 'plugin', value: packs.filter((p) => p.category === 'plugin').length || 1, color: 'var(--accent-2)' },
-          { label: 'theme', value: packs.filter((p) => p.category === 'theme').length || 1, color: 'var(--info)' },
-        ]} size={160} />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Load</h2>
-          <span className="subtitle">Plugin traffic</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <GaugeChart value={packs.filter((p) => p.installed).length ? 75 : 10} label="Adoption" />
-          <GaugeChart value={packs.filter((p) => p.updateAvailable).length ? 40 : 90} label="Freshness" />
-        </div>
-      </div>
-      <div className="stack">
-        {packs.slice(0, 20).map((p: any, i: number) => (
-          <div key={i} className="card card-sm">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <div>
-                <div className="h3">{p.name || `pack-${i + 1}`}</div>
-                <p className="muted mono">{p.category || 'general'} • v{p.version || '1.0'}</p>
-              </div>
-              <span className={cn('tag', p.installed ? 'success' : 'info')}>{p.installed ? 'installed' : 'available'}</span>
-            </div>
-            <div className="row" style={{ marginTop: 8, gap: 8 }}>
-              <span className="pill">{p.downloads ?? 0} downloads</span>
-              <span className="pill">{p.rating ?? '—'} rating</span>
-            </div>
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Popularity</h2>
+            <span className="subtitle">By downloads</span>
           </div>
-        ))}
+          <TopBarChart data={packs.length ? packs.map((p, i) => ({ label: p.name || `pack-${i + 1}`, value: p.downloads || i + 1 })) : [{ label: 'none', value: 1 }]} />
+        </div>
+        <div className="card">
+          <div className="section-header">
+            <h2>Installs by category</h2>
+            <span className="subtitle">Pack adoption</span>
+          </div>
+          <DonutChart data={[
+            { label: 'tool', value: packs.filter((p) => p.category === 'tool').length || 1, color: 'var(--accent)' },
+            { label: 'plugin', value: packs.filter((p) => p.category === 'plugin').length || 1, color: 'var(--accent-2)' },
+            { label: 'theme', value: packs.filter((p) => p.category === 'theme').length || 1, color: 'var(--info)' },
+          ]} size={160} />
+        </div>
+        <div className="card">
+          <div className="section-header">
+            <h2>Load</h2>
+            <span className="subtitle">Plugin traffic</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <GaugeChart value={packs.filter((p) => p.installed).length ? 75 : 10} label="Adoption" />
+            <GaugeChart value={packs.filter((p) => p.updateAvailable).length ? 40 : 90} label="Freshness" />
+          </div>
+        </div>
+        <div className="card">
+          <div className="section-header">
+            <h2>Packs</h2>
+            <span className="subtitle">Available plugins</span>
+          </div>
+          <div className="stack">
+            {packs.slice(0, 20).map((p: any, i: number) => (
+              <div key={i} className="card card-sm">
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <div>
+                    <div className="h3">{p.name || `pack-${i + 1}`}</div>
+                    <p className="muted mono">{p.category || 'general'} • v{p.version || '1.0'}</p>
+                  </div>
+                  <span className={cn('tag', p.installed ? 'success' : 'info')}>{p.installed ? 'installed' : 'available'}</span>
+                </div>
+                <div className="row" style={{ marginTop: 8, gap: 8 }}>
+                  <span className="pill">{p.downloads ?? 0} downloads</span>
+                  <span className="pill">{p.rating ?? '—'} rating</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {!packs.length && <EmptyState title="Marketplace empty" body="Packs will appear here after publish." />}
+        </div>
       </div>
-      {!packs.length && <EmptyState title="Marketplace empty" body="Packs will appear here after publish." />}
     </div>
   );
 }
