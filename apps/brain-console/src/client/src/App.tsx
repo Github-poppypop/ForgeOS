@@ -273,15 +273,6 @@ function useCommandPalette() {
   return { open, setOpen };
 }
 
-function StatusPill({ label, ok, title }: { label: string; ok: boolean; title?: string }) {
-  return (
-    <span className={`pill ${ok ? 'ok' : 'bad'}`} data-tooltip={title}>
-      <span className="dot" />
-      {label}
-    </span>
-  );
-}
-
 function ThemeSwatches({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="theme-swatches">
@@ -752,95 +743,68 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
   const dash = (score / items.length) * circ;
   return (
     <div className="fadein">
-      <h1 className="page-header">Dashboard</h1>
-      <div className="card mb-3">
-        <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-            <input type="search" placeholder="Search..." data-tooltip="Filter dashboard items" className="input" style={{ width: 220 }} />
-            <select data-tooltip="Status filter" className="select" style={{ width: 180 }}>
-              <option value="">All statuses</option>
-              <option value="healthy">Healthy</option>
-              <option value="degraded">Degraded</option>
-            </select>
-          </div>
-          <div className="row" style={{ gap: 8 }}>
-            <span className="pill" data-tooltip="Visible dashboard sections">{items.length} services</span>
-            <button className="btn secondary sm" data-tooltip="Reload dashboard" onClick={() => window.location.reload()}>Refresh</button>
-          </div>
+      <div className="page-header-row">
+        <div>
+          <h1 className="page-header">Mission Control</h1>
+          <p className="page-subtitle">Real-time monitoring of synaptic pathways and cognitive nodes.</p>
         </div>
+        <span className="pill ok"><span className="dot"></span>CORE ACTIVE</span>
       </div>
-      <div className="row gap-3 mb-3 wrap items-center">
-        <StatusPill label={brainOk ? 'brain ok' : 'brain down'} ok={brainOk} title="Core brain service is healthy" />
-        <StatusPill label={ollamaOk ? 'ollama' : 'ollama off'} ok={ollamaOk} title="Local LLM runtime available" />
-        <span className="pill" data-tooltip="Embedding model for semantic search"><span className="dot" /> {status?.embedding_model || '—'}</span>
-        <span className="pill" data-tooltip="Loaded knowledge pack">pack {(status?.schema || '').match(/forgeos/) ? 'forgeos' : '—'}</span>
-        {status?.auth ? <span className="pill warn" data-tooltip="Authentication system is enabled"><span className="dot" /> auth on</span> : null}
-      </div>
-
-      <div className="card mb-4">
-        <div className="section-header">
-          <h2>System health</h2>
-          <span className="subtitle">{score}/{items.length} checks healthy</span>
-        </div>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
-          <svg width="120" height="120" viewBox="0 0 140 140">
-            <circle cx="70" cy="70" r={radius} className="gauge-bg" />
-            <circle cx="70" cy="70" r={radius} className="gauge-fg" stroke={brainOk ? 'var(--success)' : 'var(--danger)'} strokeDasharray={`${dash} ${circ - dash}`} transform="rotate(-90 70 70)" />
-            <text x="70" y="68" textAnchor="middle" className="donut-center">{Math.round((score / items.length) * 100)}%</text>
-            <text x="70" y="86" textAnchor="middle" className="gauge-label">health</text>
-          </svg>
-          <div className="stack stack-sm">
-            {items.map((item) => (
-              <div key={item.label} className="row" style={{ justifyContent: 'space-between' }}>
-                <span>{item.label}</span>
-                <span className={`pill ${item.ok ? 'ok' : 'bad'}`}>{item.ok ? 'ok' : 'down'}</span>
-              </div>
-            ))}
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>System health</h2>
+            <span className="subtitle">{score}/{items.length} checks healthy</span>
+          </div>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+            <svg width="120" height="120" viewBox="0 0 140 140">
+              <circle cx="70" cy="70" r={radius} className="gauge-bg" />
+              <circle cx="70" cy="70" r={radius} className="gauge-fg" stroke={brainOk ? 'var(--success)' : 'var(--danger)'} strokeDasharray={`${dash} ${circ - dash}`} transform="rotate(-90 70 70)" />
+              <text x="70" y="68" textAnchor="middle" className="donut-center">{Math.round((score / items.length) * 100)}%</text>
+              <text x="70" y="86" textAnchor="middle" className="gauge-label">health</text>
+            </svg>
+            <div className="stack stack-sm">
+              {items.map((item) => (
+                <div key={item.label} className="row" style={{ justifyContent: 'space-between' }}>
+                  <span>{item.label}</span>
+                  <span className={`pill ${item.ok ? 'ok' : 'bad'}`}>{item.ok ? 'ok' : 'down'}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-
-      <div className="stats cols-4 dashboard-stats mb-4">
-        <StatCard title="Isolation" value={formatIsolation(status?.isolation)} subtitle="PGLite brain ownership" accentColor="var(--accent)" />
-        <StatCard title="Roles seeded" value={`${seeded}/7`} subtitle="C-suite roles" accentColor="var(--accent-2)" />
-        <StatCard title="Console port" value={String(status?.console_port || '—')} subtitle={status?.console_port ? 'Listening on 127.0.0.1' : 'Not listening'} accentColor="var(--info)" />
-        <StatCard title="Health" value={brainOk ? 'Healthy' : 'Degraded'} subtitle={brainOk ? 'All systems nominal' : 'Check dependencies'} accent={!brainOk} danger={!brainOk} accentColor={brainOk ? 'var(--success)' : 'var(--danger)'} />
-      </div>
-
-      <div className="card mt-4">
-        <div className="section-header">
-          <h2>Quick actions</h2>
-          <span className="subtitle">Common tasks</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>Quick actions</h2>
+            <span className="subtitle">Common tasks</span>
+          </div>
+          <div className="row gap-2 mt-2 wrap items-center">
+            <a className="btn primary" onClick={() => navigate('/roles')}>Roles</a>
+            <button className="btn secondary" data-tooltip="Reload dashboard data" onClick={() => window.location.reload()}>Refresh</button>
+            <a className="btn secondary" onClick={() => navigate('/search')} data-tooltip="Search across all brains">Search</a>
+            <a className="btn secondary" onClick={() => navigate('/capture')} data-tooltip="Create new brain page">Capture</a>
+            <button className="btn secondary" data-tooltip="Copy current status as JSON" onClick={() => navigator.clipboard.writeText(JSON.stringify(status, null, 2))}>Copy status</button>
+            <a className="btn secondary" onClick={() => navigate('/embed')} data-tooltip="Re-embed all knowledge">Re-embed</a>
+          </div>
+          <p className="muted mt-3">live: connecting… <span data-tooltip="Time of last successful data fetch">(refreshed —)</span></p>
         </div>
-        <div className="row gap-2 mt-2 wrap items-center">
-          <a className="btn primary" onClick={() => navigate('/roles')}>Roles</a>
-          <button className="btn secondary" data-tooltip="Reload dashboard data" onClick={() => window.location.reload()}>Refresh</button>
-          <a className="btn secondary" onClick={() => navigate('/search')} data-tooltip="Search across all brains">Search</a>
-          <a className="btn secondary" onClick={() => navigate('/capture')} data-tooltip="Create new brain page">Capture</a>
-          <button className="btn secondary" data-tooltip="Copy current status as JSON" onClick={() => navigator.clipboard.writeText(JSON.stringify(status, null, 2))}>Copy status</button>
-          <a className="btn secondary" onClick={() => navigate('/embed')} data-tooltip="Re-embed all knowledge">Re-embed</a>
+        <div className="card">
+          <div className="section-header">
+            <h2>Activity</h2>
+            <span className="subtitle">Recent console events</span>
+          </div>
+          <div className="mt-2">
+            <TopBarChart data={[
+              { label: 'Mon', value: 4 },
+              { label: 'Tue', value: 7 },
+              { label: 'Wed', value: 5 },
+              { label: 'Thu', value: 8 },
+              { label: 'Fri', value: 6 },
+              { label: 'Sat', value: 3 },
+              { label: 'Sun', value: 2 },
+            ]} />
+          </div>
         </div>
-        <p className="muted mt-3">live: connecting… <span data-tooltip="Time of last successful data fetch">(refreshed —)</span></p>
-      </div>
-
-      <div className="card mt-4">
-        <div className="section-header">
-          <h2>Activity</h2>
-          <span className="subtitle">Recent console events</span>
-        </div>
-        <div className="mt-2">
-          <TopBarChart data={[
-            { label: 'Mon', value: 4 },
-            { label: 'Tue', value: 7 },
-            { label: 'Wed', value: 5 },
-            { label: 'Thu', value: 8 },
-            { label: 'Fri', value: 6 },
-            { label: 'Sat', value: 3 },
-            { label: 'Sun', value: 2 },
-          ]} />
-        </div>
-      </div>
-      <div className="stack stack-md mt-4">
         <div className="card">
           <div className="section-header">
             <h2>Status timeline</h2>
@@ -861,6 +825,12 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
             <GaugeChart value={82} label="DISK" />
           </div>
         </div>
+      </div>
+      <div className="stats cols-4 dashboard-stats mt-4">
+        <StatCard title="Isolation" value={formatIsolation(status?.isolation)} subtitle="PGLite brain ownership" accentColor="var(--accent)" />
+        <StatCard title="Roles seeded" value={`${seeded}/7`} subtitle="C-suite roles" accentColor="var(--accent-2)" />
+        <StatCard title="Console port" value={String(status?.console_port || '—')} subtitle={status?.console_port ? 'Listening on 127.0.0.1' : 'Not listening'} accentColor="var(--info)" />
+        <StatCard title="Health" value={brainOk ? 'Healthy' : 'Degraded'} subtitle={brainOk ? 'All systems nominal' : 'Check dependencies'} accent={!brainOk} danger={!brainOk} accentColor={brainOk ? 'var(--success)' : 'var(--danger)'} />
       </div>
     </div>
   );
