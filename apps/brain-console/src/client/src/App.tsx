@@ -1471,7 +1471,7 @@ function MissionsPanel({ data }: { data?: any }) {
               <span className={cn('pill', m.status === 'done' ? 'ok' : m.status === 'proposed' ? 'warn' : 'bad')}>{m.status}</span>
             </div>
             <div className="progress" style={{ marginTop: 10 }}><i style={{ width: `${m.progress ?? 0}%` }} /></div>
-            <div className="row" style={{ marginTop: 10, gap: 8 }}>
+            <div className="stack stack-sm" style={{ marginTop: 10, gap: 8 }}>
               <span className="pill">risk: {m.risk || 'medium'}</span>
               <span className="pill">budget: {m.budget ?? '—'}</span>
               <span className="pill">team: {m.teamSize ?? '—'}</span>
