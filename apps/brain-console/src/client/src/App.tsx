@@ -1929,12 +1929,14 @@ function ConfigPanel({ data }: { data?: any }) {
           <h2>Environment stability</h2>
           <span className="subtitle">Uptime and health</span>
         </div>
-        <Stepper steps={[
-          { label: 'Read config', done: true },
-          { label: 'Validate paths', done: !!data?.isolation },
-          { label: 'Check ollama', active: true },
-          { label: 'Ready', done: false },
-        ]} />
+        <div className="stack" style={{ marginTop: 10 }}>
+          <Stepper steps={[
+            { label: 'Read config', done: true },
+            { label: 'Validate paths', done: !!data?.isolation },
+            { label: 'Check ollama', active: true },
+            { label: 'Ready', done: false },
+          ]} />
+        </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
@@ -1954,7 +1956,7 @@ function ConfigPanel({ data }: { data?: any }) {
           <h2>Readiness</h2>
           <span className="subtitle">Monitoring health</span>
         </div>
-        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <GaugeChart value={!!data?.isolation ? 80 : 20} label="Config" />
           <GaugeChart value={!!data?.ollama ? 60 : 20} label="Ollama" />
         </div>
@@ -2009,7 +2011,7 @@ function CommandPanel() {
           <h2>Status</h2>
           <span className="subtitle">Capture state</span>
         </div>
-        <div style={{ marginTop: 10 }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Input', done: !!cmd },
             { label: 'Execute', active: !!cmd },
@@ -2224,7 +2226,7 @@ function WorkflowsPanel({ data }: { data?: any }) {
           <h2>Load</h2>
           <span className="subtitle">Activity vs health</span>
         </div>
-        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <GaugeChart value={workflows.length ? 70 : 10} label="Activity" />
           <GaugeChart value={workflows.filter((w) => w.status === 'failed').length ? 45 : 90} label="Health" />
         </div>
@@ -2281,7 +2283,7 @@ function MarketplacePanel({ data }: { data?: any }) {
           <h2>Load</h2>
           <span className="subtitle">Plugin traffic</span>
         </div>
-        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <GaugeChart value={packs.filter((p) => p.installed).length ? 75 : 10} label="Adoption" />
           <GaugeChart value={packs.filter((p) => p.updateAvailable).length ? 40 : 90} label="Freshness" />
         </div>
@@ -2391,7 +2393,7 @@ function ProjectsPanel({ data }: { data?: any }) {
           <h2>Load</h2>
           <span className="subtitle">Resource usage</span>
         </div>
-        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <GaugeChart value={projects.length ? 70 : 10} label="Activity" />
           <GaugeChart value={Math.min(100, totalTasks * 10)} label="Tasks" />
         </div>
@@ -2446,7 +2448,7 @@ function SettingsPanel({ data }: { data?: any }) {
           <h2>Adoption</h2>
           <span className="subtitle">Feature uptake</span>
         </div>
-        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <GaugeChart value={data?.auth ? 30 : 90} label="Auth" />
           <GaugeChart value={data?.telemetry ? 70 : 20} label="Telemetry" />
         </div>
@@ -2456,7 +2458,7 @@ function SettingsPanel({ data }: { data?: any }) {
           <h2>Readiness</h2>
           <span className="subtitle">Monitoring health</span>
         </div>
-        <div style={{ marginTop: 10 }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           <Stepper steps={[
             { label: 'Config loaded', done: true },
             { label: 'Auth checked', done: !data?.auth },
@@ -2562,7 +2564,7 @@ function AppStorePanel({ data }: { data?: any }) {
           <h2>System health</h2>
           <span className="subtitle">Live health per app</span>
         </div>
-        <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div className="stack" style={{ marginTop: 10 }}>
           {apps.filter((a) => a.port > 0).map((a) => (
             <GaugeChart key={a.id} value={a.health} label={a.name} />
           ))}
