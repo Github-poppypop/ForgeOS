@@ -1572,7 +1572,7 @@ function FederationPanel({ data }: { data?: any }) {
           <h2>Topology</h2>
           <span className="subtitle">{data?.model || 'read-down'}</span>
         </div>
-        <div style={{ marginTop: 12 }}>
+        <div className="stack" style={{ marginTop: 12 }}>
           <svg viewBox="0 0 600 220" style={{ width: '100%', height: 'auto' }}>
             <rect x="10" y="10" width="120" height="40" rx="8" className="node root" />
             <text x="70" y="35" textAnchor="middle" className="node-label">{data?.root || 'ForgeOS'}</text>
@@ -1590,11 +1590,11 @@ function FederationPanel({ data }: { data?: any }) {
               <text x="300" y="120" textAnchor="middle" className="muted">No children</text>
             )}
           </svg>
-        </div>
-        <div className="tags" style={{ marginTop: 12 }}>
-          {children.map((c: any, i: number) => (
-            <span key={c.name + i} className={`tag ${c.status === 'synced' ? 'success' : 'warn'}`}>{c.name}: {c.status}</span>
-          ))}
+          <div className="tags">
+            {children.map((c: any, i: number) => (
+              <span key={c.name + i} className={`tag ${c.status === 'synced' ? 'success' : 'warn'}`}>{c.name}: {c.status}</span>
+            ))}
+          </div>
         </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
