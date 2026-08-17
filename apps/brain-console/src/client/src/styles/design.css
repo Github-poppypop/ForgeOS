@@ -313,7 +313,7 @@ body {
   color: var(--text);
   outline: none;
 }
-.sidebar-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(110,168,255,0.28); }
+.sidebar-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(173,198,255,0.25); }
 .sidenav-items { display: flex; flex-direction: column; gap: 2px; }
 .sidenav-items a {
   display: flex;

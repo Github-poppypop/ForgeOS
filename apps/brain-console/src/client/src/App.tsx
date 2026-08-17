@@ -428,6 +428,19 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
 
   return (
     <nav className="sidenav" aria-label="primary">
+      <div className="sidebar-header">
+        <div className="sidebar-brand">
+          <span className="sidebar-brand-mark" aria-hidden="true" />
+          <div>
+            <div className="sidebar-brand-title">KNOWLEDGE_CORE</div>
+            <div className="sidebar-brand-sub">V2.0.4-STABLE</div>
+          </div>
+        </div>
+        <button className="btn primary sm" onClick={() => onNavigate('/capture')}>
+          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>
+          NEW_NODE
+        </button>
+      </div>
       <div className="sidebar-search">
         <input
           type="search"
@@ -3036,6 +3049,10 @@ export default function App() {
         </div>
         <div className="topnav-actions">
           <span className="pill" data-tooltip="Console port">7777</span>
+          <div className="cmd-pill" data-tooltip="Open command palette" onClick={() => setCommandOpen(true)}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>search</span>
+            CMD+K
+          </div>
           <ThemeSwatches value={theme} onChange={setTheme} />
           <select
             data-tooltip="Contrast mode"
@@ -3051,22 +3068,35 @@ export default function App() {
           <button className="btn secondary sm" aria-label="Open command palette" onClick={() => setCommandOpen(true)}>Command</button>
         </div>
       </header>
-      <div className="app-shell">
+      <div className="app-shell bento-shell">
         <Sidebar route={route} onNavigate={navigate} />
         <main className="main-canvas" aria-label="Main content">
+          <div className="page-header-row">
+            <div>
+              <h1 className="page-header">{route.replace(/^\//, '').charAt(0).toUpperCase() + route.replace(/^\//, '').slice(1)}</h1>
+              <p className="page-subtitle">Real-time monitoring of synaptic pathways and cognitive nodes.</p>
+            </div>
+            <span className="pill ok"><span className="dot"></span>CORE ACTIVE</span>
+          </div>
           <nav className="breadcrumb" aria-label="breadcrumb">
             <a href="/dashboard" onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }}>ForgeOS</a>
             <span className="breadcrumb-sep">/</span>
             <span className="breadcrumb-current">{route.replace(/^\//, '')}</span>
           </nav>
-          <DebugErrorBoundary>
-            {renderPanel()}
-          </DebugErrorBoundary>
-          {routeError ? <div className="page-error" role="alert">{routeError}</div> : null}
+          <div className="fadein bento-grid">
+            <DebugErrorBoundary>
+              {renderPanel()}
+            </DebugErrorBoundary>
+            {routeError ? <div className="page-error" role="alert">{routeError}</div> : null}
+          </div>
         </main>
       </div>
       <div className="status-bar">
-        <span className="muted" style={{ marginLeft: 'auto' }}>ForgeOS Brain Console • React/Express</span>
+        <span className="status-bar-title">ForgeOS Brain Console</span>
+        <span className="status-bar-sep">•</span>
+        <span className="status-bar-meta">React/Express</span>
+        <span className="status-bar-sep">•</span>
+        <span className="status-bar-meta">OS_STATUS: NOMINAL</span>
       </div>
       {showShortcuts ? <ShortcutsOverlay onClose={() => setShowShortcuts(false)} /> : null}
       {commandOpen ? <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onNavigate={navigate} /> : null}
