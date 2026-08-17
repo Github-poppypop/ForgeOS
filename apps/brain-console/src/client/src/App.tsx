@@ -2337,43 +2337,40 @@ function ProjectsPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Projects</h1>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Projects" value={projects.length} subtitle="workspaces" />
-        <StatCard title="Active" value={active} subtitle="in use" accent />
-        <StatCard title="Archived" value={archived} subtitle="cold storage" danger={!!archived} />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Activity</h2>
-          <span className="subtitle">Workload by project</span>
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Activity</h2>
+            <span className="subtitle">Workload by project</span>
+          </div>
+          <TopBarChart data={projects.length ? projects.map((p, i) => ({ label: p.name || `proj-${i + 1}`, value: p.tasks || i + 1 })) : [{ label: 'none', value: 1 }]} />
         </div>
-        <TopBarChart data={projects.length ? projects.map((p, i) => ({ label: p.name || `proj-${i + 1}`, value: p.tasks || i + 1 })) : [{ label: 'none', value: 1 }]} />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Progress</h2>
-          <span className="subtitle">Completion tracking</span>
-        </div>
-        <div className="stack stack-sm" style={{ marginTop: 10 }}>
-          {projects.slice(0, 10).map((p: any, i: number) => (
-            <div key={i} className="card card-sm">
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span>{p.name || `project-${i + 1}`}</span>
-                <span className="pill">{p.progress ?? 0}%</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>Progress</h2>
+            <span className="subtitle">Completion tracking</span>
+          </div>
+          <div className="stack stack-sm" style={{ marginTop: 10 }}>
+            {projects.slice(0, 10).map((p: any, i: number) => (
+              <div key={i} className="card card-sm">
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span>{p.name || `project-${i + 1}`}</span>
+                  <span className="pill">{p.progress ?? 0}%</span>
+                </div>
+                <div className="progress" style={{ marginTop: 8 }}><i style={{ width: `${p.progress ?? 0}%` }} /></div>
               </div>
-              <div className="progress" style={{ marginTop: 8 }}><i style={{ width: `${p.progress ?? 0}%` }} /></div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Load</h2>
-          <span className="subtitle">Resource usage</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <GaugeChart value={projects.length ? 70 : 10} label="Activity" />
-          <GaugeChart value={Math.min(100, totalTasks * 10)} label="Tasks" />
+        <div className="card">
+          <div className="section-header">
+            <h2>Load</h2>
+            <span className="subtitle">Resource usage</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <GaugeChart value={projects.length ? 70 : 10} label="Activity" />
+            <GaugeChart value={Math.min(100, totalTasks * 10)} label="Tasks" />
+          </div>
         </div>
       </div>
       {!projects.length && <EmptyState title="No projects" body="Create a project to manage tasks and progress." />}
@@ -2385,63 +2382,60 @@ function SettingsPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">Settings</h1>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Auth" value={data?.auth ? 'On' : 'Off'} subtitle={data?.auth ? 'enabled' : 'disabled'} accent={!data?.auth} />
-        <StatCard title="Telemetry" value={data?.telemetry ? 'On' : 'Off'} subtitle={data?.telemetry ? 'enabled' : 'disabled'} />
-        <StatCard title="Mode" value="Local" subtitle="standalone" accent />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Current settings</h2>
-          <span className="subtitle">Live configuration</span>
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Current settings</h2>
+            <span className="subtitle">Live configuration</span>
+          </div>
+          <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(data, null, 2)}</pre>
         </div>
-        <pre className="code json" style={{ marginTop: 10 }}>{JSON.stringify(data, null, 2)}</pre>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Environment</h2>
-          <span className="subtitle">Runtime details</span>
-        </div>
-        <div className="stack stack-sm" style={{ marginTop: 10 }}>
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span>Runtime</span>
-            <span className="pill">Node 24</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>Environment</h2>
+            <span className="subtitle">Runtime details</span>
           </div>
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span>Platform</span>
-            <span className="pill">ForgeOS</span>
-          </div>
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span>Theme system</span>
-            <span className="pill">CSS vars</span>
-          </div>
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span>Backup</span>
-            <span className="pill">Manual</span>
+          <div className="stack stack-sm" style={{ marginTop: 10 }}>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span>Runtime</span>
+              <span className="pill">Node 24</span>
+            </div>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span>Platform</span>
+              <span className="pill">ForgeOS</span>
+            </div>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span>Theme system</span>
+              <span className="pill">CSS vars</span>
+            </div>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span>Backup</span>
+              <span className="pill">Manual</span>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Adoption</h2>
-          <span className="subtitle">Feature uptake</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>Adoption</h2>
+            <span className="subtitle">Feature uptake</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <GaugeChart value={data?.auth ? 30 : 90} label="Auth" />
+            <GaugeChart value={data?.telemetry ? 70 : 20} label="Telemetry" />
+          </div>
         </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <GaugeChart value={data?.auth ? 30 : 90} label="Auth" />
-          <GaugeChart value={data?.telemetry ? 70 : 20} label="Telemetry" />
-        </div>
-      </div>
-      <div className="card">
-        <div className="section-header">
-          <h2>Readiness</h2>
-          <span className="subtitle">Monitoring health</span>
-        </div>
-        <div className="stack" style={{ marginTop: 10 }}>
-          <Stepper steps={[
-            { label: 'Config loaded', done: true },
-            { label: 'Auth checked', done: !data?.auth },
-            { label: 'Ready', active: true },
-          ]} />
+        <div className="card">
+          <div className="section-header">
+            <h2>Readiness</h2>
+            <span className="subtitle">Monitoring health</span>
+          </div>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <Stepper steps={[
+              { label: 'Config loaded', done: true },
+              { label: 'Auth checked', done: !data?.auth },
+              { label: 'Ready', active: true },
+            ]} />
+          </div>
         </div>
       </div>
     </div>
@@ -2455,31 +2449,28 @@ function PoolLeaguePanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <h1 className="page-header">PoolLeague</h1>
-      <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Tables" value={tables.length} subtitle="open" />
-        <StatCard title="Players" value={players.length} subtitle="ranked" accent />
-        <StatCard title="Matches" value={matches.length} subtitle="tracked" />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Player wins</h2>
-          <span className="subtitle">Top ranked players</span>
+      <div className="bento-grid">
+        <div className="card">
+          <div className="section-header">
+            <h2>Player wins</h2>
+            <span className="subtitle">Top ranked players</span>
+          </div>
+          <BarChart data={players.length ? players.slice(0, 10).map((p, i) => ({ label: p.name || `player-${i + 1}`, value: p.wins || i + 1 })) : [{ label: 'none', value: 1 }]} height={110} />
         </div>
-        <BarChart data={players.length ? players.slice(0, 10).map((p, i) => ({ label: p.name || `player-${i + 1}`, value: p.wins || i + 1 })) : [{ label: 'none', value: 1 }]} height={110} />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Recent activity</h2>
-          <span className="subtitle">Last 8 matches</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>Recent activity</h2>
+            <span className="subtitle">Last 8 matches</span>
+          </div>
+          <TopBarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `t-${i + 1}`, value: i + 1 }))} />
         </div>
-        <TopBarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `t-${i + 1}`, value: i + 1 }))} />
-      </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
-          <h2>Match trend</h2>
-          <span className="subtitle">Matches over time</span>
+        <div className="card">
+          <div className="section-header">
+            <h2>Match trend</h2>
+            <span className="subtitle">Matches over time</span>
+          </div>
+          <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--accent)" />
         </div>
-        <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--accent)" />
       </div>
       {!players.length && <EmptyState title="No players" body="Add players and tables to run the league." />}
     </div>
