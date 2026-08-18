@@ -744,7 +744,7 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-        <div className="card">
+      <div className="card">
           <div className="section-header">
             <h2>System health</h2>
             <span className="subtitle">{score}/{items.length} checks healthy</span>
@@ -819,11 +819,13 @@ function Dashboard({ status, roles }: { status: any; roles: any }) {
           </div>
         </div>
       </div>
-      <div className="stats cols-4 dashboard-stats mt-4">
-        <StatCard title="Isolation" value={formatIsolation(status?.isolation)} subtitle="PGLite brain ownership" accentColor="var(--accent)" />
-        <StatCard title="Roles seeded" value={`${seeded}/7`} subtitle="C-suite roles" accentColor="var(--accent-2)" />
-        <StatCard title="Console port" value={String(status?.console_port || '—')} subtitle={status?.console_port ? 'Listening on 127.0.0.1' : 'Not listening'} accentColor="var(--info)" />
-        <StatCard title="Health" value={brainOk ? 'Healthy' : 'Degraded'} subtitle={brainOk ? 'All systems nominal' : 'Check dependencies'} accent={!brainOk} danger={!brainOk} accentColor={brainOk ? 'var(--success)' : 'var(--danger)'} />
+      <div className="card">
+        <div className="stats cols-4 dashboard-stats mt-4">
+          <StatCard title="Isolation" value={formatIsolation(status?.isolation)} subtitle="PGLite brain ownership" accentColor="var(--accent)" />
+          <StatCard title="Roles seeded" value={`${seeded}/7`} subtitle="C-suite roles" accentColor="var(--accent-2)" />
+          <StatCard title="Console port" value={String(status?.console_port || '—')} subtitle={status?.console_port ? 'Listening on 127.0.0.1' : 'Not listening'} accentColor="var(--info)" />
+          <StatCard title="Health" value={brainOk ? 'Healthy' : 'Degraded'} subtitle={brainOk ? 'All systems nominal' : 'Check dependencies'} accent={!brainOk} danger={!brainOk} accentColor={brainOk ? 'var(--success)' : 'var(--danger)'} />
+        </div>
       </div>
     </div>
   );
@@ -3026,7 +3028,7 @@ export default function App() {
             <span className="breadcrumb-sep">/</span>
             <span className="breadcrumb-current">{route.replace(/^\//, '')}</span>
           </nav>
-          <div className="fadein bento-grid">
+          <div className="fadein">
             <DebugErrorBoundary>
               {renderPanel()}
             </DebugErrorBoundary>
