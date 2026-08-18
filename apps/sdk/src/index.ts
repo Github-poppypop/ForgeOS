@@ -18,6 +18,14 @@ import type {
   PluginManifest,
   DispatchPayload,
   CapturePayload,
+  SuggestionStatus,
+  Suggestion,
+  FeedbackEntry,
+  TelemetryEvent,
+  SelfImproveState,
+  AgentRunStatus,
+  AgentRunStatusResponse,
+  AgentRunResponse,
 } from "./types.ts";
 
 function apiPath(version: "v1" | "v2", route: string): string {
@@ -154,6 +162,54 @@ export class ForgeOSClient {
   // ---------- Plugins ----------
   async listPlugins() {
     return this.request<{ plugins: { name: string; version: string; hasRoutes: boolean; hasHooks: boolean }[] }>("/plugins");
+  }
+
+  // ---------- Self-improvement ----------
+  async getSelfImproveState() {
+    return this.request<SelfImproveState>("/self-improve");
+  }
+
+  async submitFeedback(entry: Omit<FeedbackEntry, "id" | "date">) {
+    return this.request<{ ok: boolean }>("/feedback", {
+      method: "POST",
+      body: JSON.stringify(entry),
+    });
+  }
+
+  async submitTelemetry(event: Omit<TelemetryEvent, "page_views" | "errors_last_24h" | "avg_load_ms" | "api_latency_p95_ms"> & {
+    page_views?: number;
+    errors_last_24h?: number;
+    avg_load_ms?: number;
+    api_latency_p95_ms?: number;
+  }) {
+    return this.request<{ ok: boolean }>("/telemetry", {
+      method: "POST",
+      body: JSON.stringify(event),
+    });
+  }
+
+  async updateSuggestionStatus(id: string | number, status: SuggestionStatus) {
+    return this.request<{ ok: boolean }>(`/self-improve/suggestions/${encodeURIComponent(String(id))}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async runLearningLoop() {
+    return this.request<{ ok: boolean }>("/self-improve/learning-loop", {
+      method: "POST",
+    });
+  }
+
+  async getAgentRunStatus() {
+    return this.request<AgentRunStatusResponse>("/agent/self-improve/status");
+  }
+
+  async runAgentSelfImprove(prompt: string, scope: string[] = []) {
+    return this.request<AgentRunResponse>("/agent/self-improve/run", {
+      method: "POST",
+      body: JSON.stringify({ prompt, scope }),
+    });
   }
 }
 

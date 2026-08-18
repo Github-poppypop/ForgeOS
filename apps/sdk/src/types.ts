@@ -75,3 +75,60 @@ export interface CapturePayload {
   type?: string;
   body: unknown;
 }
+
+/* ─────────────────────────────────────────────
+ * Self-improvement surface
+ * ───────────────────────────────────────────── */
+
+export type SuggestionStatus = 'proposed' | 'in-progress' | 'done';
+
+export interface Suggestion {
+  id: string | number;
+  title: string;
+  impact: 'low' | 'medium' | 'high';
+  effort: 'low' | 'medium' | 'high';
+  status: SuggestionStatus;
+  detail: string;
+  confidence: number;
+  created_at: string;
+}
+
+export interface FeedbackEntry {
+  id: string | number;
+  source: string;
+  rating: number;
+  comment: string;
+  date: string;
+}
+
+export interface TelemetryEvent {
+  page_views: number;
+  errors_last_24h: number;
+  avg_load_ms: number;
+  api_latency_p95_ms: number;
+  route_events: Record<string, number>;
+}
+
+export interface SelfImproveState {
+  learning_rate: number;
+  confidence: number;
+  iterations: number;
+  last_improvement: string;
+  suggestions: Suggestion[];
+  telemetry: TelemetryEvent;
+  feedback: FeedbackEntry[];
+}
+
+export type AgentRunStatus = 'idle' | 'running' | 'error';
+
+export interface AgentRunStatusResponse {
+  status: AgentRunStatus;
+  latestLog: string[];
+}
+
+export interface AgentRunResponse {
+  ok: boolean;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+}
