@@ -106,15 +106,40 @@ export async function runSelfImproveCycle(options?: { prompt?: string; scope?: s
 async function runAgentEdit(cwd: string, prompt: string, scope: string[]): Promise<{ ok: boolean; durationMs: number; error?: string }> {
   const start = Date.now();
   try {
-    const args = [
-      "--message",
-      `${prompt}\n\nScope: ${scope.length ? scope.join(", ") : "all files"}\n\nRules:\n- Make the smallest safe change possible.\n- Run tests before finishing.\n- If tests fail, revert and stop.`,
-    ];
-    const result = await exec("aider", args, { cwd, timeoutMs: 300_000 });
+    const agent = resolveAgent();
+    const args = buildAgentArgs(agent, prompt, scope);
+    const result = await exec(agent, args, { cwd, timeoutMs: 300_000 });
     return { ok: result.ok, durationMs: Date.now() - start, error: result.error };
   } catch (e: any) {
     return { ok: false, durationMs: Date.now() - start, error: e?.message ?? String(e) };
   }
+}
+
+function resolveAgent(): string {
+  const preferred = process.env.FORGEOS_AGENT?.trim();
+  if (preferred) return preferred;
+  return "claude";
+}
+
+function buildAgentArgs(agent: string, prompt: string, scope: string[]): string[] {
+  const scopeLine = scope.length ? `Scope: ${scope.join(", ")}` : "Scope: all files";
+  const message = `${prompt}
+
+${scopeLine}
+
+Rules:
+- Make the smallest safe change possible.
+- Do not change app behavior unless explicitly asked.
+- Run tests before finishing.
+- If tests fail, revert and stop.`;
+
+  if (agent === "aider") {
+    return ["--message", message, "--yes"];
+  }
+  if (agent === "claude") {
+    return ["-p", "--output-format", "text", "--model", "sonnet", message];
+  }
+  return ["-p", message];
 }
 
 async function runGate(cwd: string, cmd: string[], label: string): Promise<{ ok: boolean; error?: string }> {
