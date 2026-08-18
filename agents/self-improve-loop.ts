@@ -202,3 +202,22 @@ async function exec(cmd: string, args: string[], opts?: { cwd?: string; timeoutM
     });
   });
 }
+
+// Self-invoking bootstrap: when run directly via `tsx agents/self-improve-loop.ts`,
+// execute one bounded cycle and exit with the cycle's status code.
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (isMain) {
+  (async () => {
+    try {
+      const scope = process.argv.slice(2);
+      const result = await runSelfImproveCycle({ scope });
+      // eslint-disable-next-line no-console
+      console.log(JSON.stringify(result));
+      process.exit(result.ok ? 0 : 1);
+    } catch (e: any) {
+      // eslint-disable-next-line no-console
+      console.error(e?.stack ?? String(e));
+      process.exit(1);
+    }
+  })();
+}

@@ -1248,7 +1248,8 @@ export function createRuntime() {
   });
 
   router.get("/api/agent/self-improve/status", (_req, res) => {
-    const logDir = path.resolve(DATA_DIR, "..", ".forgeos", "logs");
+    const repoRoot = path.resolve(DATA_DIR, "..", "..", "..");
+    const logDir = path.join(repoRoot, ".forgeos", "logs");
     let latest = null;
     try {
       const files = fs.readdirSync(logDir);
@@ -1261,6 +1262,21 @@ export function createRuntime() {
       // ignore
     }
     return jsonResponse(res, { latestLog: latest || [], status: latest ? "ok" : "idle" });
+  });
+
+  router.get("/api/agent/self-improve/logs", (_req, res) => {
+    const repoRoot = path.resolve(DATA_DIR, "..", "..", "..");
+    const logDir = path.join(repoRoot, ".forgeos", "logs");
+    try {
+      const files = fs.readdirSync(logDir).filter((f) => f.startsWith("self-improve-")).sort().reverse();
+      const entries = files.map((f) => {
+        const raw = fs.readFileSync(path.join(logDir, f), "utf8").split("\n").filter(Boolean);
+        return { file: f, lines: raw.slice(-50) };
+      });
+      return jsonResponse(res, { logs: entries });
+    } catch {
+      return jsonResponse(res, { logs: [] });
+    }
   });
 
   router.post("/api/backup", (_req, res) => {
