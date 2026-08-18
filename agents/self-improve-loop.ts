@@ -108,7 +108,7 @@ async function runAgentEdit(cwd: string, prompt: string, scope: string[]): Promi
   try {
     const agent = resolveAgent();
     const args = buildAgentArgs(agent, prompt, scope);
-    const result = await exec(agent, args, { cwd, env: process.env, timeoutMs: 300_000 });
+    const result = await exec(agent, args, { cwd, env: process.env, input: "", timeoutMs: 300_000 });
     const detail = result.error ? `${result.error}${result.stderr ? ` — ${result.stderr.slice(0, 500)}` : ""}` : undefined;
     return { ok: result.ok, durationMs: Date.now() - start, error: detail };
   } catch (e: any) {
@@ -183,11 +183,17 @@ async function getCurrentCommit(cwd: string): Promise<string> {
   return r.stdout.trim();
 }
 
-async function exec(cmd: string, args: string[], opts?: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs?: number }): Promise<{ ok: boolean; stdout: string; stderr: string; error?: string }> {
+async function exec(cmd: string, args: string[], opts?: { cwd?: string; env?: NodeJS.ProcessEnv; input?: string; timeoutMs?: number }): Promise<{ ok: boolean; stdout: string; stderr: string; error?: string }> {
   return new Promise((resolve) => {
     const child = spawn(cmd, args, { cwd: opts?.cwd, env: opts?.env ?? process.env, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
+    if (opts?.input !== undefined) {
+      child.stdin.write(opts.input);
+      child.stdin.end();
+    } else {
+      child.stdin.end();
+    }
     child.stdout.on("data", (d) => (stdout += d.toString()));
     child.stderr.on("data", (d) => (stderr += d.toString()));
     const timeout = opts?.timeoutMs ?? 120_000;
