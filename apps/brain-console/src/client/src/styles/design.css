@@ -894,3 +894,9 @@ ul.mono { list-style: none; padding: 0; }
   pre.code, pre.json { white-space: pre-wrap; border: 1px solid #ccc; }
   a[href]::after { content: " (" attr(href) ")"; font-size: 11px; color: #555; }
 }
+
+/* ---------- topology ---------- */
+.node { fill: var(--surface-2); stroke: var(--border); stroke-width: 1; }
+.node.root { fill: var(--surface-3); stroke: var(--primary); stroke-width: 1.5; }
+.edge { stroke: var(--border); stroke-width: 1.2; }
+.node-label { fill: var(--on-surface); font-family: var(--mono); font-size: 12px; }
