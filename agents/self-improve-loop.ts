@@ -11,7 +11,7 @@
 
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve as pathResolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -205,7 +205,7 @@ async function exec(cmd: string, args: string[], opts?: { cwd?: string; timeoutM
 
 // Self-invoking bootstrap: when run directly via `tsx agents/self-improve-loop.ts`,
 // execute one bounded cycle and exit with the cycle's status code.
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === pathResolve(process.argv[1]);
 if (isMain) {
   (async () => {
     try {
