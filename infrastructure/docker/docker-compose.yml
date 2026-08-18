@@ -1,7 +1,7 @@
 services:
   brain-console:
     build:
-      context: ../../
+      context: .
       dockerfile: infrastructure/docker/Dockerfile
     image: forgeos/brain-console:latest
     container_name: forgeos-brain
@@ -9,11 +9,8 @@ services:
     ports:
       - "7777:7777"
     volumes:
-      # Isolated brain vault (PGLite data)
       - brain-data:/opt/forgeos/brain
-      # gbrain CLI install (bind-mount from host)
       - gbrain-cli:/opt/forgeos/gbrain-cli
-      # Local Ollama API (optional — remove if using remote)
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       GBRAIN_HOME: /opt/forgeos/brain
@@ -21,8 +18,7 @@ services:
       OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
       GBRAIN_EMBEDDING_DIMENSIONS: 1024
       PORT: 7777
-      # Uncomment and set for auth
-      # CONSOLE_TOKEN: ${CONSOLE_TOKEN}
+      CONSOLE_TOKEN: ${CONSOLE_TOKEN:-}
     networks:
       - forgeos
     healthcheck:
@@ -32,7 +28,6 @@ services:
       retries: 3
       start_period: 10s
 
-  # Optional: local Ollama for embeddings (VPS-first; use on machines with NVIDIA/AMD GPU)
   ollama:
     image: ollama/ollama:latest
     container_name: forgeos-ollama
@@ -46,7 +41,6 @@ services:
       OLLAMA_ORIGINS: "*"
     networks:
       - forgeos
-    # For GPU, add deploy.reservations.devices (requires docker-compose v2.20+)
 
 volumes:
   brain-data:
