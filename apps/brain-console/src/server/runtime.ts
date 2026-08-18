@@ -1231,7 +1231,7 @@ export function createRuntime() {
     const allowedScopes = ["apps/brain-console", "agents", "packages/shared"];
     const safeScope = Array.isArray(scope) ? scope.filter((s) => allowedScopes.includes(s)) : [];
     const env = { ...process.env };
-    const cwd = path.resolve(DATA_DIR, "..");
+    const cwd = path.resolve(DATA_DIR, "..", "..", "..");
     const child = spawn("tsx", ["agents/self-improve-loop.ts"], { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
