@@ -722,29 +722,6 @@ ul.mono { list-style: none; padding: 0; }
 .breadcrumb a { color: var(--primary); text-decoration: none; }
 .breadcrumb-sep { margin: 0 8px; color: var(--on-surface-variant); }
 .breadcrumb-current { color: var(--on-surface); font-weight: 600; }
-.section-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin: var(--s4) 0 var(--s3);
-}
-.section-header h2 {
-  margin: 0;
-  font-family: var(--display);
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  color: var(--on-surface);
-}
-.subtitle {
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.55);
-}
 .panel + .panel { margin-top: var(--s3); }
 .panel { padding: var(--s4); }
 
