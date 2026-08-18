@@ -890,7 +890,7 @@ function Roles({ roles }: { roles: any }) {
         </div>
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Reporting structure</h2>
           <span className="subtitle">Direct vs indirect reports</span>
         </div>
@@ -899,7 +899,7 @@ function Roles({ roles }: { roles: any }) {
         </div>
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Capability heatmap</h2>
           <span className="subtitle">Role coverage intensity</span>
         </div>
@@ -913,7 +913,7 @@ function Roles({ roles }: { roles: any }) {
         </div>
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Lifecycle</h2>
           <span className="subtitle">Role maturity stages</span>
         </div>
@@ -928,13 +928,13 @@ function Roles({ roles }: { roles: any }) {
           <p className="muted" style={{ marginTop: 8 }}>Numbers are stage order, not counts.</p>
         </div>
       </div>
-        <div className="stats cols-3" style={{ marginBottom: 16 }}>
+          <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Seeded" value={list.filter((r) => r.exists).length} subtitle="of total roles" />
         <StatCard title="Reports to CEO" value={reportCounts[0].value} subtitle="direct reports" />
         <StatCard title="Open" value={list.filter((r) => !r.exists).length} subtitle="missing roles" accent={!!list.some((r) => !r.exists)} danger={!!list.some((r) => !r.exists)} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Status timeline</h2>
           <span className="subtitle">Recent checks</span>
         </div>
@@ -943,7 +943,7 @@ function Roles({ roles }: { roles: any }) {
         </div>
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Recent activity</h2>
           <span className="subtitle">Latest role updates</span>
         </div>
@@ -979,14 +979,15 @@ function Search({ data }: { data: any }) {
     return m ? parseFloat(m[1]) : 0;
   });
   return (
-    <div className="fadein">      <div className="card" style={{ marginBottom: 16 }}>
+    <div className="fadein">
+        <div className="card" style={{ marginBottom: 16 }}>
         <div className="row" style={{ gap: 8 }}>
           <input className="input" style={{ flex: 1 }} placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} />
           <button className="btn primary" onClick={() => navigate(`/search?q=${encodeURIComponent(q)}`)}>Search</button>
         </div>
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Score distribution</h2>
           <span className="subtitle">Performance spread</span>
         </div>
@@ -1037,7 +1038,7 @@ function Capture() {
         <StatCard title="Valid" value={validate() ? 'Yes' : 'No'} subtitle="slug" danger={!validate()} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>New capture</h2>
           <span className="subtitle">Create a knowledge page</span>
         </div>
@@ -1068,7 +1069,7 @@ function Capture() {
         </div>
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Quick templates</h2>
           <span className="subtitle">Starter page shapes</span>
         </div>
@@ -1087,7 +1088,7 @@ function Capture() {
         </div>
       </div>
       <div className="card">
-        <div className="section-header">
+          <div className="section-header">
           <h2>Status</h2>
           <span className="subtitle">Capture state</span>
         </div>
@@ -1208,7 +1209,7 @@ function Decisions({ data }: { data?: any }) {
         )}
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Outcomes</h2>
           <span className="subtitle">Approval distribution</span>
         </div>
@@ -1219,7 +1220,7 @@ function Decisions({ data }: { data?: any }) {
         ]} size={160} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Decision velocity</h2>
           <span className="subtitle">Decisions over time</span>
         </div>
@@ -1291,7 +1292,7 @@ function TimelinePanel({ data }: { data?: any }) {
         )}
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Progress</h2>
           <span className="subtitle">Milestone completion</span>
         </div>
@@ -1302,14 +1303,14 @@ function TimelinePanel({ data }: { data?: any }) {
         </div>
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Milestone density</h2>
           <span className="subtitle">Monthly milestones</span>
         </div>
         <BarChart data={Array.from({ length: 7 }, (_, i) => ({ label: `${i + 1}m`, value: series[i] }))} />
       </div>
       <div className="card">
-        <div className="section-header">
+          <div className="section-header">
           <h2>Load</h2>
           <span className="subtitle">Mission capacity</span>
         </div>
@@ -1340,13 +1341,13 @@ function LedgerPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-        <div className="stats cols-3" style={{ marginBottom: 16 }}>
+          <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Total" value={entries.length} subtitle="decisions" />
         <StatCard title="Approved" value={approved} subtitle={entries.length ? `${Math.round((approved / entries.length) * 100)}%` : '0%'} accent />
         <StatCard title="Rejected" value={rejected} subtitle="needs review" danger={!!rejected} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Outcomes</h2>
           <span className="subtitle">Approval distribution</span>
         </div>
@@ -1359,14 +1360,14 @@ function LedgerPanel({ data }: { data?: any }) {
         </div>
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Types</h2>
           <span className="subtitle">Category breakdown</span>
         </div>
         <TopBarChart data={rows.length ? rows : [{ label: 'none', value: 1 }]} height={90} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Trend</h2>
           <span className="subtitle">Workflow runs</span>
         </div>
@@ -1411,7 +1412,7 @@ function MissionsPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-        <div className="stats cols-3" style={{ marginBottom: 16 }}>
+          <div className="stats cols-3" style={{ marginBottom: 16 }}>
           <StatCard title="Active" value={active} subtitle="in flight" accent={!!active} />
           <StatCard title="Proposed" value={proposed} subtitle="awaiting approval" />
           <StatCard title="Done" value={done} subtitle="completed" accent />
@@ -1431,7 +1432,7 @@ function MissionsPanel({ data }: { data?: any }) {
         <BarChart data={Object.entries(phaseCounts).map(([label, value]) => ({ label, value }))} height={110} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Ownership</h2>
           <span className="subtitle">Top owners</span>
         </div>
@@ -1470,13 +1471,13 @@ function CompliancePanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-        <div className="stats cols-3" style={{ marginBottom: 16 }}>
-        <StatCard title="Policies" value={policies.length} subtitle="total" />
-        <StatCard title="Active" value={active} subtitle="in compliance" accent />
-        <StatCard title="Gaps" value={inactive} subtitle="needs attention" danger={!!inactive} />
-      </div>
+          <div className="stats cols-3" style={{ marginBottom: 16 }}>
+          <StatCard title="Policies" value={policies.length} subtitle="total" />
+          <StatCard title="Active" value={active} subtitle="in compliance" accent />
+          <StatCard title="Gaps" value={inactive} subtitle="needs attention" danger={!!inactive} />
+        </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Status</h2>
           <span className="subtitle">Capture state</span>
         </div>
@@ -1488,14 +1489,14 @@ function CompliancePanel({ data }: { data?: any }) {
         </div>
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Category coverage</h2>
           <span className="subtitle">Active vs inactive</span>
         </div>
         <BarChart data={Object.keys(categoryCounts).length ? Object.entries(categoryCounts).map(([label, value]) => ({ label, value })) : [{ label: 'none', value: 1 }]} height={110} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Recent checks</h2>
           <span className="subtitle">Latest monitoring</span>
         </div>
@@ -1519,7 +1520,7 @@ function CompliancePanel({ data }: { data?: any }) {
         </div>
       </div>
       <div className="card">
-        <div className="section-header">
+          <div className="section-header">
           <h2>Load</h2>
           <span className="subtitle">Plugin traffic</span>
         </div>
@@ -1541,13 +1542,13 @@ function FederationPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-        <div className="stats cols-3" style={{ marginBottom: 16 }}>
+          <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Root" value={data?.root || 'ForgeOS'} subtitle="federation" accent />
         <StatCard title="Children" value={children.length} subtitle="nodes" />
         <StatCard title="Synced" value={synced} subtitle="ready" accent={!pending} danger={!!pending} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Topology</h2>
           <span className="subtitle">{data?.model || 'read-down'}</span>
         </div>
@@ -1577,21 +1578,21 @@ function FederationPanel({ data }: { data?: any }) {
         </div>
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Member distribution</h2>
           <span className="subtitle">Team makeup</span>
         </div>
         <BarChart data={children.length ? children.map((c: any, i: number) => ({ label: c.name, value: 3 + i })) : [{ label: 'none', value: 1 }]} height={110} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Sync activity</h2>
           <span className="subtitle">Replication events</span>
         </div>
         <Sparkline data={counts} color="var(--accent)" />
       </div>
       <div className="card">
-        <div className="section-header">
+          <div className="section-header">
           <h2>Status timeline</h2>
           <span className="subtitle">Recent checks</span>
         </div>
@@ -1615,27 +1616,27 @@ function WebhooksPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-        <div className="stats cols-3" style={{ marginBottom: 16 }}>
+          <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Webhooks" value={items.length} subtitle="registered" />
         <StatCard title="Dead letter" value={dead.length} subtitle="needs retry" danger={!!dead.length} />
         <StatCard title="Health" value={dead.length ? 'Degraded' : 'Healthy'} subtitle="delivery" accent={!dead.length} danger={!!dead.length} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Delivery load</h2>
           <span className="subtitle">Per-hour volume</span>
         </div>
         <TopBarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `${i + 1}h`, value: i + 1 }))} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Failure trend</h2>
           <span className="subtitle">Recent errors</span>
         </div>
         <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--danger)" />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Dead letter</h2>
           <span className="subtitle">Failed messages</span>
         </div>
@@ -1685,27 +1686,27 @@ function McpPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-        <div className="stats cols-3" style={{ marginBottom: 16 }}>
+          <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Tools" value={tools.length} subtitle="available" />
         <StatCard title="Transports" value={transports.length} subtitle="connections" />
         <StatCard title="Status" value={tools.length ? 'Ready' : 'Idle'} subtitle="server" accent />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Tool usage</h2>
           <span className="subtitle">Top invocations</span>
         </div>
         <TopBarChart data={tools.length ? tools.slice(0, 8).map((t, i) => ({ label: t.name || `tool-${i + 1}`, value: i + 1 })) : [{ label: 'none', value: 1 }]} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Transport load</h2>
           <span className="subtitle">MCP traffic</span>
         </div>
         <Sparkline data={Array.from({ length: 10 }, (_, i) => i + 1)} color="var(--info)" />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Transport breakdown</h2>
           <span className="subtitle">Protocol mix</span>
         </div>
@@ -1746,27 +1747,27 @@ function VaultPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-        <div className="stats cols-3" style={{ marginBottom: 16 }}>
+          <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Items" value={items.length} subtitle="stored" />
         <StatCard title="Encryption" value={data?.encrypted ? 'On' : 'Off'} subtitle={data?.encrypted ? 'AES-256-GCM' : 'plaintext'} accent={data?.encrypted} />
         <StatCard title="Sync" value="Manual" subtitle="pending backup" />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Activity</h2>
           <span className="subtitle">Recent events</span>
         </div>
         <TopBarChart data={Array.from({ length: 10 }, (_, i) => ({ label: `${i + 1}`, value: i + 1 }))} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Load</h2>
           <span className="subtitle">Plugin traffic</span>
         </div>
         <GaugeChart value={items.length ? 70 : 20} label="Usage" />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Types</h2>
           <span className="subtitle">Item categories</span>
         </div>
@@ -1798,27 +1799,27 @@ function EmbedPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-        <div className="stats cols-3" style={{ marginBottom: 16 }}>
+          <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Queued" value={data?.queued ?? 0} subtitle="pending chunks" />
         <StatCard title="Model" value={(data?.model || '—').split(':')[1] || '—'} subtitle={data?.model || 'local'} accent />
         <StatCard title="Dimensions" value={data?.dimensions ?? '—'} subtitle="vector size" />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Queue depth</h2>
           <span className="subtitle">Pending items</span>
         </div>
         <BarChart data={Array.from({ length: 8 }, (_, i) => ({ label: `batch-${i + 1}`, value: (data?.queued || i + 1) }))} height={110} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Throughput</h2>
           <span className="subtitle">Requests processed</span>
         </div>
         <Sparkline data={Array.from({ length: 12 }, (_, i) => i + 1)} color="var(--success)" />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Readiness</h2>
           <span className="subtitle">Monitoring health</span>
         </div>
@@ -1832,7 +1833,7 @@ function EmbedPanel({ data }: { data?: any }) {
         </div>
       </div>
       <div className="card">
-        <div className="section-header">
+          <div className="section-header">
           <h2>Load</h2>
           <span className="subtitle">Plugin traffic</span>
         </div>
@@ -1851,20 +1852,20 @@ function AuditPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-        <div className="stats cols-3" style={{ marginBottom: 16 }}>
+          <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Events" value={events.length} subtitle="recorded" />
         <StatCard title="Window" value="7d" subtitle="retention" />
         <StatCard title="Source" value="Local" subtitle="append-only" accent />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Event volume</h2>
           <span className="subtitle">Telemetry events</span>
         </div>
         <TopBarChart data={Array.from({ length: 7 }, (_, i) => ({ label: `${i + 1}d`, value: i + 1 }))} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Severity</h2>
           <span className="subtitle">Issue levels</span>
         </div>
@@ -1957,7 +1958,8 @@ function CommandPanel() {
     setHistory((h) => [cmd, ...h.slice(0, 19)]);
   };
   return (
-    <div className="fadein">      <div className="bento-grid">
+    <div className="fadein">
+      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Input</h2>
@@ -2007,8 +2009,8 @@ function GovernancePanel({ data }: { data?: any }) {
   const rules = (data?.rules || []) as any[];
   return (
     <div className="fadein">
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="section-header">
           <h2>Scope</h2>
           <span className="subtitle">{data?.model || 'delegated'}</span>
         </div>
@@ -2067,27 +2069,27 @@ function SchemaPanel({ data }: { data?: any }) {
         <h3>Active schema</h3>
         <p className="mono">{data?.active || 'forgeos'}</p>
       </div>
-        <div className="stats cols-3" style={{ marginBottom: 16 }}>
+          <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Types" value={types.length} subtitle="registered" />
         <StatCard title="Fields" value={counts.reduce((s, c) => s + c.value, 0)} subtitle="total fields" />
         <StatCard title="Status" value="Stable" subtitle="versioned" accent />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Type distribution</h2>
           <span className="subtitle">Schema mix</span>
         </div>
         <TopBarChart data={counts.length ? counts.slice(0, 10) : [{ label: 'none', value: 1 }]} height={100} />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Coverage</h2>
           <span className="subtitle">Embedded entities</span>
         </div>
         <Heatmap values={Array.from({ length: 28 }, (_, i) => i % 6)} cols={14} title="Coverage intensity" unit="pts" />
       </div>
         <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header">
+          <div className="section-header">
           <h2>Readiness</h2>
           <span className="subtitle">Monitoring health</span>
         </div>
@@ -2101,7 +2103,7 @@ function SchemaPanel({ data }: { data?: any }) {
         </div>
       </div>
       <div className="card">
-        <div className="section-header">
+          <div className="section-header">
           <h2>Definition</h2>
           <span className="subtitle">Schema summary</span>
         </div>
@@ -2175,7 +2177,8 @@ function MonitoringPanel({ data }: { data?: any }) {
 function WorkflowsPanel({ data }: { data?: any }) {
   const workflows = (data?.workflows || []) as any[];
   return (
-    <div className="fadein">      <div className="bento-grid">
+    <div className="fadein">
+      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Throughput</h2>
@@ -2229,7 +2232,8 @@ function WorkflowsPanel({ data }: { data?: any }) {
 function MarketplacePanel({ data }: { data?: any }) {
   const packs = (data?.packs || []) as any[];
   return (
-    <div className="fadein">      <div className="bento-grid">
+    <div className="fadein">
+      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Popularity</h2>
@@ -2291,7 +2295,8 @@ function PluginsPanel({ data }: { data?: any }) {
   const { navigate } = usePathRoute();
   const plugins = (data?.plugins || []) as any[];
   return (
-    <div className="fadein">      <div className="bento-grid">
+    <div className="fadein">
+      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Status</h2>
@@ -2333,7 +2338,8 @@ function ProjectsPanel({ data }: { data?: any }) {
   const projects = (data?.projects || []) as any[];
   const totalTasks = projects.reduce((s, p) => s + (p.tasks || 0), 0);
   return (
-    <div className="fadein">      <div className="bento-grid">
+    <div className="fadein">
+      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Activity</h2>
@@ -2440,7 +2446,8 @@ function SettingsPanel({ data }: { data?: any }) {
 function PoolLeaguePanel({ data }: { data?: any }) {
   const players = (data?.players || []) as any[];
   return (
-    <div className="fadein">      <div className="bento-grid">
+    <div className="fadein">
+      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Player wins</h2>
@@ -2491,7 +2498,8 @@ function AppStorePanel({ data }: { data?: any }) {
     window.location.reload();
   };
   return (
-    <div className="fadein">      <div className="bento-grid">
+    <div className="fadein">
+      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Status</h2>
@@ -2617,7 +2625,8 @@ function AppStorePanel({ data }: { data?: any }) {
 function DeveloperPanel() {
   const { navigate } = usePathRoute();
   return (
-    <div className="fadein">      <div className="bento-grid">
+    <div className="fadein">
+      <div className="bento-grid">
         <div className="card">
           <div className="section-header">
             <h2>Onboarding checklist</h2>
