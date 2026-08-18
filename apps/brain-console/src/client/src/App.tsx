@@ -2788,9 +2788,10 @@ function SelfImprovePanel({ data }: { data?: any }) {
               </div>
               <div className="stack" style={{ marginTop: 10, gap: 10 }}>
                 <input className="input" placeholder="Improvement prompt..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
-                <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button className="btn primary" onClick={async () => { await api<{ ok: boolean; exitCode: number | null }>('/api/agent/self-improve/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: feedback || 'Make one small safe improvement', scope: ['apps/brain-console'] }) }); window.location.reload(); }}>Run agent</button>
                   <button className="btn secondary" onClick={async () => { const r = await api<any>('/api/agent/self-improve/status'); const data = r as { latestLog: string[]; status: string }; alert(data.status + '\n' + (data.latestLog || []).join('\n')); }}>Status</button>
+                  <span className="pill ok" style={{ marginLeft: 'auto' }}>idle</span>
                 </div>
               </div>
             </div>
