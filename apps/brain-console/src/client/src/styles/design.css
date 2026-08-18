@@ -954,3 +954,16 @@ ul.mono { list-style: none; padding: 0; }
 .node.root { fill: var(--surface-3); stroke: var(--primary); stroke-width: 1.5; }
 .edge { stroke: var(--border); stroke-width: 1.2; }
 .node-label { fill: var(--on-surface); font-family: var(--mono); font-size: 12px; }
+
+.chart-grid { stroke: var(--border); stroke-width: 0.6; }
+.bar-rect { fill: var(--accent); rx: 2; }
+.bar-value { fill: var(--on-surface); font-family: var(--mono); font-size: 10px; }
+.label { fill: var(--muted); font-family: var(--mono); font-size: 10px; }
+.line-path { stroke: var(--accent); stroke-width: 1.4; fill: none; }
+.line-area { fill: var(--accent); opacity: 0.18; }
+.dot { fill: var(--accent); }
+.gauge-bg { fill: transparent; stroke: var(--border); stroke-width: 6; }
+.gauge-fg { fill: transparent; stroke-width: 6; stroke-linecap: round; }
+.donut-center { fill: var(--on-surface); font-family: var(--mono); font-size: 18px; font-weight: 700; }
+.gauge-label { fill: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.gauge-ticks { stroke: var(--border); stroke-width: 1; }
