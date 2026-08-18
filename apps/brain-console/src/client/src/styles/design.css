@@ -292,7 +292,7 @@ body {
 }
 .topnav-brand .os { color: var(--primary); font-weight: 700; letter-spacing: 0.04em; }
 .topnav-divider { width: 1px; height: 18px; background: var(--border); }
-.topnav-actions { display: flex; align-items: center; gap: 12px; }
+.topnav-actions { display: flex; align-items: center; gap: 8px; }
 .spacer { flex: 1; }
 .app-shell { display: flex; flex: 1; overflow: hidden; }
 .sidenav {
