@@ -424,7 +424,7 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
           <span className="sidebar-brand-mark" aria-hidden="true" />
           <div>
             <div className="sidebar-brand-title">KNOWLEDGE_CORE</div>
-            <div className="sidebar-brand-sub">V2.0.4-STABLE</div>
+            <div className="sidebar-brand-sub">v2.0.4 stable</div>
           </div>
         </div>
         <button className="btn primary sm" onClick={() => onNavigate('/capture')}>
