@@ -1,4 +1,5 @@
 import { Component, useEffect, useMemo, useCallback, useState } from 'react';
+import { createForgeOSClient } from '../../../../sdk/src/index.ts';
 
 if (typeof window !== 'undefined') {
   window.addEventListener('load', async () => {
@@ -2693,6 +2694,49 @@ function SelfImprovePanel({ data }: { data?: any }) {
   const learningRate = Math.round((data?.learning_rate || 0) * 100);
   const confidence = Math.round((data?.confidence || 0) * 100);
   const loading = !data;
+
+  useEffect(() => {
+    const perf = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    const start = performance.now();
+    const mark = (name: string) => {
+      try { performance.mark(name); } catch {}
+    };
+    mark('self-improve-mounted');
+
+    const current = (window as any).__forgeosTelemetry ??= { errorsByApi: {} as Record<string, number>, apiCalls: 0, mountMs: 0 };
+
+    const handler = (event: Event) => {
+      const apiError = (event.target as any)?.api ?? 'unknown';
+      current.errorsByApi[apiError] = (current.errorsByApi[apiError] || 0) + 1;
+      current.apiCalls += 1;
+    };
+
+    window.addEventListener('error', handler as EventListener);
+    return () => {
+      window.removeEventListener('error', handler as EventListener);
+      const end = performance.now();
+      const mountMs = Math.round(end - start);
+      current.mountMs = mountMs;
+      const routeEvents: Record<string, number> = {};
+      Object.entries(current.errorsByApi).forEach(([api, count]) => {
+        routeEvents[`error:${api}`] = count as number;
+      });
+      if (current.apiCalls) {
+        routeEvents.api_calls = current.apiCalls as number;
+      }
+      fetch('/api/telemetry', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          page_views: 1,
+          errors_last_24h: (Object.values(current.errorsByApi) as number[]).reduce((a, b) => a + b, 0),
+          avg_load_ms: perf ? Math.round(perf.loadEventEnd - perf.startTime || mountMs) : mountMs,
+          api_latency_p95_ms: 0,
+          route_events: routeEvents,
+        }),
+      }).catch(() => {});
+    };
+  }, []);
   const submit = async () => {
     await api('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rating, comment: feedback, source: 'user', date: new Date().toISOString().split('T')[0] }) });
     setFeedback('');
@@ -2789,8 +2833,8 @@ function SelfImprovePanel({ data }: { data?: any }) {
               <div className="stack" style={{ marginTop: 10, gap: 10 }}>
                 <input className="input" placeholder="Improvement prompt..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
                 <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button className="btn primary" onClick={async () => { await api<{ ok: boolean; exitCode: number | null }>('/api/agent/self-improve/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: feedback || 'Make one small safe improvement', scope: ['apps/brain-console'] }) }); window.location.reload(); }}>Run agent</button>
-                  <button className="btn secondary" onClick={async () => { const r = await api<any>('/api/agent/self-improve/status'); const data = r as { latestLog: string[]; status: string }; alert(data.status + '\n' + (data.latestLog || []).join('\n')); }}>Status</button>
+                  <button className="btn primary" onClick={async () => { const client = createForgeOSClient({ baseUrl: window.location.origin }); await client.runAgentSelfImprove(feedback || 'Make one small safe improvement', ['apps/brain-console']); window.location.reload(); }}>Run agent</button>
+                  <button className="btn secondary" onClick={async () => { const client = createForgeOSClient({ baseUrl: window.location.origin }); const data = await client.getAgentRunStatus(); alert(data.status + '\n' + (data.latestLog || []).join('\n')); }}>Status</button>
                   <span className="pill ok" style={{ marginLeft: 'auto' }}>idle</span>
                 </div>
               </div>
