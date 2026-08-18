@@ -108,8 +108,9 @@ async function runAgentEdit(cwd: string, prompt: string, scope: string[]): Promi
   try {
     const agent = resolveAgent();
     const args = buildAgentArgs(agent, prompt, scope);
-    const result = await exec(agent, args, { cwd, timeoutMs: 300_000 });
-    return { ok: result.ok, durationMs: Date.now() - start, error: result.error };
+    const result = await exec(agent, args, { cwd, env: process.env, timeoutMs: 300_000 });
+    const detail = result.error ? `${result.error}${result.stderr ? ` — ${result.stderr.slice(0, 500)}` : ""}` : undefined;
+    return { ok: result.ok, durationMs: Date.now() - start, error: detail };
   } catch (e: any) {
     return { ok: false, durationMs: Date.now() - start, error: e?.message ?? String(e) };
   }
@@ -118,6 +119,9 @@ async function runAgentEdit(cwd: string, prompt: string, scope: string[]): Promi
 function resolveAgent(): string {
   const preferred = process.env.FORGEOS_AGENT?.trim();
   if (preferred) return preferred;
+  // Prefer an API-key-driven, non-interactive provider if a key is present.
+  if (process.env.ANTHROPIC_API_KEY) return "claude-keyed";
+  if (process.env.OPENAI_API_KEY || process.env.AIDER_API_KEY) return "aider";
   return "claude";
 }
 
@@ -135,6 +139,10 @@ Rules:
 
   if (agent === "aider") {
     return ["--message", message, "--yes"];
+  }
+  if (agent === "claude-keyed") {
+    // Non-interactive, API-key-driven (requires ANTHROPIC_API_KEY in env).
+    return ["-p", "--output-format", "text", "--model", process.env.FORGEOS_AGENT_MODEL || "claude-sonnet-4-0", message];
   }
   if (agent === "claude") {
     return ["-p", "--output-format", "text", "--model", "sonnet", message];
@@ -175,9 +183,9 @@ async function getCurrentCommit(cwd: string): Promise<string> {
   return r.stdout.trim();
 }
 
-async function exec(cmd: string, args: string[], opts?: { cwd?: string; timeoutMs?: number }): Promise<{ ok: boolean; stdout: string; stderr: string; error?: string }> {
+async function exec(cmd: string, args: string[], opts?: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs?: number }): Promise<{ ok: boolean; stdout: string; stderr: string; error?: string }> {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd: opts?.cwd, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(cmd, args, { cwd: opts?.cwd, env: opts?.env ?? process.env, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (d) => (stdout += d.toString()));
