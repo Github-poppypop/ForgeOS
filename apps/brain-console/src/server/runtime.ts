@@ -3,6 +3,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawn } from "node:child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
@@ -1223,6 +1224,43 @@ export function createRuntime() {
       last_improvement: store.selfImprove.last_improvement,
       suggestions,
     });
+  });
+
+  router.post("/api/agent/self-improve/run", express.json(), async (req, res) => {
+    const { prompt = "", scope = [] } = req.body ?? {};
+    const allowedScopes = ["apps/brain-console", "agents", "packages/shared"];
+    const safeScope = Array.isArray(scope) ? scope.filter((s) => allowedScopes.includes(s)) : [];
+    const env = { ...process.env };
+    const cwd = path.resolve(DATA_DIR, "..");
+    const child = spawn("tsx", ["agents/self-improve-loop.ts"], { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => (stdout += d.toString()));
+    child.stderr.on("data", (d) => (stderr += d.toString()));
+    const timeoutMs = 300_000;
+    const timer = setTimeout(() => child.kill("SIGTERM"), timeoutMs);
+    const exit = await new Promise<number | null>((resolve) => {
+      child.on("exit", (code) => { clearTimeout(timer); resolve(code ?? null); });
+      child.on("error", () => { clearTimeout(timer); resolve(-1); });
+    });
+    pushAudit("agent.self-improve.run", `exit=${exit}`, "system");
+    return jsonResponse(res, { ok: exit === 0, exitCode: exit, stdout, stderr });
+  });
+
+  router.get("/api/agent/self-improve/status", (_req, res) => {
+    const logDir = path.resolve(DATA_DIR, "..", ".forgeos", "logs");
+    let latest = null;
+    try {
+      const files = fs.readdirSync(logDir);
+      const cycleLogs = files.filter((f) => f.startsWith("self-improve-")).sort().reverse();
+      if (cycleLogs.length) {
+        const latestLog = path.join(logDir, cycleLogs[0]);
+        latest = fs.readFileSync(latestLog, "utf8").split("\n").filter(Boolean).slice(-20);
+      }
+    } catch {
+      // ignore
+    }
+    return jsonResponse(res, { latestLog: latest || [], status: latest ? "ok" : "idle" });
   });
 
   router.post("/api/backup", (_req, res) => {

@@ -1,0 +1,8 @@
+{
+  "name": "self-improve-loop",
+  "description": "Run a bounded self-improvement cycle using a git worktree and aider.",
+  "scripts": {
+    "cycle": "tsx agents/self-improve-loop.ts",
+    "verify": "tsx agents/verify-improvements.ts"
+  }
+}
