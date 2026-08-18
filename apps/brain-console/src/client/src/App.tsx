@@ -3028,12 +3028,10 @@ export default function App() {
             <span className="breadcrumb-sep">/</span>
             <span className="breadcrumb-current">{route.replace(/^\//, '')}</span>
           </nav>
-          <div className="fadein">
-            <DebugErrorBoundary>
-              {renderPanel()}
-            </DebugErrorBoundary>
-            {routeError ? <div className="page-error" role="alert">{routeError}</div> : null}
-          </div>
+          <DebugErrorBoundary>
+            {renderPanel()}
+          </DebugErrorBoundary>
+          {routeError ? <div className="page-error" role="alert">{routeError}</div> : null}
         </main>
       </div>
       <div className="status-bar">
