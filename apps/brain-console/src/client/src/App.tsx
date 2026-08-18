@@ -877,14 +877,14 @@ function Roles({ roles }: { roles: any }) {
         </div>
         <div className="grid cols-2" style={{ marginTop: 12 }}>
           <div>
-            <h3>Seeding status</h3>
+        <h3>Seeding status</h3>
             <DonutChart data={[
               { label: 'seeded', value: list.filter((r) => r.exists).length, color: 'var(--success)' },
               { label: 'missing', value: list.filter((r) => !r.exists).length, color: 'var(--danger)' },
             ]} size={160} />
           </div>
           <div>
-            <h3>By department</h3>
+        <h3>By department</h3>
             <BarChart data={uniqueDeptCounts} height={120} />
           </div>
         </div>
@@ -1341,7 +1341,7 @@ function LedgerPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-          <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Total" value={entries.length} subtitle="decisions" />
         <StatCard title="Approved" value={approved} subtitle={entries.length ? `${Math.round((approved / entries.length) * 100)}%` : '0%'} accent />
         <StatCard title="Rejected" value={rejected} subtitle="needs review" danger={!!rejected} />
@@ -1412,7 +1412,7 @@ function MissionsPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-          <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <div className="stats cols-3" style={{ marginBottom: 16 }}>
           <StatCard title="Active" value={active} subtitle="in flight" accent={!!active} />
           <StatCard title="Proposed" value={proposed} subtitle="awaiting approval" />
           <StatCard title="Done" value={done} subtitle="completed" accent />
@@ -1471,7 +1471,7 @@ function CompliancePanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-          <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <div className="stats cols-3" style={{ marginBottom: 16 }}>
           <StatCard title="Policies" value={policies.length} subtitle="total" />
           <StatCard title="Active" value={active} subtitle="in compliance" accent />
           <StatCard title="Gaps" value={inactive} subtitle="needs attention" danger={!!inactive} />
@@ -1542,7 +1542,7 @@ function FederationPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-          <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Root" value={data?.root || 'ForgeOS'} subtitle="federation" accent />
         <StatCard title="Children" value={children.length} subtitle="nodes" />
         <StatCard title="Synced" value={synced} subtitle="ready" accent={!pending} danger={!!pending} />
@@ -1616,7 +1616,7 @@ function WebhooksPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-          <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Webhooks" value={items.length} subtitle="registered" />
         <StatCard title="Dead letter" value={dead.length} subtitle="needs retry" danger={!!dead.length} />
         <StatCard title="Health" value={dead.length ? 'Degraded' : 'Healthy'} subtitle="delivery" accent={!dead.length} danger={!!dead.length} />
@@ -1686,7 +1686,7 @@ function McpPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-          <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Tools" value={tools.length} subtitle="available" />
         <StatCard title="Transports" value={transports.length} subtitle="connections" />
         <StatCard title="Status" value={tools.length ? 'Ready' : 'Idle'} subtitle="server" accent />
@@ -1747,7 +1747,7 @@ function VaultPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-          <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Items" value={items.length} subtitle="stored" />
         <StatCard title="Encryption" value={data?.encrypted ? 'On' : 'Off'} subtitle={data?.encrypted ? 'AES-256-GCM' : 'plaintext'} accent={data?.encrypted} />
         <StatCard title="Sync" value="Manual" subtitle="pending backup" />
@@ -1799,7 +1799,7 @@ function EmbedPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-          <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Queued" value={data?.queued ?? 0} subtitle="pending chunks" />
         <StatCard title="Model" value={(data?.model || '—').split(':')[1] || '—'} subtitle={data?.model || 'local'} accent />
         <StatCard title="Dimensions" value={data?.dimensions ?? '—'} subtitle="vector size" />
@@ -1852,7 +1852,7 @@ function AuditPanel({ data }: { data?: any }) {
   return (
     <div className="fadein">
       <div className="bento-grid">
-          <div className="stats cols-3" style={{ marginBottom: 16 }}>
+        <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Events" value={events.length} subtitle="recorded" />
         <StatCard title="Window" value="7d" subtitle="retention" />
         <StatCard title="Source" value="Local" subtitle="append-only" accent />
@@ -2768,7 +2768,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
       ) : (
         <>
           <div className="bento-grid">
-            <div className="card">
+        <div className="card">
               <div className="section-header">
                 <h2>Telemetry</h2>
                 <span className="subtitle">Live app metrics</span>
@@ -2796,7 +2796,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
                 </div>
               </div>
             </div>
-            <div className="card">
+        <div className="card">
               <div className="section-header">
                 <h2>Learning progress</h2>
                 <span className="subtitle">Model improvement over time</span>
@@ -2807,7 +2807,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
                 <GaugeChart value={Math.min(100, ((data?.iterations || 0) / 200) * 100)} label="Iterations" />
               </div>
             </div>
-            <div className="card">
+        <div className="card">
               <div className="section-header">
                 <h2>Improvement suggestions</h2>
                 <span className="subtitle">Prioritized backlog</span>
@@ -2838,7 +2838,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
                 ))}
               </div>
             </div>
-            <div className="card">
+        <div className="card">
               <div className="section-header">
                 <h2>Self-improve agent</h2>
                 <span className="subtitle">Run bounded repo improvements</span>
@@ -2852,7 +2852,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
                 </div>
               </div>
             </div>
-            <div className="card">
+        <div className="card">
               <div className="section-header">
                 <h2>Feedback</h2>
                 <span className="subtitle">Community input</span>
@@ -2872,7 +2872,7 @@ function SelfImprovePanel({ data }: { data?: any }) {
                 ))}
               </div>
             </div>
-            <div className="card">
+        <div className="card">
               <div className="section-header">
                 <h2>Submit feedback</h2>
                 <span className="subtitle">Submit Feedback overview</span>
