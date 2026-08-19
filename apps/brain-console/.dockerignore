@@ -1,0 +1,27 @@
+# Dependencies are reinstalled inside the builder stage.
+node_modules
+**/node_modules
+
+# Version control
+.git
+.gitignore
+
+# Local logs
+logs
+*.log
+
+# Test / CI / dev tooling not required to build or run the server
+__tests__
+tests
+playwright.config.ts
+.husky
+.github
+.archive
+
+# Local build output (regenerated inside the container via build:client)
+dist
+
+# Agent / editor / OS noise
+.hermes-tmp.*
+.DS_Store
+*.swp

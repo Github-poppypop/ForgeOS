@@ -1,33 +1,46 @@
 # syntax=docker/dockerfile:1
-# Build context for this Dockerfile is the repository root (per docker-compose).
-# All COPY paths are relative to that root (e.g. apps/brain-console/...).
+#
+# Multi-stage build for the ForgeOS brain-console.
+# Build context is THIS directory (apps/brain-console); build/run from here:
+#   docker build -t forgeos-brain-console .
+#   docker compose up        # (docker-compose.yml lives alongside this file)
+#
+# Stage 1 (builder):  install deps and build the client bundle (dist/).
+# Stage 2 (runtime):  serve with `npx tsx server.ts` on node:20-alpine.
 
-# ---- Stage 1: build client ----
+# ---------------------------- Stage 1: builder ----------------------------
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install root app deps first (better layer caching)
-COPY apps/brain-console/package*.json ./
-RUN npm ci --no-audit --no-fund
+# Install root dependencies (this pulls dev deps too, including `tsx`,
+# which the runtime stage needs to execute server.ts).
+COPY package*.json ./
+RUN npm install --no-audit --no-fund
 
-# Bring in the full app source
-COPY apps/brain-console/ ./
+# Bring in the rest of the application source.
+COPY . .
 
-# Build the client bundle (assumes a src/client workspace with its own manifest)
-RUN cd src/client && npm ci --no-audit --no-fund && npm run build
+# Build the client bundle using the project's own script:
+#   build:client -> cd src/client && npm install && npm run build  (emits dist/)
+RUN npm run build:client
 
-# ---- Stage 2: runtime ----
+# ---------------------------- Stage 2: runtime ----------------------------
 FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=7777
 
-# Production-only dependencies
+# `tsx` is a devDependency (it executes server.ts at runtime), so we copy the
+# full node_modules from the builder rather than doing a production-only prune
+# (which would drop tsx and break `npx tsx server.ts` with no network access).
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
-RUN npm ci --omit=dev --no-audit --no-fund
 
-# Full app (built client + server source) from the builder stage
-COPY --from=builder /app/ ./
+# Built client assets + server source + app source (tsx compiles on the fly).
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server.ts ./server.ts
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/public ./public
 
 EXPOSE 7777
 CMD ["npx", "tsx", "server.ts"]
