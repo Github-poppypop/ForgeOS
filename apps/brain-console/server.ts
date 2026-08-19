@@ -134,8 +134,28 @@ function applySecurityHeaders(_req: express.Request, res: express.Response) {
 const LOG_DIR = path.join(ROOT, 'logs');
 try { fs.mkdirSync(LOG_DIR, { recursive: true }); } catch { /* best effort */ }
 
+const LOG_RETENTION_DAYS = 30;
+let lastLogPrune = 0;
+
+function pruneOldLogs(): void {
+  try {
+    const now = Date.now();
+    for (const name of fs.readdirSync(LOG_DIR)) {
+      if (!/^forgeos-\d{4}-\d{2}-\d{2}\.log$/.test(name)) continue;
+      const fp = path.join(LOG_DIR, name);
+      const ageDays = (now - fs.statSync(fp).mtimeMs) / 86400000;
+      if (ageDays > LOG_RETENTION_DAYS) fs.rmSync(fp, { force: true });
+    }
+  } catch { /* best effort */ }
+}
+
 function structuredLog(level: string, event: Record<string, unknown>) {
   const line = JSON.stringify({ ts: new Date().toISOString(), level, ...event }) + '\n';
+  const now = Date.now();
+  if (now - lastLogPrune > 3600000) {
+    lastLogPrune = now;
+    pruneOldLogs();
+  }
   try {
     const file = path.join(LOG_DIR, `forgeos-${new Date().toISOString().slice(0, 10)}.log`);
     fs.appendFileSync(file, line);
