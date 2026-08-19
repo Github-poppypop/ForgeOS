@@ -1427,6 +1427,9 @@ function MissionsPanel({ data }: { data?: any }) {
   const ownerCounts = missions.reduce<Record<string, number>>((acc, m) => { acc[m.owner] = (acc[m.owner] || 0) + 1; return acc; }, {});
   return (
     <div className="fadein">
+      <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportCsv('missions.csv', missions)}>Export CSV</button>
+      </div>
       <div className="bento-grid">
         <div className="stats cols-3" style={{ marginBottom: 16 }}>
           <StatCard title="Active" value={active} subtitle="in flight" accent={!!active} />
@@ -1762,6 +1765,9 @@ function VaultPanel({ data }: { data?: any }) {
   const items = (data?.items || []) as any[];
   return (
     <div className="fadein">
+      <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportCsv('vault.csv', items)}>Export CSV</button>
+      </div>
       <div className="bento-grid">
         <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Items" value={items.length} subtitle="stored" />
@@ -1867,6 +1873,10 @@ function AuditPanel({ data }: { data?: any }) {
   const events = (data?.events || []) as any[];
   return (
     <div className="fadein">
+      <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportCsv('audit.csv', events)}>Export CSV</button>
+        <span className="muted" style={{ marginLeft: 8 }}>{events.length} events</span>
+      </div>
       <div className="bento-grid">
         <div className="stats cols-3" style={{ marginBottom: 16 }}>
         <StatCard title="Events" value={events.length} subtitle="recorded" />
@@ -2131,6 +2141,7 @@ function SchemaPanel({ data }: { data?: any }) {
 }
 
 function MonitoringPanel({ data }: { data?: any }) {
+  const rateLimitApi = useApi<Record<string, any>>('/api/rate-limit/status');
   return (
     <div className="fadein">
       <div className="bento-grid">
@@ -2184,6 +2195,25 @@ function MonitoringPanel({ data }: { data?: any }) {
               { label: 'Traffic', done: false },
             ]} />
           </div>
+        </div>
+        <div className="card">
+          <div className="section-header">
+            <h2>Rate limiting</h2>
+            <span className="subtitle">Abuse protection</span>
+          </div>
+          {rateLimitApi.loading ? <Skeleton /> : rateLimitApi.error ? (
+            <div className="muted">unavailable</div>
+          ) : (() => {
+            const s = rateLimitApi.data || {};
+            return (
+              <div className="stack stack-sm">
+                <div className="row" style={{ justifyContent: 'space-between' }}><span>Enabled</span><span className={cn('pill', s.enabled ? 'ok' : 'warn')}>{s.enabled ? 'yes' : 'no'}</span></div>
+                <div className="row" style={{ justifyContent: 'space-between' }}><span>Limit</span><span className="mono">{s.max ?? '-'} / {Math.round((s.windowMs ?? 0) / 1000)}s</span></div>
+                <div className="row" style={{ justifyContent: 'space-between' }}><span>Total hits</span><span className="mono">{s.totalHits ?? 0}</span></div>
+                <div className="row" style={{ justifyContent: 'space-between' }}><span>Blocked</span><span className={cn('pill', (s.totalBlocked ?? 0) > 0 ? 'bad' : 'ok')}>{s.totalBlocked ?? 0}</span></div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
