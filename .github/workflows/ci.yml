@@ -18,7 +18,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Pinned to 24 to match the VPS runtime (node v24.x). Node 20 drifted
+          # from production and silently changed test-runner/native-TS behaviour.
+          node-version: 24
           cache: npm
           cache-dependency-path: apps/brain-console/package-lock.json
 
@@ -28,15 +30,73 @@ jobs:
       - name: Build client
         run: npm run build:client
 
-      - name: Run tests
-        run: npx tsx --test
+      # Real coverage. The previous pipeline ran `npx tsx --test` with no
+      # coverage flags and then uploaded an "Upload coverage placeholder"
+      # artifact from a coverage/ directory that was never generated
+      # (if-no-files-found: ignore made it a silent no-op).
+      - name: Run tests with coverage
+        run: |
+          mkdir -p coverage
+          npx tsx --test --experimental-test-coverage \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=lcov --test-reporter-destination=coverage/lcov.info
 
-      - name: Upload coverage placeholder
+      - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: apps/brain-console/coverage
+          path: apps/brain-console/coverage/lcov.info
+          if-no-files-found: error
+
+      - name: Upload coverage to Codecov (token-gated)
+        if: ${{ env.CODECOV_TOKEN != '' }}
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        uses: codecov/codecov-action@v4
+        with:
+          files: apps/brain-console/coverage/lcov.info
+          fail_ci_if_error: false
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: build-test
+    defaults:
+      run:
+        working-directory: apps/brain-console
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/brain-console/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build client
+        run: npm run build:client
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # playwright.config.ts owns the server lifecycle via its `webServer`
+      # block (boots `npx tsx server.ts`, waits on /api/health), so no manual
+      # start-and-sleep step is needed here.
+      - name: Run Playwright e2e
+        run: npx playwright test
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/brain-console/playwright-report
           if-no-files-found: ignore
 
   dependency-scan:
@@ -53,7 +113,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: apps/brain-console/package-lock.json
 
@@ -61,9 +121,10 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Install Snyk CLI
+        if: ${{ env.SNYK_TOKEN != '' }}
         run: npm i -g snyk
 
-      - name: Snyk test (token-optional)
+      - name: Snyk test (token-gated)
         if: ${{ env.SNYK_TOKEN != '' }}
         continue-on-error: true
         run: snyk test --severity-threshold=high
