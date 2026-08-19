@@ -2720,6 +2720,15 @@ function SelfImprovePanel({ data }: { data?: any }) {
   const learningRate = Math.round((data?.learning_rate || 0) * 100);
   const confidence = Math.round((data?.confidence || 0) * 100);
   const loading = !data;
+  const [agentStatus, setAgentStatus] = useState<string>('idle');
+  useEffect(() => {
+    let cancelled = false;
+    const client = createForgeOSClient({ baseUrl: window.location.origin });
+    client.getAgentRunStatus()
+      .then((s) => { if (!cancelled) setAgentStatus(s.status || 'idle'); })
+      .catch(() => { if (!cancelled) setAgentStatus('idle'); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const perf = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
@@ -2859,9 +2868,9 @@ function SelfImprovePanel({ data }: { data?: any }) {
               <div className="stack" style={{ marginTop: 10, gap: 10 }}>
                 <input className="input" placeholder="Improvement prompt..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
                 <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button className="btn primary" onClick={async () => { const client = createForgeOSClient({ baseUrl: window.location.origin }); await client.runAgentSelfImprove(feedback || 'Make one small safe improvement', ['apps/brain-console']); window.location.reload(); }}>Run agent</button>
-                  <button className="btn secondary" onClick={async () => { const client = createForgeOSClient({ baseUrl: window.location.origin }); const data = await client.getAgentRunStatus(); alert(data.status + '\n' + (data.latestLog || []).join('\n')); }}>Status</button>
-                  <span className="pill ok" style={{ marginLeft: 'auto' }}>idle</span>
+                  <button className="btn primary" onClick={async () => { setAgentStatus('running'); const client = createForgeOSClient({ baseUrl: window.location.origin }); try { await client.runAgentSelfImprove(feedback || 'Make one small safe improvement', ['apps/brain-console']); } catch {} window.location.reload(); }}>Run agent</button>
+                  <button className="btn secondary" onClick={async () => { const client = createForgeOSClient({ baseUrl: window.location.origin }); const s = await client.getAgentRunStatus(); setAgentStatus(s.status || 'idle'); alert(s.status + '\n' + (s.latestLog || []).join('\n')); }}>Status</button>
+                  <span className={cn('pill', agentStatus === 'ok' ? 'success' : agentStatus === 'running' ? 'warn' : 'ok')} style={{ marginLeft: 'auto' }}>{agentStatus}</span>
                 </div>
               </div>
             </div>
