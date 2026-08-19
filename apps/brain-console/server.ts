@@ -107,6 +107,17 @@ function applySecurityHeaders(_req: express.Request, res: express.Response) {
   res.setHeader('Content-Security-Policy', csp);
 }
 
+const LOG_DIR = path.join(ROOT, 'logs');
+try { fs.mkdirSync(LOG_DIR, { recursive: true }); } catch { /* best effort */ }
+
+function structuredLog(level: string, event: Record<string, unknown>) {
+  const line = JSON.stringify({ ts: new Date().toISOString(), level, ...event }) + '\n';
+  try {
+    const file = path.join(LOG_DIR, `forgeos-${new Date().toISOString().slice(0, 10)}.log`);
+    fs.appendFileSync(file, line);
+  } catch { /* never block the request on a log failure */ }
+}
+
 async function main() {
   const port = await ensureFreePort(PORT);
   const app = express();
@@ -116,6 +127,12 @@ async function main() {
 
   app.use((req, res, next) => {
     applySecurityHeaders(req, res);
+    const started = Date.now();
+    res.on('finish', () => {
+      const status = res.statusCode;
+      const event = { method: req.method, path: req.path, status, ms: Date.now() - started, ip: req.ip ?? '' };
+      structuredLog(status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info', { event: 'request', ...event });
+    });
     next();
   });
 
