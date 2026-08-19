@@ -643,10 +643,35 @@ export async function createRuntime() {
     if ("metadata" in updates && updates.metadata && typeof updates.metadata === "object") target.metadata = { ...target.metadata, ...updates.metadata };
     target.updated = new Date().toISOString().split("T")[0];
     persist();
+
+  router.post("/api/vault/bulk", express.json(), (req, res) => {
+    const body = (req.body ?? {}) as Dict;
+    const action = typeof body.action === "string" ? body.action : "";
+    const ids = Array.isArray(body.ids)
+      ? (body.ids as unknown[]).map((x) => Number(x)).filter((n) => Number.isFinite(n))
+      : [];
+    if (!ids.length) return badRequest(res, "ids must be a non-empty array of vault item ids");
+    const vault = ensureArray(store.vault) as Dict[];
+    if (action === "delete") {
+      const before = vault.length;
+      const kept = vault.filter((v) => !ids.includes(Number(v.id)));
+      const removed = before - kept.length;
+      store.vault = kept;
+      persist();
+      pushAudit("vault.bulk-delete", String(removed), "system");
+      return jsonResponse(res, { ok: true, deleted: removed });
+    }
+    if (action === "export") {
+      const selected = vault.filter((v) => ids.includes(Number(v.id)));
+      return jsonResponse(res, { ok: true, exported: selected.length, items: selected });
+    }
+    return badRequest(res, "action must be 'delete' or 'export'");
+  });
     pushAudit("vault.update", String(target.name), "system");
     return jsonResponse(res, { item: target });
   });
 
+  router.get("/api/__marker__", (_req, res) => { res.json({ ok: true, marker: "v2" }); });
   router.get("/api/embed", (_req, res) => {
     jsonResponse(res, store.embeddings);
   });

@@ -1,0 +1,10 @@
+{
+  "name": "ForgeOS Brain Console",
+  "short_name": "ForgeOS",
+  "description": "ForgeOS brain-console control plane",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0e14",
+  "theme_color": "#6A59C7",
+  "icons": []
+}
