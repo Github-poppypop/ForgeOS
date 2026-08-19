@@ -59,6 +59,7 @@ type Route =
   | '/schema'
   | '/config'
   | '/command'
+  | '/compliance'
   | '/governance'
   | '/monitoring'
   | '/workflows'
@@ -89,6 +90,7 @@ const ROUTES: Route[] = [
   '/schema',
   '/config',
   '/command',
+  '/compliance',
   '/governance',
   '/monitoring',
   '/workflows',
