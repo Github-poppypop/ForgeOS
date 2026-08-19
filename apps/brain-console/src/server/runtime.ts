@@ -60,10 +60,14 @@ function loadJson<T>(filePath: string, fallback: T): T {
 }
 
 function saveJson(filePath: string, data: unknown) {
-  ensureDataDir();
-  const tmp = `${filePath}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), "utf8");
-  fs.renameSync(tmp, filePath);
+  try {
+    ensureDataDir();
+    const tmp = `${filePath}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), "utf8");
+    fs.renameSync(tmp, filePath);
+  } catch (err) {
+    console.warn(`[store] persist failed for ${filePath}:`, err instanceof Error ? err.message : err);
+  }
 }
 
 function jsonResponse(res: express.Response, data: Dict) {
