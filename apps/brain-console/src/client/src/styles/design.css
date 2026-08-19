@@ -577,6 +577,8 @@ table.tbl th, table.tbl td { text-align: left; padding: 10px 12px; border-bottom
 table.tbl th { color: var(--text-dim); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; background: var(--surface-2); }
 table.tbl tbody tr:hover { background: var(--surface-2); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.skip-link { position: absolute; left: -9999px; top: 0; z-index: 1000; background: var(--accent); color: var(--on-accent); padding: 8px 14px; border-radius: var(--radius-sm); font-weight: 700; }
+.skip-link:focus { left: 12px; top: 12px; outline: 2px solid var(--on-accent); }
 .col-toggle { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
 .col-toggle .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--on-surface); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; cursor: pointer; user-select: none; }
 .col-toggle .chip input { accent-color: var(--accent); margin: 0; }

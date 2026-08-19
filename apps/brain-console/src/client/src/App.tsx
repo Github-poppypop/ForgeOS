@@ -3087,9 +3087,10 @@ export default function App() {
           <button className="btn secondary sm" aria-label="Open command palette" onClick={() => setCommandOpen(true)}>Command</button>
         </div>
       </header>
+      <a href="#main-canvas" className="skip-link">Skip to main content</a>
       <div className="app-shell bento-shell">
         <Sidebar route={route} onNavigate={navigate} />
-        <main className="main-canvas" aria-label="Main content">
+        <main id="main-canvas" tabIndex={-1} className="main-canvas" aria-label="Main content">
           <div className="page-header-row">
             <div>
               <h1 className="page-header">Mission Control</h1>
@@ -3108,7 +3109,7 @@ export default function App() {
           {routeError ? <div className="page-error" role="alert">{routeError}</div> : null}
         </main>
       </div>
-      <div className="status-bar">
+      <div className="status-bar" role="status" aria-live="polite">
         <span className="status-bar-title">ForgeOS Brain Console</span>
         <span className="status-bar-sep">•</span>
         <span className="status-bar-meta">React/Express</span>
