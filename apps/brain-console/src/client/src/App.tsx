@@ -2483,6 +2483,9 @@ function AppStorePanel({ data }: { data?: any }) {
   const statusCounts = apps.reduce<Record<string, number>>((acc, app) => { acc[app.status] = (acc[app.status] || 0) + 1; return acc; }, {});
   const owners = apps.reduce<Record<string, number>>((acc, app) => { acc[app.owner] = (acc[app.owner] || 0) + 1; return acc; }, {});
   const [form, setForm] = useState({ name: '', version: '0.1.0', owner: 'CTO', runtime: 'static', capabilities: 'display', port: 4173 });
+  const APP_COLUMNS = ['App', 'Version', 'Runtime', 'Port', 'Status', 'Health', 'Owner', 'Updated'] as const;
+  const [hiddenCols, setHiddenCols] = useState<Record<string, boolean>>({});
+  const toggleCol = (c: string) => setHiddenCols((p) => ({ ...p, [c]: !p[c] }));
   const templates = [
     { name: 'Display App', runtime: 'static', capabilities: 'display', port: 4173 },
     { name: 'API Service', runtime: 'node', capabilities: 'api', port: 3003 },
@@ -2562,26 +2565,34 @@ function AppStorePanel({ data }: { data?: any }) {
             <span className="subtitle">Compatibility Matrix overview</span>
           </div>
           <div className="table-wrap" style={{ marginTop: 10 }}>
+            <div className="col-toggle" role="group" aria-label="Toggle table columns">
+              {APP_COLUMNS.map((c) => (
+                <label key={c} className={cn('chip', hiddenCols[c] && 'off')}>
+                  <input type="checkbox" checked={!hiddenCols[c]} onChange={() => toggleCol(c)} aria-label={`Show ${c} column`} />
+                  {c}
+                </label>
+              ))}
+            </div>
             <table className="tbl">
               <thead>
-                <tr><th>App</th><th>Version</th><th>Runtime</th><th>Port</th><th>Status</th><th>Health</th><th>Owner</th><th>Updated</th></tr>
+                <tr><th data-col="App" hidden={hiddenCols['App']}>App</th><th data-col="Version" hidden={hiddenCols['Version']}>Version</th><th data-col="Runtime" hidden={hiddenCols['Runtime']}>Runtime</th><th data-col="Port" hidden={hiddenCols['Port']}>Port</th><th data-col="Status" hidden={hiddenCols['Status']}>Status</th><th data-col="Health" hidden={hiddenCols['Health']}>Health</th><th data-col="Owner" hidden={hiddenCols['Owner']}>Owner</th><th data-col="Updated" hidden={hiddenCols['Updated']}>Updated</th></tr>
               </thead>
               <tbody>
                 {apps.map((a) => (
                   <tr key={a.id}>
-                    <td className="mono">{a.id}</td>
-                    <td><span className="pill">{a.version}</span></td>
-                    <td><span className="pill">{a.runtime}</span></td>
-                    <td className="mono">{a.port || '—'}</td>
-                    <td><span className={cn('tag', a.status === 'running' ? 'success' : a.status === 'stable' ? 'info' : 'warn')}>{a.status}</span></td>
-                    <td>
+                    <td className="mono" data-col="App" hidden={hiddenCols['App']}>{a.id}</td>
+                    <td data-col="Version" hidden={hiddenCols['Version']}><span className="pill">{a.version}</span></td>
+                    <td data-col="Runtime" hidden={hiddenCols['Runtime']}><span className="pill">{a.runtime}</span></td>
+                    <td className="mono" data-col="Port" hidden={hiddenCols['Port']}>{a.port || '—'}</td>
+                    <td data-col="Status" hidden={hiddenCols['Status']}><span className={cn('tag', a.status === 'running' ? 'success' : a.status === 'stable' ? 'info' : 'warn')}>{a.status}</span></td>
+                    <td data-col="Health" hidden={hiddenCols['Health']}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <input type="range" min="0" max="100" value={a.health} onChange={(e) => updateHealth(a.id, Number(e.target.value))} />
                         <span className="mono">{a.health}%</span>
                       </div>
                     </td>
-                    <td>{a.owner}</td>
-                    <td className="mono">{a.updated}</td>
+                    <td data-col="Owner" hidden={hiddenCols['Owner']}>{a.owner}</td>
+                    <td className="mono" data-col="Updated" hidden={hiddenCols['Updated']}>{a.updated}</td>
                   </tr>
                 ))}
               </tbody>
