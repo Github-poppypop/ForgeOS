@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
+import { rateLimit, getRateLimitSnapshot } from "./ratelimit";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
@@ -309,6 +310,11 @@ function sanitizeEntity<T extends Dict>(entity: T): T {
 
 export function createRuntime() {
   const router = express.Router();
+
+  // In-memory rate limiting for public, unauthenticated mutation endpoints.
+  router.use("/api/feedback", rateLimit());
+  router.use("/api/telemetry", rateLimit());
+  router.use("/api/self-improve/learning-loop", rateLimit());
   const store = loadStore();
   let nextId = Date.now();
 
@@ -1115,6 +1121,10 @@ export function createRuntime() {
 
   router.get("/api/self-improve", (_req, res) => {
     jsonResponse(res, { ...store.selfImprove, feedback: [...store.selfImprove.feedback] });
+  });
+
+  router.get("/api/rate-limit/status", (_req, res) => {
+    jsonResponse(res, getRateLimitSnapshot());
   });
 
   router.post("/api/feedback", express.json(), (req, res) => {
