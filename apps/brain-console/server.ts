@@ -60,8 +60,30 @@ function resolveAsset(p: string): { path?: string; headers?: Record<string, stri
 async function killPort(port: number): Promise<boolean> {
   try {
     const { execSync } = await import("node:child_process");
-    const cmd = `powershell -Command "Stop-Process -Id (Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue).OwningProcess -Force -ErrorAction SilentlyContinue"`;
-    execSync(cmd, { encoding: "utf8", timeout: 8000, stdio: ["pipe", "pipe", "pipe"] });
+    if (process.platform === "win32") {
+      const cmd = `powershell -Command "Stop-Process -Id (Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue).OwningProcess -Force -ErrorAction SilentlyContinue"`;
+      execSync(cmd, { encoding: "utf8", timeout: 8000, stdio: ["pipe", "pipe", "pipe"] });
+    } else {
+      // Linux/macOS: free the port via fuser, falling back to parsing `ss`.
+      // (The previous PowerShell-only path was a silent no-op off Windows and
+      // caused pm2 restart crash-loops because the port could never be freed.)
+      try {
+        execSync(`fuser -k ${port}/tcp`, { encoding: "utf8", timeout: 8000, stdio: ["pipe", "pipe", "pipe"] });
+      } catch {
+        /* fuser may be absent or find nothing — fall through to ss-based kill */
+      }
+      try {
+        const out = execSync(`ss -ltnp 2>/dev/null | grep ":${port} " || true`, {
+          encoding: "utf8",
+          timeout: 8000,
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+        const m = /pid=(\d+)/.exec(out);
+        if (m) execSync(`kill -9 ${m[1]}`, { encoding: "utf8", timeout: 8000, stdio: ["pipe", "pipe", "pipe"] });
+      } catch {
+        /* no listener found — nothing to kill */
+      }
+    }
     await new Promise((r) => setTimeout(r, 1500));
     return true;
   } catch {
