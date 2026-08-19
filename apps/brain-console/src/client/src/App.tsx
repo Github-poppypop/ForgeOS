@@ -1,6 +1,7 @@
 import { Component, useEffect, useMemo, useCallback, useState } from 'react';
 import { createForgeOSClient } from '../../../../sdk/src/index.ts';
 import { exportCsv } from './panelkit';
+import { OfflineIndicator } from './offline';
 
 if (typeof window !== 'undefined') {
   window.addEventListener('load', async () => {
@@ -3091,6 +3092,7 @@ export default function App() {
         </div>
         <div className="topnav-actions">
           <span className="pill" data-tooltip="Console port">7777</span>
+          <OfflineIndicator />
           <div className="cmd-pill" data-tooltip="Open command palette" onClick={() => setCommandOpen(true)}>
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>search</span>
             CMD+K
