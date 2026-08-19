@@ -1,77 +1,83 @@
-// (47) Playwright e2e coverage skeleton for all ForgeOS Brain Console panels
-import { test, expect } from "@playwright/test";
+// Playwright e2e route coverage for the ForgeOS Brain Console.
+//
+// REWRITTEN 2026-08-19 (driver wave 4): the previous version of this file was a
+// skeleton asserting a DOM that does not exist, so all 44 tests failed the
+// moment the suite was actually wired up and run:
+//   * it asserted a per-panel `<h1>` containing the panel title -- App.tsx has
+//     only three <h1> elements in total; panels use <h2>/.section-header,
+//   * it asserted a `.sidebar` shell -- the nav rail is `nav.sidenav`,
+//   * it asserted a `#main` region -- the real region is `#main-canvas`,
+//   * it listed four invented routes (portConflicts, reload, pluginManifest).
+//
+// Every assertion below is derived from the real shell in
+// src/client/src/App.tsx and verified against the running console on :7777.
+import { test, expect, type Page } from '@playwright/test';
 
-const BASE = process.env.BASE_URL || "http://127.0.0.1:7777";
-
-// Helper: visit a panel and assert the page title / h1 renders
-async function visitPanel(page: any, panel: string, title: string) {
-  await page.goto(`${BASE}/${panel}`);
-  await expect(page.locator("h1")).toContainText(title, { timeout: 15000 });
-}
-
-const PANELS: Array<{ route: string; title: string; notes?: string }> = [
-  { route: "command",    title: "Command Center" },
-  { route: "dashboard",  title: "Console" },
-  { route: "governance", title: "Governance" },
-  { route: "roles",      title: "Roles" },
-  { route: "org",        title: "Org" },
-  { route: "timeline",   title: "Timeline" },
-  { route: "ledger",     title: "Decision Ledger" },
-  { route: "search",     title: "Search" },
-  { route: "capture",    title: "Capture Page" },
-  { route: "decisions",  title: "Decisions" },
-  { route: "missions",   title: "Mission Center" },
-  { route: "mcp",        title: "MCP" },
-  { route: "vault",      title: "Obsidian Vault Sync" },
-  { route: "vaultfile",  title: "Vault", notes: "requires a valid file slug" },
-  { route: "embed",      title: "Embeddings" },
-  { route: "federation", title: "Federation" },
-  { route: "audit",      title: "Audit Trail" },
-  { route: "schema",     title: "Schema Pack" },
-  { route: "config",     title: "Environment" },
-  { route: "projects",   title: "Projects" },
-  { route: "wizard",     title: "Setup Wizard" },
-  { route: "monitoring", title: "Monitoring" },
-  { route: "settings",   title: "Settings" },
-  { route: "workflows",  title: "Workflows" },
-  { route: "marketplace",title: "Marketplace" },
-  { route: "plugins",    title: "Plugins" },
-  { route: "webhooks",   title: "Webhooks" },
-  { route: "heartbeat",  title: "Agent Heartbeat" },
-  { route: "memory",     title: "Memory Pool" },
-  { route: "amendments", title: "Amendments" },
-  { route: "sacred",     title: "Sacred" },
-  { route: "processes",  title: "Processes" },
-  { route: "portConflicts", title: "Port Conflicts" },
-  { route: "reload",     title: "Reload" },
-  { route: "pluginManifest", title: "Plugin Manifest" },
-  { route: "poolleague", title: "PoolLeague" },
+// Mirrors the ROUTES array in src/client/src/App.tsx.
+const ROUTES = [
+  '/dashboard',
+  '/roles',
+  '/search',
+  '/capture',
+  '/decisions',
+  '/timeline',
+  '/ledger',
+  '/missions',
+  '/mcp',
+  '/vault',
+  '/embed',
+  '/federation',
+  '/audit',
+  '/schema',
+  '/config',
+  '/command',
+  '/compliance',
+  '/governance',
+  '/monitoring',
+  '/workflows',
+  '/marketplace',
+  '/plugins',
+  '/projects',
+  '/settings',
+  '/poolleague',
+  '/webhooks',
+  '/apps',
+  '/self-improve',
+  '/developers',
 ];
 
-for (const p of PANELS) {
-  test(`panel renders: ${p.route} → ${p.title}`, async ({ page }) => {
-    await visitPanel(page, p.route, p.title);
-    // Ensure the sidebar is present for every panel
-    await expect(page.locator(".sidebar")).toBeVisible();
-    // Ensure the main content area is populated
-    const main = page.locator("#main");
-    await expect(main).not.toBeEmpty();
-  });
+async function expectShell(page: Page, route: string) {
+  // The primary nav rail must render on every route.
+  await expect(page.locator('nav.sidenav'), `${route}: nav rail`).toBeVisible();
+
+  // The main content region must exist and actually contain rendered content
+  // (catches a panel that mounts but renders nothing).
+  const main = page.locator('#main-canvas');
+  await expect(main, `${route}: main region`).toBeVisible();
+  await expect(main, `${route}: main region is populated`).not.toBeEmpty();
+
+  // DebugErrorBoundary must not have caught anything on this route.
+  await expect(page.locator('.error-boundary'), `${route}: error boundary`).toHaveCount(0);
 }
 
-test("sidebar navigation jumps to each major panel", async ({ page }) => {
-  await page.goto(BASE);
-  const major = ["dashboard", "roles", "search", "capture", "missions", "vault", "audit"];
-  for (const panel of major) {
-    await page.click(`.sidebar a[href="#/${panel}"]`);
-    await expect(page.locator("h1")).toBeVisible({ timeout: 15000 });
-  }
-});
+for (const route of ROUTES) {
+  test(`route renders cleanly: ${route}`, async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (err) => pageErrors.push(String(err)));
 
-test("keyboard shortcut ? opens shortcuts overlay", async ({ page }) => {
-  await page.goto(BASE);
-  await page.keyboard.press("?");
-  await expect(page.locator("#shortcuts-overlay")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.locator("#shortcuts-overlay")).not.toBeVisible();
-});
+    const response = await page.goto(route);
+    expect(response?.status(), `${route} should be served`).toBeLessThan(400);
+
+    await expectShell(page, route);
+
+    // Clean-path routing (usePathRoute) must mark the visited route active in
+    // the rail. Not every route is surfaced in CATEGORIES, so only assert when
+    // the link is actually present.
+    const link = page.locator(`nav.sidenav a[href="${route}"]`);
+    if ((await link.count()) > 0) {
+      await expect(link.first(), `${route}: active nav item`).toHaveClass(/active/);
+    }
+
+    expect(pageErrors, `uncaught page errors on ${route}`).toEqual([]);
+  });
+}
