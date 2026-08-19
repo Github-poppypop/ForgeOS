@@ -9,6 +9,7 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+  - Brain Console "Whats New" panel (/feature/changelog) + /api/changelog endpoint parsing CHANGELOG.md into structured releases.
 - Phase 10 — Documentation & community
   - Full OpenAPI 3.0 spec (`apps/brain-console/openapi.json`) with schemas,
     examples, and security definitions for all `/api/*` routes.
