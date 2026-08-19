@@ -3,6 +3,7 @@ import { createForgeOSClient } from '../../../../sdk/src/index.ts';
 import { exportCsv } from './panelkit';
 import { OfflineIndicator } from './offline';
 import { isFeatureRoute, renderFeature, FEATURE_CATEGORIES } from './features/dispatch';
+import RateLimitDashboard from './RateLimitDashboard';
 
 if (typeof window !== 'undefined') {
   window.addEventListener('load', async () => {
@@ -1540,6 +1541,7 @@ function CompliancePanel({ data }: { data?: any }) {
           )) : <EmptyState title="No policies yet" body="Policies will appear here after governance setup." />}
         </div>
       </div>
+      <RateLimitDashboard />
       <div className="card">
           <div className="section-header">
           <h2>Load</h2>

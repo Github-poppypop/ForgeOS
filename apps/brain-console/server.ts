@@ -5,6 +5,8 @@ import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { match } from "path-to-regexp";
 import { createRuntime } from "./src/server/runtime.js";
+import { createSSEHub } from "./src/server/sse.js";
+import { exportAudit } from "./src/server/auditExport.js";
 
 const PORT = Number(process.env.PORT ?? 7777);
 const ROOT = path.resolve(fileURLToPath(new URL("server.ts", import.meta.url)), "..");
@@ -149,9 +151,11 @@ function alertError(event: Record<string, unknown>) {
 async function main() {
   const port = await ensureFreePort(PORT);
   const app = express();
+  const sseHub = createSSEHub();
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  sseHub.register(app, "/api/stream");
 
   app.use((req, res, next) => {
     applySecurityHeaders(req, res);
@@ -160,6 +164,7 @@ async function main() {
       const status = res.statusCode;
       const event = { method: req.method, path: req.path, status, ms: Date.now() - started, ip: req.ip ?? '' };
       structuredLog(status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info', { event: 'request', ...event });
+      sseHub.broadcast('request', event);
     });
     next();
   });
@@ -193,6 +198,19 @@ async function main() {
   }
 
   app.use(await createRuntime());
+
+  // Audit log export (SQL / JSON)
+  app.get("/api/audit/export", async (req, res) => {
+    try {
+      const fmt = req.query.format === "sql" ? "sql" : "json";
+      const out = await exportAudit(fmt, LOG_DIR);
+      res.setHeader("content-type", fmt === "sql" ? "application/sql; charset=utf-8" : "application/json; charset=utf-8");
+      res.setHeader("content-disposition", `attachment; filename="audit.${fmt}"`);
+      res.send(out);
+    } catch (e) {
+      res.status(500).json({ error: String(e) });
+    }
+  });
 
   app.use((req, res, next) => {
     if (viteInstance) return next();
