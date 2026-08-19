@@ -87,12 +87,37 @@ async function ensureFreePort(port: number): Promise<number> {
   return port;
 }
 
+function applySecurityHeaders(_req: express.Request, res: express.Response) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; ');
+  res.setHeader('Content-Security-Policy', csp);
+}
+
 async function main() {
   const port = await ensureFreePort(PORT);
   const app = express();
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+
+  app.use((req, res, next) => {
+    applySecurityHeaders(req, res);
+    next();
+  });
 
   app.use((req, res, next) => {
     console.log(`[react-express] ${req.method} ${req.path}`);
