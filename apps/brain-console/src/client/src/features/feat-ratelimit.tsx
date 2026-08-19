@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import RateLimitDashboard from '../../../src/client/src/RateLimitDashboard';
+import RateLimitDashboard from '../RateLimitDashboard';
 
 export default {
   path: '/feature/ratelimit-dash',
