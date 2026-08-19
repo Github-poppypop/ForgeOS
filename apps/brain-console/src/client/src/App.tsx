@@ -1887,7 +1887,7 @@ function AuditPanel({ data }: { data?: any }) {
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <div>
                 <div className="h3">{ev.action || ev.type || 'event'}</div>
-                <p className="muted mono">{ev.actor || 'system'} • {ev.when || ev.date || '—'}</p>
+                <p className="muted mono">{ev.actor || 'system'} • {ev.ts || ev.when || ev.date || '—'}</p>
               </div>
               <span className={cn('pill', ev.level === 'error' ? 'bad' : ev.level === 'warn' ? 'warn' : 'ok')}>{ev.level || 'info'}</span>
             </div>
@@ -2998,7 +2998,8 @@ export default function App() {
   const poolLeagueApi = useApi('/api/poolleague');
   const schemaApi = useApi('/api/schema');
   const governanceApi = useApi('/api/governance');
-  const apiErrors = [statusApi, rolesApi, searchApi, missionsApi, timelineApi, complianceApi, federationApi, webhooksApi, ledgerApi, appsApi, developersApi, projectsApi, marketplaceApi, pluginsApi, monitoringApi, workflowsApi, configApi, settingsApi, selfImproveApi, embedApi, vaultApi, mcpApi, poolLeagueApi, schemaApi, governanceApi];
+  const auditApi = useApi('/api/audit');
+  const apiErrors = [statusApi, rolesApi, searchApi, missionsApi, timelineApi, complianceApi, federationApi, webhooksApi, ledgerApi, appsApi, developersApi, projectsApi, marketplaceApi, pluginsApi, monitoringApi, workflowsApi, configApi, settingsApi, selfImproveApi, embedApi, vaultApi, mcpApi, poolLeagueApi, schemaApi, governanceApi, auditApi];
   const routeError = apiErrors.find((api) => api.error)?.error || null;
   void apiErrors;
 
@@ -3043,7 +3044,7 @@ export default function App() {
       case '/embed':
         return <EmbedPanel data={embedApi.data} />;
       case '/audit':
-        return <AuditPanel />;
+        return <AuditPanel data={auditApi.data} />;
       case '/schema':
         return <SchemaPanel data={schemaApi.data} />;
       case '/config':
