@@ -1333,7 +1333,7 @@ export async function createRuntime() {
     return jsonResponse(res, { ok: true, backup: backupPath });
   });
 
-  router.get("/api/openapi", (_req, res) => {
+  function buildOpenApiSpec(): Dict {
     const paths: Dict = {};
     router.stack
       .filter((l) => l.route)
@@ -1344,12 +1344,101 @@ export async function createRuntime() {
           (paths[path] ||= {})[method.toLowerCase()] = { summary: `${method} ${path}`, responses: { "200": { description: "OK" } } };
         });
       });
-    const schema = {
+    return {
       openapi: "3.0.0",
       info: { title: "ForgeOS Brain Console API", version: "1.0.0" },
       paths,
     };
-    jsonResponse(res, schema);
+  }
+
+  function escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function renderApiDocsHtml(spec: Dict): string {
+    const specPaths = (spec.paths ?? {}) as Record<string, Dict>;
+    const sortedPaths = Object.keys(specPaths).sort((a, b) => a.localeCompare(b));
+    const methodOrder = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
+    const rows = sortedPaths
+      .map((p) => {
+        const methods = Object.keys(specPaths[p]).sort(
+          (a, b) => methodOrder.indexOf(a.toUpperCase()) - methodOrder.indexOf(b.toUpperCase())
+        );
+        return methods
+          .map((m) => {
+            const op = (specPaths[p][m] ?? {}) as Dict;
+            const summary = sanitizeString(op.summary, `${m.toUpperCase()} ${p}`);
+            return `        <tr>
+          <td><span class="method method-${m.toLowerCase()}">${escapeHtml(m.toUpperCase())}</span></td>
+          <td class="path"><code>${escapeHtml(p)}</code></td>
+          <td class="summary">${escapeHtml(summary)}</td>
+        </tr>`;
+          })
+          .join("\n");
+      })
+      .join("\n");
+    const info = (spec.info ?? {}) as Dict;
+    const title = sanitizeString(info.title, "API");
+    const version = sanitizeString(info.version, "");
+    return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)} — Docs</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1115; color: #e6e8ec; line-height: 1.5; }
+      .wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+      h1 { font-size: 24px; margin: 0 0 4px; }
+      .version { color: #8a93a3; font-size: 13px; margin-bottom: 24px; }
+      a.back { color: #6ea8fe; text-decoration: none; font-size: 13px; }
+      a.back:hover { text-decoration: underline; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; background: #151821; border: 1px solid #232838; border-radius: 10px; overflow: hidden; }
+      th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #8a93a3; padding: 12px 14px; border-bottom: 1px solid #232838; background: #11141c; }
+      td { padding: 12px 14px; border-bottom: 1px solid #1c2130; vertical-align: top; font-size: 14px; }
+      tr:last-child td { border-bottom: none; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #0c0f16; padding: 2px 6px; border-radius: 5px; font-size: 13px; color: #d7e3ff; }
+      .path code { color: #cfe3ff; }
+      .summary { color: #c2c8d2; }
+      .method { display: inline-block; min-width: 56px; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .03em; padding: 3px 8px; border-radius: 6px; }
+      .method-get { background: #16331f; color: #6ee7a0; border: 1px solid #1f5c37; }
+      .method-post { background: #14304a; color: #7cc0ff; border: 1px solid #1f507e; }
+      .method-put { background: #33260f; color: #f2c177; border: 1px solid #5c441f; }
+      .method-patch { background: #2c1640; color: #d09bff; border: 1px solid #4d2a6e; }
+      .method-delete { background: #3a1414; color: #ff8d8d; border: 1px solid #6e2222; }
+      .method-options { background: #1c2230; color: #aab3c2; border: 1px solid #2f3850; }
+      .count { color: #8a93a3; font-size: 13px; margin-top: 16px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>${escapeHtml(title)}</h1>
+      <div class="version">${escapeHtml(version ? `v${version}` : "")}<a class="back" href="/api/openapi" style="margin-left:16px;">View raw OpenAPI JSON</a></div>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Summary</th></tr></thead>
+        <tbody>
+${rows}
+        </tbody>
+      </table>
+      <div class="count">${String(sortedPaths.length)} path${sortedPaths.length === 1 ? "" : "s"} documented.</div>
+    </div>
+  </body>
+</html>`;
+  }
+
+  router.get("/api/openapi", (_req, res) => {
+    jsonResponse(res, buildOpenApiSpec());
+  });
+
+  router.get("/api-docs", (_req, res) => {
+    res.type("text/html; charset=utf-8").send(renderApiDocsHtml(buildOpenApiSpec()));
   });
 
   router.post("/api/hotreload", express.json(), (req, res) => {
