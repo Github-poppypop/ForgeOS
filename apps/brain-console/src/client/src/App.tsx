@@ -2,6 +2,7 @@ import { Component, useEffect, useMemo, useCallback, useState } from 'react';
 import { createForgeOSClient } from '../../../../sdk/src/index.ts';
 import { exportCsv } from './panelkit';
 import { OfflineIndicator } from './offline';
+import { isFeatureRoute, renderFeature, FEATURE_CATEGORIES } from './features/dispatch';
 
 if (typeof window !== 'undefined') {
   window.addEventListener('load', async () => {
@@ -153,6 +154,7 @@ const CATEGORIES = [
   { title: 'Governance', items: ['/missions', '/federation', '/audit', '/schema', '/governance', '/compliance', '/webhooks'] },
   { title: 'Platform', items: ['/mcp', '/plugins', '/marketplace', '/workflows', '/monitoring', '/projects', '/poolleague'] },
   { title: 'System', items: ['/config', '/command', '/settings', '/self-improve'] },
+  ...FEATURE_CATEGORIES,
 ];
 
 function usePathRoute() {
@@ -3048,6 +3050,7 @@ export default function App() {
       const slug = route.slice('/page/'.length);
       return <PagePanel slug={slug} />;
     }
+    if (isFeatureRoute(route)) return renderFeature(route);
     switch (route) {
       case '/dashboard':
         return <Dashboard status={statusApi.data} roles={rolesApi.data} />;

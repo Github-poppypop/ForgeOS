@@ -8,7 +8,7 @@ describe('apps/brain-console/src/server/runtime', () => {
   });
 
   it('creates a router with standard express middleware', async () => {
-    const runtime = createRuntime();
+    const runtime = await createRuntime();
     assert.ok(runtime, 'runtime middleware is defined');
   });
 });

@@ -4,10 +4,10 @@ import { createRuntime } from "../runtime";
 import express from "express";
 
 describe("apps/brain-console/src/server/runtime extended routes", () => {
-  const buildApp = () => {
+  const buildApp = async () => {
     const app = express();
     app.use(express.json());
-    app.use(createRuntime());
+    app.use(await createRuntime());
     return app;
   };
 
@@ -64,12 +64,12 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("creates a router with standard express middleware", async () => {
-    const runtime = createRuntime();
+    const runtime = await createRuntime();
     assert.ok(runtime, "runtime middleware is defined");
   });
 
   it("serves request logs from /api/logs", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "GET", "/api/logs");
     assert.strictEqual(status, 200);
     assert.ok(Array.isArray(body.logs));
@@ -77,7 +77,7 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("serves derived metrics from /api/metrics", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "GET", "/api/metrics");
     assert.strictEqual(status, 200);
     assert.ok(typeof body.total === "number");
@@ -87,7 +87,7 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("authenticates via /api/auth/login", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "POST", "/api/auth/login", {
       username: "test",
       password: "test",
@@ -99,14 +99,14 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("rejects login when fields are missing", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "POST", "/api/auth/login", {});
     assert.strictEqual(status, 400);
     assert.strictEqual(body.error, "username and password required");
   });
 
   it("returns store state from /api/state", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "GET", "/api/state");
     assert.strictEqual(status, 200);
     assert.ok(body.store);
@@ -114,7 +114,7 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("restores with verified-payload guard", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "POST", "/api/restore", {});
     assert.strictEqual(status, 200);
     assert.strictEqual(body.ok, true);
@@ -122,7 +122,7 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("captures pages in batch via /api/capture/batch", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "POST", "/api/capture/batch", {
       items: [
         { slug: "batch/a", type: "note", title: "A", body: "a-body" },
@@ -136,7 +136,7 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("imports json payloads via /api/import", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "POST", "/api/import", { format: "json" });
     assert.strictEqual(status, 200);
     assert.strictEqual(body.ok, true);
@@ -144,14 +144,14 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("rejects unsupported import format", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "POST", "/api/import", { format: "xml" });
     assert.strictEqual(status, 400);
     assert.strictEqual(body.error, "unsupported import format");
   });
 
   it("exports a page via /api/export/:slug", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "GET", "/api/export/types/roles");
     assert.strictEqual(status, 200);
     assert.strictEqual(body.export, "json");
@@ -160,14 +160,14 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("returns 404 when exported page is missing", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "GET", "/api/export/missing-slug");
     assert.strictEqual(status, 404);
     assert.strictEqual(body.error, "page not found");
   });
 
   it("returns remote federation nodes via /api/federation/remote", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "GET", "/api/federation/remote");
     assert.strictEqual(status, 200);
     assert.strictEqual(body.root, "ForgeOS");
@@ -176,7 +176,7 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("returns agent workflows via /api/agent/:id/workflows", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "GET", "/api/agent/cto/workflows");
     assert.strictEqual(status, 200);
     assert.strictEqual(body.agent, "cto");
@@ -184,7 +184,7 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("returns agent messages via /api/agent/:id/messages", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "GET", "/api/agent/cto/messages");
     assert.strictEqual(status, 200);
     assert.strictEqual(body.agent, "cto");
@@ -192,7 +192,7 @@ describe("apps/brain-console/src/server/runtime extended routes", () => {
   });
 
   it("returns agent metrics via /api/agent/:id/metrics", async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const { status, body } = await request(app, "GET", "/api/agent/cto/metrics");
     assert.strictEqual(status, 200);
     assert.strictEqual(body.agent, "cto");

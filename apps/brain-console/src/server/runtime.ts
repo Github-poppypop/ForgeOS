@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { rateLimit, getRateLimitSnapshot } from "./ratelimit";
+import { loadServerFeatures } from "./features/loader";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
@@ -308,8 +309,9 @@ function sanitizeEntity<T extends Dict>(entity: T): T {
   return out as T;
 }
 
-export function createRuntime() {
+export async function createRuntime() {
   const router = express.Router();
+  await loadServerFeatures(router);
 
   // In-memory rate limiting for public, unauthenticated mutation endpoints.
   router.use("/api/feedback", rateLimit());

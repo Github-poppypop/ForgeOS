@@ -192,7 +192,7 @@ async function main() {
     }
   }
 
-  app.use(createRuntime());
+  app.use(await createRuntime());
 
   app.use((req, res, next) => {
     if (viteInstance) return next();
