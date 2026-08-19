@@ -208,6 +208,11 @@ export default function registerWebhooks(router: Router): void {
       res.status(404).json({ ok: false, error: 'webhook not found' });
       return;
     }
+    list.splice(idx, 1);
+    save(list);
+    res.status(200).json({ ok: true });
+  });
+
   // Publish a platform event so subscribers receive a POST. This is the
   // integration point that closes the "registered webhooks never fire" gap;
   // any producer can call publishWebhookEvent(type, payload) equivalently.
@@ -231,10 +236,5 @@ export default function registerWebhooks(router: Router): void {
   // actually reaches an endpoint.
   router.post('/api/webhooks/echo', express.json(), (req, res) => {
     res.status(200).json({ ok: true, received: true, body: req.body ?? null, ts: Date.now() });
-  });
-
-    list.splice(idx, 1);
-    save(list);
-    res.status(200).json({ ok: true });
   });
 }
