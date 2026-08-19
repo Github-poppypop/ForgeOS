@@ -979,3 +979,36 @@ ul.mono { list-style: none; padding: 0; }
 .donut-center { fill: var(--on-surface); font-family: var(--mono); font-size: 18px; font-weight: 700; }
 .gauge-label { fill: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
 .gauge-ticks { stroke: var(--border); stroke-width: 1; }
+
+/* Batch B (panelkit.tsx) — panel toolbar, buttons, context menu, skeletons */
+.toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn {
+  appearance: none; border: 1px solid var(--border); background: var(--surface-3);
+  color: var(--text); padding: 8px 14px; border-radius: 10px; font-size: 13px;
+  font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s, transform .05s;
+}
+.btn:hover { background: var(--surface-4); border-color: var(--border-strong); }
+.btn:active { transform: translateY(1px); }
+.btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+.btn-ghost { background: transparent; }
+.btn-ghost:hover { background: var(--surface-3); }
+.btn-primary { background: var(--primary-press); border-color: var(--primary-press); color: #06101f; }
+.btn-primary:hover { background: var(--primary); }
+.ctx-menu {
+  position: fixed; z-index: 1000; min-width: 160px; padding: 6px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45);
+}
+.ctx-item {
+  display: block; width: 100%; text-align: left; background: transparent; border: 0;
+  color: var(--text); padding: 8px 10px; border-radius: 8px; font-size: 13px; cursor: pointer;
+}
+.ctx-item:hover { background: var(--surface-4); }
+.ctx-item.danger { color: var(--danger); }
+.ctx-item.danger:hover { background: var(--danger-dim); }
+.table-skeleton { display: flex; flex-direction: column; gap: 8px; }
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-4) 37%, var(--surface-3) 63%);
+  background-size: 400% 100%; animation: skel 1.3s ease infinite; border-radius: 8px;
+}
+@keyframes skel { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }

@@ -1,5 +1,6 @@
 import { Component, useEffect, useMemo, useCallback, useState } from 'react';
 import { createForgeOSClient } from '../../../../sdk/src/index.ts';
+import { exportCsv } from './panelkit';
 
 if (typeof window !== 'undefined') {
   window.addEventListener('load', async () => {
@@ -1379,6 +1380,9 @@ function LedgerPanel({ data }: { data?: any }) {
         </div>
       </div>
       <div className="card">
+        <div className="toolbar" style={{ justifyContent: 'flex-end', marginBottom: 12 }}>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportCsv('ledger.csv', entries)}>Export CSV</button>
+        </div>
         <div className="table-wrap">
           <table className="tbl">
             <thead><tr><th>Date</th><th>Title</th><th>Type</th><th>Mission</th><th>Owner</th><th>Outcome</th></tr></thead>
