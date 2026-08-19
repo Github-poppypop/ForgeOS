@@ -105,6 +105,7 @@ describe("apps/brain-console/src/server/runtime user-facing route contract", () 
     "/api/agent/1/workflows",
     "/api/agent/1/messages",
     "/api/agent/1/metrics",
+    "/api/agent/memory",
   ];
 
   for (const route of GET_ROUTES) {
@@ -147,6 +148,27 @@ describe("apps/brain-console/src/server/runtime user-facing route contract", () 
     const { status, body } = await request("POST", "/api/self-improve/learning-loop", {});
     assert.strictEqual(status, 200);
     assert.strictEqual(body.ok, true);
+  });
+
+  it("POST /api/agent/memory -> 201 created", async () => {
+    const key = `probe-${Date.now()}`;
+    const { status } = await request("POST", "/api/agent/memory", { key, value: "contract probe" });
+    assert.strictEqual(status, 201);
+  });
+
+  it("GET /api/agent/memory returns persisted entries", async () => {
+    const key = `probe-${Date.now()}`;
+    await request("POST", "/api/agent/memory", { key, value: "contract probe" });
+    const { status, body } = await request("GET", "/api/agent/memory");
+    assert.strictEqual(status, 200);
+    assert.ok(Array.isArray(body.memory));
+    assert.ok(body.memory.some((m: any) => m.key === key));
+  });
+
+  it("GET /api/agent/memory/:key returns entry or 404", async () => {
+    const { status, body } = await request("GET", "/api/agent/memory/nonexistent-key-xyz");
+    assert.strictEqual(status, 404);
+    assert.strictEqual(body.error, "memory key not found");
   });
 
   it("POST /api/metrics-style telemetry -> 200", async () => {

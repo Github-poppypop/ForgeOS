@@ -10,9 +10,25 @@ import { loadServerFeatures } from "./features/loader";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "store.json");
+const MEMORY_FILE = path.join(DATA_DIR, "agent-memory.json");
 
 type Dict = Record<string, unknown>;
 type MaybePromise<T> = T | Promise<T>;
+
+type AgentMemoryEntry = {
+  key: string;
+  value: string;
+  created_at: string;
+  updated_at: string;
+};
+
+function loadAgentMemory(): Record<string, AgentMemoryEntry> {
+  return loadJson<Record<string, AgentMemoryEntry>>(MEMORY_FILE, {});
+}
+
+function saveAgentMemory(mem: Record<string, AgentMemoryEntry>) {
+  saveJson(MEMORY_FILE, mem);
+}
 
 function sanitizeString(value: unknown, fallback = ""): string {
   if (typeof value !== "string") return fallback;
@@ -1490,6 +1506,42 @@ export async function createRuntime() {
       { ts: new Date(Date.now() - 1000 * 60).toISOString(), level: "info", message: `Agent ${id} completed task`, agent: id },
     ];
     jsonResponse(res, { id, logs });
+  });
+
+  // Agent memory persistence: context/notes that survive restarts and sessions.
+  router.get("/api/agent/memory", (_req, res) => {
+    const mem = loadAgentMemory();
+    const entries = Object.values(mem).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+    jsonResponse(res, { memory: entries, count: entries.length });
+  });
+
+  router.get("/api/agent/memory/:key", (req, res) => {
+    const key = sanitizeString(req.params.key, "");
+    if (!key) return badRequest(res, "key required");
+    const entry = loadAgentMemory()[key];
+    if (!entry) return notFound(res, "memory key not found");
+    jsonResponse(res, { entry });
+  });
+
+  router.post("/api/agent/memory", express.json(), (req, res) => {
+    const missing = validateRequired(req.body ?? {}, ["key", "value"]);
+    if (missing) return badRequest(res, missing);
+    const key = sanitizeString((req.body as Dict).key as string);
+    const value = sanitizeString((req.body as Dict).value as string);
+    if (!key || !value) return badRequest(res, "key and value are required");
+    const mem = loadAgentMemory();
+    const now = new Date().toISOString();
+    const existing = mem[key];
+    const entry: AgentMemoryEntry = {
+      key,
+      value,
+      created_at: existing?.created_at ?? now,
+      updated_at: now,
+    };
+    mem[key] = entry;
+    saveAgentMemory(mem);
+    pushAudit("agent.memory.save", key, "system");
+    return res.status(201).json({ ok: true, entry });
   });
 
   router.use((_req, res, next) => next());
