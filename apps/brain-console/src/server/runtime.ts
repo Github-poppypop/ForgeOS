@@ -1291,18 +1291,24 @@ export async function createRuntime() {
   router.get("/api/agent/self-improve/status", (_req, res) => {
     const repoRoot = path.resolve(DATA_DIR, "..", "..", "..");
     const logDir = path.join(repoRoot, ".forgeos", "logs");
-    let latest = null;
+    let latest: string[] | null = null;
+    let loopStatus = "idle";
     try {
       const files = fs.readdirSync(logDir);
       const cycleLogs = files.filter((f) => f.startsWith("self-improve-")).sort().reverse();
       if (cycleLogs.length) {
         const latestLog = path.join(logDir, cycleLogs[0]);
-        latest = fs.readFileSync(latestLog, "utf8").split("\n").filter(Boolean).slice(-20);
+        const lines = fs.readFileSync(latestLog, "utf8").split("\n").filter(Boolean);
+        latest = lines.slice(-20);
+        const text = lines.join("\n");
+        if (/Cycle \d+ complete/.test(text)) loopStatus = "ok";
+        else if (/failed|exit \d+|error/i.test(text)) loopStatus = "error";
+        else loopStatus = "running";
       }
     } catch {
       // ignore
     }
-    return jsonResponse(res, { latestLog: latest || [], status: latest ? "ok" : "idle" });
+    return jsonResponse(res, { latestLog: latest || [], status: loopStatus });
   });
 
   router.get("/api/agent/self-improve/logs", (_req, res) => {
