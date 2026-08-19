@@ -514,10 +514,10 @@ function BarChart({ data, height = 180 }: { data: { label: string; value: number
   const vbH = 120;
   const baseline = vbH - 24;
   const barMaxH = baseline - 16;
-  if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
+  if (!data.length) return <div className="chart" role="img" aria-label="Bar chart: no data" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   return (
     <div className="chart">
-      <svg viewBox={`0 0 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMid meet" style={{ height, width: '100%' }}>
+      <svg role="img" aria-label={`Bar chart — ${data.map((d) => `${d.label}: ${d.value}`).join(', ')}`} viewBox={`0 0 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMid meet" style={{ height, width: '100%' }}>
         <line x1={0} y1={baseline - 0.5} x2={vbW} y2={baseline - 0.5} className="chart-grid" />
         {data.map((d, i) => {
           const rawH = (d.value / max) * barMaxH;
@@ -542,10 +542,10 @@ function DonutChart({ data, size = 180 }: { data: { label: string; value: number
   const r = 60;
   const circ = 2 * Math.PI * r;
   let offset = 0;
-  if (!data.length) return <div className="chart" style={{ maxWidth: size + 40 }}><svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}><text x={size / 2} y={size / 2 + 5} textAnchor="middle" className="label">No data</text></svg></div>;
+  if (!data.length) return <div className="chart" role="img" aria-label="Donut chart: no data" style={{ maxWidth: size + 40 }}><svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}><text x={size / 2} y={size / 2 + 5} textAnchor="middle" className="label">No data</text></svg></div>;
   return (
     <div className="chart" style={{ maxWidth: size + 40 }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <svg role="img" aria-label={`Donut chart — total ${total}, segments: ${data.map((d) => `${d.label} ${d.value}`).join(', ')}`} width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {data.map((d, i) => {
           const dash = (d.value / total) * circ;
           const seg = <circle key={i} cx={size / 2} cy={size / 2} r={r} className="donut-seg" stroke={d.color} strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={-offset} transform={`rotate(-90 ${size / 2} ${size / 2})`} />;
@@ -566,7 +566,7 @@ function DonutChart({ data, size = 180 }: { data: { label: string; value: number
 }
 
 function Sparkline({ data, color = 'var(--accent)', height = 60 }: { data: number[]; color?: string; height?: number }) {
-  if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
+  if (!data.length) return <div className="chart" role="img" aria-label="Sparkline: no data" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   const max = Math.max(...data);
   const min = Math.min(...data);
   const w = 100;
@@ -581,7 +581,7 @@ function Sparkline({ data, color = 'var(--accent)', height = 60 }: { data: numbe
   const avg = Math.round((data.reduce((s, v) => s + v, 0) / data.length) * 10) / 10;
   return (
     <div className="chart" style={{ height }}>
-      <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="xMidYMid meet">
+      <svg role="img" aria-label={`Sparkline — avg ${avg}, min ${min}, max ${max}`} viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="xMidYMid meet">
         <path d={area} className="line-area" fill={color} />
         <path d={path} className="line-path" stroke={color} />
         <line x1={0} y1={chartH - 0.5} x2={w} y2={chartH - 0.5} className="chart-grid" />
@@ -671,10 +671,10 @@ function GaugeChart({ value, max = 100, label }: { value: number; max?: number; 
       </g>
     );
   });
-  if (!Number.isFinite(value) && !Number.isFinite(max)) return <div className="chart" style={{ maxWidth: 180 }}><p className="muted">No gauge data yet.</p></div>;
+  if (!Number.isFinite(value) && !Number.isFinite(max)) return <div className="chart" role="img" aria-label="Gauge: no data" style={{ maxWidth: 180 }}><p className="muted">No gauge data yet.</p></div>;
   return (
     <div className="chart" style={{ maxWidth: 180 }}>
-      <svg width="160" height="160" viewBox="0 0 160 160">
+      <svg role="img" aria-label={`Gauge — ${label || 'load'}: ${Math.round(pct * 100)}%`} width="160" height="160" viewBox="0 0 160 160">
         <circle cx="80" cy="80" r={r} className="gauge-bg" />
         {ticks}
         <circle cx="80" cy="80" r={r} className="gauge-fg" stroke={color} strokeDasharray={`${dash} ${circ - dash}`} transform="rotate(-90 80 80)" />
@@ -694,10 +694,10 @@ function TopBarChart({ data, height = 80 }: { data: { label: string; value: numb
   const vbH = 70;
   const baseline = vbH - 14;
   const barMaxH = baseline - 8;
-  if (!data.length) return <div className="chart" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
+  if (!data.length) return <div className="chart" role="img" aria-label="Bar chart: no data" style={{ height }}><text x="6" y={height / 2 + 4} className="label">No data</text></div>;
   return (
     <div className="chart">
-      <svg viewBox={`0 0 ${w} ${vbH}`} preserveAspectRatio="xMidYMid meet" style={{ height }}>
+      <svg role="img" aria-label={`Bar chart — ${data.map((d) => `${d.label}: ${d.value}`).join(', ')}`} viewBox={`0 0 ${w} ${vbH}`} preserveAspectRatio="xMidYMid meet" style={{ height }}>
         <line x1={0} y1={baseline - 0.5} x2={w} y2={baseline - 0.5} className="chart-grid" />
         {data.map((d, i) => {
           const rawH = (d.value / max) * barMaxH;
@@ -2556,7 +2556,7 @@ function AppStorePanel({ data }: { data?: any }) {
             <span className="subtitle">Dependency Graph overview</span>
           </div>
           <div style={{ marginTop: 10 }}>
-            <svg viewBox="0 0 700 220" style={{ width: '100%', height: 'auto' }}>
+            <svg role="img" aria-label="App dependency graph" viewBox="0 0 700 220" style={{ width: '100%', height: 'auto' }}>
               {apps.map((a, i) => {
                 const x = 60 + (i % 3) * 220;
                 const y = 50 + Math.floor(i / 3) * 110;
