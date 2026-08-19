@@ -28,13 +28,22 @@ export class DebugErrorBoundary extends Component<{ children?: React.ReactNode }
     this.setState({ error, info });
     console.error('[DebugErrorBoundary]', error, info);
   }
+  reset = () => this.setState({ error: null, info: null });
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 16, color: '#fff', background: '#7f1d1d' }}>
-          <h2>Rendered crash</h2>
-          <pre>{String(this.state.error.message)}</pre>
-          <pre>{JSON.stringify(this.state.info?.componentStack || this.state.info, null, 2).slice(0, 4000)}</pre>
+        <div className="error-boundary" role="alert">
+          <div className="error-boundary-icon" aria-hidden="true">⚠️</div>
+          <h2 className="error-boundary-title">This panel hit a snag</h2>
+          <p className="error-boundary-msg">{String(this.state.error.message)}</p>
+          <details className="error-boundary-details">
+            <summary>Technical details</summary>
+            <pre>{String(this.state.info?.componentStack || this.state.info || '').slice(0, 4000)}</pre>
+          </details>
+          <div className="error-boundary-actions">
+            <button className="btn primary" onClick={this.reset}>Try again</button>
+            <button className="btn secondary" onClick={() => { this.reset(); if (typeof location !== 'undefined') location.reload(); }}>Reload console</button>
+          </div>
         </div>
       );
     }
