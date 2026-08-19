@@ -116,6 +116,34 @@ function structuredLog(level: string, event: Record<string, unknown>) {
     const file = path.join(LOG_DIR, `forgeos-${new Date().toISOString().slice(0, 10)}.log`);
     fs.appendFileSync(file, line);
   } catch { /* never block the request on a log failure */ }
+  if (level === 'error') alertError(event);
+}
+
+// Guarded alerting hook: no-op unless ALERT_WEBHOOK_URL (Slack/Discord/email
+// gateway) or SENTRY_DSN is configured. Never blocks the request path.
+const ALERT_WEBHOOK_URL = process.env.ALERT_WEBHOOK_URL ?? '';
+const SENTRY_DSN = process.env.SENTRY_DSN ?? '';
+
+function alertError(event: Record<string, unknown>) {
+  const message = JSON.stringify(event);
+  if (ALERT_WEBHOOK_URL) {
+    fetch(ALERT_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: `ForgeOS error: ${message}` }),
+    }).catch(() => {});
+    return;
+  }
+  if (SENTRY_DSN) {
+    const m = /^https:\/\/([^@]+)@([^/]+)\/(\d+)$/.exec(SENTRY_DSN);
+    if (!m) return;
+    const [, key, host, projectId] = m;
+    fetch(`https://${host}/api/${projectId}/store/`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-Sentry-Auth': `Sentry sentry_version=7, sentry_key=${key}` },
+      body: JSON.stringify({ message, level: 'error', platform: 'node' }),
+    }).catch(() => {});
+  }
 }
 
 async function main() {
