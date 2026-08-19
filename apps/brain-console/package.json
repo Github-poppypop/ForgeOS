@@ -9,7 +9,9 @@
     "dev": "npx tsx watch server.ts",
     "start": "npm run build:client && npx tsx server.ts",
     "serve": "npx tsx server.ts",
-    "test": "npx tsx --test"
+    "test": "npx tsx --test",
+    "e2e": "npx playwright test",
+    "perf": "npx playwright test tests/e2e/perf.spec.ts"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
