@@ -526,16 +526,16 @@ export async function createRuntime() {
     return res.status(201).json({ page: entry, updated: false });
   });
 
-  router.get("/api/page/*slug", (req, res) => {
-    const raw = sanitizeString((req.params as any).slug as string, "");
+  router.get("/api/page/{*slug}", (req, res) => {
+    const raw = sanitizeString(Array.isArray((req.params as any).slug) ? ((req.params as any).slug as string[]).join("/") : (req.params as any).slug as string, "");
     const slug = decodeURIComponent(raw.replace(/^\//, "")) || raw;
     const page = (ensureArray(store.pages) as Dict[]).find((p) => p.slug === slug);
     if (!page) return notFound(res, "page not found");
     jsonResponse(res, { page: sanitizeEntity(page) });
   });
 
-  router.patch("/api/page/*slug", express.json(), (req, res) => {
-    const raw = sanitizeString((req.params as any).slug as string, "");
+  router.patch("/api/page/{*slug}", express.json(), (req, res) => {
+    const raw = sanitizeString(Array.isArray((req.params as any).slug) ? ((req.params as any).slug as string[]).join("/") : (req.params as any).slug as string, "");
     const slug = decodeURIComponent(raw.replace(/^\//, "")) || raw;
     const pages = ensureArray(store.pages) as Dict[];
     const target = pages.find((p) => p.slug === slug);
@@ -551,8 +551,8 @@ export async function createRuntime() {
     jsonResponse(res, { page: sanitizeEntity(target) });
   });
 
-  router.delete("/api/page/*slug", (req, res) => {
-    const raw = sanitizeString((req.params as any).slug as string, "");
+  router.delete("/api/page/{*slug}", (req, res) => {
+    const raw = sanitizeString(Array.isArray((req.params as any).slug) ? ((req.params as any).slug as string[]).join("/") : (req.params as any).slug as string, "");
     const slug = decodeURIComponent(raw.replace(/^\//, "")) || raw;
     const pages = ensureArray(store.pages) as Dict[];
     const idx = pages.findIndex((p) => p.slug === slug);
@@ -1462,7 +1462,7 @@ export async function createRuntime() {
     return jsonResponse(res, { ok: true, imported: 0, format });
   });
 
-  router.get("/api/export/*slug", (req, res) => {
+  router.get("/api/export/{*slug}", (req, res) => {
     const raw = Array.isArray((req.params as any).slug) ? (req.params as any).slug.join("/") : sanitizeString((req.params as any).slug as string, "");
     const slug = decodeURIComponent(raw.replace(/^\//, "")) || raw;
     const page = (ensureArray(store.pages) as Dict[]).find((p) => p.slug === slug);
