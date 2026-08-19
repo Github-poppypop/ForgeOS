@@ -21,7 +21,6 @@ Auto-generated index of the conflict-free feature modules under `src/server/feat
 | [`feat-ratelimit-telemetry.ts`](src/server/features/feat-ratelimit-telemetry.md) | 1 | Server feature: per-route HTTP 429 enforcement telemetry. Conflict-free: loaded by feature… |
 | [`feat-sse.ts`](src/server/features/feat-sse.md) | 0 | Backbone feature bridge: wires the already-implemented SSE hub (../sse.ts) into the runtim… |
 | [`feat-webhooks.ts`](src/server/features/feat-webhooks.md) | 6 | Server feature: outbound webhook registry + delivery self-test. Conflict-free: loaded by f… |
-| [`feat-workspaces.ts`](src/server/features/feat-workspaces.md) | 6 | Server feature: multi-agent collaboration via shared workspaces (in-memory, mock-first). C… |
 
 ## Client features (UI)
 
