@@ -1028,3 +1028,50 @@ ul.mono { list-style: none; padding: 0; }
 .changelog-type { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted, #9aa0aa); margin-bottom: 4px; }
 .changelog-notes { margin: 0; padding-left: 18px; line-height: 1.6; }
 .changelog-notes li { margin: 2px 0; }
+/* Alerting Status feature — self-contained chips/inputs (added by forgeos-driver).
+   Scoped names avoid clashing with existing .tag/.input rules. */
+.alert-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #2a2e37;
+  background: #16191f;
+  color: #e6e6e6;
+}
+.alert-chip.ok {
+  border-color: #1f6f43;
+  color: #7ee2b0;
+  background: #10301f;
+}
+.alert-chip.warn {
+  border-color: #7a5b12;
+  color: #ffd98e;
+  background: #332708;
+}
+.alert-chip.off {
+  border-color: #3a3f4a;
+  color: #9aa0aa;
+  background: #16191f;
+}
+.alert-label {
+  display: block;
+  font-size: 12px;
+  color: #9aa0aa;
+  margin-bottom: 6px;
+}
+.alert-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #2a2e37;
+  background: #0f1115;
+  color: #e6e6e6;
+  font-size: 14px;
+}
+.alert-input:focus {
+  outline: 2px solid #2ba6c9;
+  outline-offset: 1px;
+}

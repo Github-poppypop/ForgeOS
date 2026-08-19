@@ -50,3 +50,5 @@ npm test
 # VPS
 pm2 restart forgeos && curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:7777/api/health
 ```
+
+- Alerting config-status + self-test endpoint shipped (`/api/alerting/status`, `/api/alerting/test`, `/feature/alert-status`).
