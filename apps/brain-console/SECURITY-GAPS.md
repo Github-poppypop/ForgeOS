@@ -1,29 +1,30 @@
-# Brain Console — Security Gap Notes
+# Brain Console — Security Gap Notes (REFRESHED 2026-08-19)
 
-Date: 2026-08-03
-Mission: CTO-20260803
+Verified live in `apps/brain-console/server.ts` against a running :7777 instance.
 
-## Verified working on Linux container
-- `node --check src/app.js` passes
-- `node --test __tests__` passes
-- Server boots on port 7777
-- Static assets serve with security headers and no-cache
-- Health, SPA, and SPA JS are accessible without 5xx
+## Implemented (prior "gaps" are now closed)
+- **Security headers**: `applySecurityHeaders` sets `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`,
+  `Permissions-Policy` (geolocation/microphone/camera disabled),
+  `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, and a
+  `Content-Security-Policy` (default-src 'self', fonts/srcs allowlisted for the
+  Google Fonts CDN).
+- **Structured logging**: `structuredLog()` writes daily-rotated JSON to `logs/`
+  (gitignored). One JSON line per request with method/path/status/ms/ip.
+- **Alerting hook**: `alertError()` (Sentry or webhook) fires on `level === 'error'`
+  from `structuredLog`. **Silent no-op unless `SENTRY_DSN` or `ALERT_WEBHOOK_URL`
+  is set** — uses global `fetch`, no dependency.
+- **Rate limiting**: in-memory limiter (`src/server/ratelimit.ts`) on
+  `/api/feedback`, `/api/telemetry`, `/api/self-improve/learning-loop` with a
+  `/api/rate-limit/status` snapshot endpoint. Disable via `RATE_LIMIT_DISABLED=1`.
 
-## Current headers
-- `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: DENY`
-- `Cache-Control: no-cache` on static assets
-- `Content-Type: application/json; charset=utf-8` on API
-
-## Gaps / risks
-1. **No HSTS**: `Strict-Transport-Security` is absent. If this is fronted by a reverse proxy, it should set HSTS.
-2. **No `Referrer-Policy` / `Permissions-Policy`**: Not present. Consider adding a restrictive referrer policy and limiting permissions.
-3. **CORS allows `*`**: `access-control-allow-origin: *` is open. For production, restrict origins.
-4. **Auth is optional**: Without env-configured secrets, API is open. Ensure `CONSOLE_TOKEN`/`JWT_SECRET` are set in production.
-5. **CSRF endpoint exists but is not enforced**: `csrfMiddleware` is defined but not used on POST routes.
-6. **SPA fallback leaks index.html for unknown paths**: Likely acceptable for SPA routing but should be confirmed.
-
-## VPS notes
-- 6 `/api/*` routes currently return 500 in this container because `bunx gbrain` is unavailable.
-- On VPS with gbrain installed, the smoke test should pass all routes.
+## Remaining recommendations
+1. **Auth in production**: ensure `CONSOLE_TOKEN` / `JWT_SECRET` are set; API is open
+   without them.
+2. **CORS**: currently permissive — restrict `access-control-allow-origin` to known
+   origins if exposed beyond localhost.
+3. **Reverse proxy**: if fronted by nginx/Cloudflare, let it own HSTS/CDN/WAF.
+4. **Activate alerting**: set `SENTRY_DSN` or `ALERT_WEBHOOK_URL` in the VPS env so
+   `alertError` actually delivers.
+5. **CSRF**: `csrfMiddleware` is defined but not enforced on POST routes — enforce or
+   document as acceptable for same-origin token-auth API.
