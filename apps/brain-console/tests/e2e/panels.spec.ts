@@ -5,7 +5,7 @@ const BASE = process.env.BASE_URL || "http://127.0.0.1:7777";
 
 // Helper: visit a panel and assert the page title / h1 renders
 async function visitPanel(page: any, panel: string, title: string) {
-  await page.goto(`${BASE}/#/${panel}`);
+  await page.goto(`${BASE}/${panel}`);
   await expect(page.locator("h1")).toContainText(title, { timeout: 15000 });
 }
 
