@@ -28,9 +28,9 @@ variable "ssh_private_key_path" {
 
 resource "null_resource" "forgeos_deploy" {
   triggers = {
-    vps_host            = var.vps_host
-    ssh_user            = var.ssh_user
-    deploy_command_sha  = sha256("cd /opt/forgeos && git pull && pm2 restart forgeos")
+    vps_host           = var.vps_host
+    ssh_user           = var.ssh_user
+    deploy_command_sha = sha256("cd /opt/forgeos && git pull && pm2 restart forgeos")
   }
 
   provisioner "remote-exec" {
