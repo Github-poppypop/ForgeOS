@@ -1020,3 +1020,11 @@ ul.mono { list-style: none; padding: 0; }
   background-size: 400% 100%; animation: skel 1.3s ease infinite; border-radius: 8px;
 }
 @keyframes skel { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+/* What's New / Changelog feature */
+.changelog-list { display: flex; flex-direction: column; gap: 16px; }
+.changelog-release-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.changelog-version { margin: 0; font-size: 16px; font-weight: 700; }
+.changelog-section { margin-top: 10px; }
+.changelog-type { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted, #9aa0aa); margin-bottom: 4px; }
+.changelog-notes { margin: 0; padding-left: 18px; line-height: 1.6; }
+.changelog-notes li { margin: 2px 0; }
