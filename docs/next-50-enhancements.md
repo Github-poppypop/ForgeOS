@@ -11,14 +11,14 @@
 - Added mock services: auth, billing, notifications, search, AI, storage, webhooks, telemetry, integrations
 - Added `services/__tests__/` coverage for mock services
 
-## Batch B — Brain Console UX + Data Panels (11–20)
+## Batch B — Brain Console UX + Data Panels (11–20) — in progress (16 ✅)
 
 11. Add saved views/filters for missions/vault/audit tables.
 12. Add command-palette fuzzy search across all panels.
 13. Add batch actions for missions/decisions/incidents.
 14. Add export-to-CSV for vault/audit/missions tables.
 15. Add inline edit for decisions with optimistic rollback.
-16. Add time-travel diff viewer for decision history.
+16. ✅ Add time-travel diff viewer for decision history. (standalone /feature/diff-viewer; needed Express 5 /api/page/:slug wildcard fix in runtime.ts)
 17. Add keyboard shortcuts cheatsheet panel.
 18. Add offline mode queue with sync indicator.
 19. Add panel resize + column reorder persistence.
