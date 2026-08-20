@@ -61,7 +61,7 @@ Ledgers drift — confirm in source before implementing.
 - 47. ⬜ Role-based quickstart wizards for C-suite
 - 48. ⬜ Local demo data seeder for offline tours
 - 49. ⬜ Feature flags for staged rollout
-- 50. ⬜ Release notes generator from git history + ROADMAP
+- 50. ✅ Release notes generator — `features/feat-releasenotes.tsx` (curated milestone timeline + live feature-registry count via `registry.ts`; `/feature/release-notes`; Batch #50, shipped 2026-08-20)
 - (also shipped: `feat-webhooks.tsx`, `feat-workspaces.tsx`, `feat-sse.tsx`,
   `feat-auditstore.tsx`, `feat-apidocs.tsx`, `feat-changelog.tsx`, `feat-csp-enforce.tsx`)
 
