@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { rateLimit, getRateLimitSnapshot } from "./ratelimit";
 import { loadServerFeatures } from "./features/loader";
+import { syncHub } from "./syncHub.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
@@ -515,6 +516,7 @@ export async function createRuntime() {
       existing.updated_at = new Date().toISOString().split("T")[0];
       persist();
       pushAudit("page.update", slug, "system");
+      syncHub.sync("capture", { slug, type, updated: true });
       return jsonResponse(res, { page: existing, updated: true });
     }
 
@@ -523,6 +525,7 @@ export async function createRuntime() {
     store.pages = pages;
     persist();
     pushAudit("page.create", slug, "system");
+    syncHub.sync("capture", { slug, type, updated: false });
     return res.status(201).json({ page: entry, updated: false });
   });
 
@@ -1113,6 +1116,7 @@ export async function createRuntime() {
       });
       persist();
       pushAudit("app.update", existing.id, "system");
+      syncHub.sync("apps", { id: existing.id, name: existing.name });
       return jsonResponse(res, { app: existing, updated: true });
     }
 
@@ -1135,6 +1139,7 @@ export async function createRuntime() {
     store.apps = apps;
     persist();
     pushAudit("app.register", entry.id, "system");
+    syncHub.sync("apps", { id: entry.id, name: entry.name });
     return res.status(201).json({ app: entry });
   });
 

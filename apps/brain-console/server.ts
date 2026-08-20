@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { match } from "path-to-regexp";
 import { createRuntime } from "./src/server/runtime.js";
 import { createSSEHub } from "./src/server/sse.js";
+import { syncHub } from "./src/server/syncHub.js";
 import { exportAudit } from "./src/server/auditExport.js";
 
 const PORT = Number(process.env.PORT ?? 7777);
@@ -305,9 +306,12 @@ async function main() {
     return res.status(404).send("not found");
   });
 
-  app.listen(port, "127.0.0.1", () => {
+  const server = app.listen(port, "127.0.0.1", () => {
     console.log(`[react-express] on http://127.0.0.1:${port}`);
   });
+  // Real-time brain sync: lightweight WebSocket server at ws://<host>/ws
+  // (dependency-free; broadcasts heartbeats + 'sync' events on POST).
+  syncHub.attach(server);
 }
 
 main().catch((err) => {

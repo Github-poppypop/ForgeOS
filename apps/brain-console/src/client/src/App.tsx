@@ -3007,6 +3007,55 @@ function OnboardingTour({ onClose }: { onClose: () => void }) {
   );
 }
 
+// Real-time brain sync indicator. Opens a WebSocket to ws://<host>/ws and
+// reflects the live connection state as a small pill in the top nav. Falls
+// back gracefully and auto-reconnects if the socket drops.
+function SyncPill() {
+  const [state, setState] = useState<'connecting' | 'open' | 'closed'>('connecting');
+
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+
+    const connect = () => {
+      if (stopped) return;
+      try {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${proto}//${location.host}/ws`);
+      } catch {
+        setState('closed');
+        return;
+      }
+      ws.onopen = () => setState('open');
+      ws.onmessage = () => setState('open');
+      ws.onclose = () => {
+        setState('closed');
+        if (!stopped) retry = setTimeout(connect, 2500);
+      };
+      ws.onerror = () => {
+        setState('closed');
+        try { ws?.close(); } catch { /* ignore */ }
+      };
+    };
+
+    connect();
+    return () => {
+      stopped = true;
+      if (retry) clearTimeout(retry);
+      try { ws?.close(); } catch { /* ignore */ }
+    };
+  }, []);
+
+  const label = state === 'open' ? 'LIVE SYNC' : state === 'connecting' ? 'SYNCING' : 'SYNC OFFLINE';
+  const cls = state === 'open' ? 'ok' : state === 'connecting' ? 'warn' : 'err';
+  return (
+    <span className={`pill ${cls}`} data-tooltip="Real-time brain sync (WebSocket)">
+      <span className="dot"></span>{label}
+    </span>
+  );
+}
+
 export default function App() {
   const { path, navigate } = usePathRoute();
   const route = useMemo(() => matchRoute(path), [path]);
@@ -3128,6 +3177,7 @@ export default function App() {
         <div className="topnav-actions">
           <span className="pill" data-tooltip="Console port">7777</span>
           <OfflineIndicator />
+          <SyncPill />
           <div className="cmd-pill" data-tooltip="Open command palette" onClick={() => setCommandOpen(true)}>
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>search</span>
             CMD+K
