@@ -16,7 +16,8 @@
  *   tsx scripts/bootstrap-org.ts --target ./org-brain
  */
 
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
 /* ─────────────────────────────────────────────
@@ -413,4 +414,9 @@ function main(): void {
   console.log('  3. Wire C-suite agent tokens to scoped slices.');
 }
 
-main();
+// Run only when invoked directly (not when imported by tests).
+const __invoked = process.argv[1] ? realpathSync(process.argv[1]) : "";
+const __this = realpathSync(fileURLToPath(import.meta.url));
+if (__invoked === __this) {
+  main();
+}
