@@ -5,6 +5,77 @@ import { OfflineIndicator } from './offline';
 import { isFeatureRoute, renderFeature, FEATURE_CATEGORIES } from './features/dispatch';
 import RateLimitDashboard from './RateLimitDashboard';
 
+function RateLimitStatsPanel() {
+  const [stats, setStats] = useState<{ total: number; uniqueIps: number; topIps: Array<{ ip: string; count: number }> } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const res = await fetch('/api/rate-limit/stats', { signal: controller.signal });
+        if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+        const data = (await res.json()) as {
+          total?: number;
+          uniqueIps?: number;
+          topIps?: Array<{ ip: string; count: number }>;
+        };
+        setStats({
+          total: data.total ?? 0,
+          uniqueIps: data.uniqueIps ?? 0,
+          topIps: data.topIps ?? [],
+        });
+        setError(null);
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+        setError((err as Error).message ?? 'Failed to load request metrics');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+    const interval = setInterval(load, 5000);
+    return () => {
+      clearInterval(interval);
+      controller.abort();
+    };
+  }, []);
+
+  return (
+    <div className="card">
+      <div className="section-header">
+        <h2>Request metrics</h2>
+        <span className="subtitle">Per-IP request counts</span>
+      </div>
+      {loading && !stats ? (
+        <div className="muted">Loading request metrics…</div>
+      ) : error ? (
+        <div className="muted">Error: {error}</div>
+      ) : (
+        <div>
+          <div className="stats cols-2" style={{ marginBottom: 12 }}>
+            <StatCard title="Total requests" value={stats?.total ?? 0} subtitle="since restart" />
+            <StatCard title="Unique IPs" value={stats?.uniqueIps ?? 0} subtitle="seen" />
+          </div>
+          <div className="stack" style={{ marginTop: 8 }}>
+            {(stats?.topIps ?? []).length ? (
+              (stats?.topIps ?? []).slice(0, 10).map((row) => (
+                <div key={row.ip} className="row" style={{ justifyContent: 'space-between' }}>
+                  <span className="mono">{row.ip || '(unknown)'}</span>
+                  <span className="pill">{row.count}</span>
+                </div>
+              ))
+            ) : (
+              <div className="muted">No requests recorded yet.</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('load', async () => {
     const regs = await navigator.serviceWorker.getRegistrations();
@@ -1542,6 +1613,7 @@ function CompliancePanel({ data }: { data?: any }) {
         </div>
       </div>
       <RateLimitDashboard />
+      <RateLimitStatsPanel />
       <div className="card">
           <div className="section-header">
           <h2>Load</h2>

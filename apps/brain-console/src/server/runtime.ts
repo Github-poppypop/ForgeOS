@@ -313,7 +313,7 @@ function sanitizeEntity<T extends Dict>(entity: T): T {
   return out as T;
 }
 
-export async function createRuntime() {
+export async function createRuntime(opts?: { requestCounts?: Map<string, number> }) {
   const router = express.Router();
   await loadServerFeatures(router);
 
@@ -321,6 +321,7 @@ export async function createRuntime() {
   router.use("/api/feedback", rateLimit());
   router.use("/api/telemetry", rateLimit());
   router.use("/api/self-improve/learning-loop", rateLimit());
+  const requestCounts = opts?.requestCounts ?? new Map<string, number>();
   const store = loadStore();
   let nextId = Date.now();
 
@@ -1156,6 +1157,25 @@ export async function createRuntime() {
 
   router.get("/api/rate-limit/status", (_req, res) => {
     jsonResponse(res, getRateLimitSnapshot());
+  });
+
+  router.get("/api/rate-limit/stats", (_req, res) => {
+    let total = 0;
+    const perIp: Record<string, number> = {};
+    for (const [ip, count] of requestCounts) {
+      perIp[ip] = count;
+      total += count;
+    }
+    const topIps = Object.entries(perIp)
+      .map(([ip, count]) => ({ ip, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20);
+    jsonResponse(res, {
+      total,
+      uniqueIps: Object.keys(perIp).length,
+      perIp,
+      topIps,
+    });
   });
 
   router.post("/api/feedback", express.json(), (req, res) => {
