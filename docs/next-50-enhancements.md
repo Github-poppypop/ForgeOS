@@ -58,7 +58,7 @@ Ledgers drift — confirm in source before implementing.
 - 44. ⬜ SDK publish helper in `apps/sdk`
 - 45. ⬜ First-app template selector in `apps/first-app`
 - 46. ✅ Guided onboarding checklist tied to ROADMAP phases → `features/feat-onboarding-checklist.tsx` (localStorage-persisted progress; mirrors ROADMAP Phase 0–5 tasks; Batch E #46, shipped 2026-08-20)
-- 47. ⬜ Role-based quickstart wizards for C-suite
+- 47. ✅ Role-based quickstart wizards for C-suite → `features/feat-quickstart.tsx` (role picker: C-Suite/Engineering/Admin/Product; per-step localStorage progress; "Open" links gated via `findFeature` so only live feature routes render; auto-registers at `/feature/quickstart`; Batch E #47, shipped Wave 7)
 - 48. ⬜ Local demo data seeder for offline tours
 - 49. ⬜ Feature flags for staged rollout
 - 50. ✅ Release notes generator — `features/feat-releasenotes.tsx` (curated milestone timeline + live feature-registry count via `registry.ts`; `/feature/release-notes`; Batch #50, shipped 2026-08-20)
