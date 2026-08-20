@@ -28,12 +28,20 @@ function coerceEntry(raw: unknown): AuditEntry | null {
   };
 }
 
+// Matches the daily-rotated structured request logs written by server.ts
+// (forgeos-YYYY-MM-DD.log) plus any explicit JSON/JSONL dumps.
+function isLogFileName(name: string): boolean {
+  return (
+    /^forgeos-\d{4}-\d{2}-\d{2}\.log$/.test(name) ||
+    name.endsWith('.json') ||
+    name.endsWith('.jsonl')
+  );
+}
+
 export async function readAuditLog(logDir = 'logs'): Promise<AuditEntry[]> {
   const dir = resolve(logDir);
   if (!existsSync(dir)) return [];
-  const files = readdirSync(dir).filter(
-    (f) => f.endsWith('.json') || f.endsWith('.jsonl')
-  );
+  const files = readdirSync(dir).filter((f) => isLogFileName(f));
   const entries: AuditEntry[] = [];
   for (const file of files) {
     const content = readFileSync(resolve(dir, file), 'utf8');
@@ -58,6 +66,24 @@ export async function readAuditLog(logDir = 'logs'): Promise<AuditEntry[]> {
     }
   }
   return entries;
+}
+
+export type AuditFormat = 'csv' | 'json' | 'sql';
+
+function csvCell(value: string): string {
+  const s = value == null ? '' : String(value);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+const CSV_COLUMNS: (keyof AuditEntry)[] = ['ts', 'method', 'path', 'status', 'ms', 'ip'];
+
+export function toCsv(entries: AuditEntry[]): string {
+  const header = CSV_COLUMNS.join(',');
+  if (entries.length === 0) return `${header}\n`;
+  const rows = entries.map((e) =>
+    CSV_COLUMNS.map((c) => csvCell(String(e[c]))).join(',')
+  );
+  return [header, ...rows].join('\n') + '\n';
 }
 
 function escapeSql(value: string): string {
@@ -88,9 +114,11 @@ export function toJson(entries: AuditEntry[]): string {
 }
 
 export async function exportAudit(
-  format: 'sql' | 'json',
+  format: AuditFormat,
   logDir?: string
 ): Promise<string> {
   const entries = await readAuditLog(logDir);
-  return format === 'sql' ? toSql(entries) : toJson(entries);
+  if (format === 'sql') return toSql(entries);
+  if (format === 'csv') return toCsv(entries);
+  return toJson(entries);
 }

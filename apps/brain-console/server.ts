@@ -242,12 +242,19 @@ async function main() {
 
   app.use(await createRuntime());
 
-  // Audit log export (SQL / JSON)
+  // Audit log export (CSV / JSON / SQL)
   app.get("/api/audit/export", async (req, res) => {
     try {
-      const fmt = req.query.format === "sql" ? "sql" : "json";
+      const fmtRaw = String(req.query.format ?? "json");
+      const fmt = fmtRaw === "csv" || fmtRaw === "sql" ? fmtRaw : "json";
       const out = await exportAudit(fmt, LOG_DIR);
-      res.setHeader("content-type", fmt === "sql" ? "application/sql; charset=utf-8" : "application/json; charset=utf-8");
+      const contentType =
+        fmt === "sql"
+          ? "application/sql; charset=utf-8"
+          : fmt === "csv"
+            ? "text/csv; charset=utf-8"
+            : "application/json; charset=utf-8";
+      res.setHeader("content-type", contentType);
       res.setHeader("content-disposition", `attachment; filename="audit.${fmt}"`);
       res.send(out);
     } catch (e) {
