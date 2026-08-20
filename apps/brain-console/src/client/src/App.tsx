@@ -225,7 +225,7 @@ const CATEGORIES = [
   { title: 'Knowledge', items: ['/decisions', '/timeline', '/ledger', '/vault', '/embed'] },
   { title: 'Governance', items: ['/missions', '/federation', '/audit', '/schema', '/governance', '/compliance', '/webhooks'] },
   { title: 'Platform', items: ['/mcp', '/plugins', '/marketplace', '/workflows', '/monitoring', '/projects', '/poolleague'] },
-  { title: 'System', items: ['/config', '/command', '/settings', '/self-improve'] },
+  { title: 'System', items: ['/config', '/command', '/settings', '/self-improve', '/api-docs'] },
   ...FEATURE_CATEGORIES,
 ];
 
@@ -542,6 +542,13 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
             <div className="nav-category-items">
               {items.map((r) => {
                 const label = r.replace(/^\//, '').charAt(0).toUpperCase() + r.replace(/^\//, '').slice(1);
+                if (r === '/api-docs') {
+                  return (
+                    <a key={r} href={r} target="_blank" rel="noreferrer" className={route === r ? 'active' : ''}>
+                      {label}
+                    </a>
+                  );
+                }
                 return (
                   <a key={r} href={r} className={route === r ? 'active' : ''} onClick={(e) => { e.preventDefault(); onNavigate(r); }}>
                     {label}
