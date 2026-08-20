@@ -191,6 +191,12 @@ function alertError(event: Record<string, unknown>) {
   }
 }
 
+// Per-IP request counter backing the rate-limit metrics dashboard.
+// In-memory and process-local (resets on restart); keyed by client IP string.
+// Incremented by the request-logging middleware below and read by runtime.ts
+// via the GET /api/rate-limit/stats endpoint.
+export const requestCounts = new Map<string, number>();
+
 async function main() {
   const port = await ensureFreePort(PORT);
   const app = express();
@@ -205,7 +211,9 @@ async function main() {
     const started = Date.now();
     res.on('finish', () => {
       const status = res.statusCode;
-      const event = { method: req.method, path: req.path, status, ms: Date.now() - started, ip: req.ip ?? '' };
+      const ip = req.ip ?? '';
+      requestCounts.set(ip, (requestCounts.get(ip) ?? 0) + 1);
+      const event = { method: req.method, path: req.path, status, ms: Date.now() - started, ip };
       structuredLog(status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info', { event: 'request', ...event });
       sseHub.broadcast('request', event);
     });
@@ -240,7 +248,7 @@ async function main() {
     }
   }
 
-  app.use(await createRuntime());
+  app.use(await createRuntime({ requestCounts }));
 
   // Audit log export (CSV / JSON / SQL)
   app.get("/api/audit/export", async (req, res) => {
