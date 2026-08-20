@@ -68,5 +68,8 @@ describe('apps/brain-console/src/server/syncHub', () => {
 
     ws.close();
     server.close();
+    // Tear down the shared syncHub singleton (clears its 25s heartbeat
+    // interval + client sockets) so the test process can exit cleanly.
+    syncHub.stop();
   });
 });

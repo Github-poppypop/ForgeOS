@@ -771,23 +771,17 @@ export async function createRuntime(opts?: { requestCounts?: Map<string, number>
       body: schedule.body,
       status: schedule.status,
     };
-    const port = Number(process.env.PORT ?? 7777);
-    try {
-      const res = await fetch(`http://127.0.0.1:${port}/api/capture`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(captureBody),
-      });
-      if (!res.ok) throw new Error(`capture responded ${res.status}`);
-      return { ok: true };
-    } catch (err) {
-      // No HTTP server bound (standalone/test) — perform capture in-process.
-      const result = performCapture(captureBody);
-      if (!result.ok) {
-        console.warn(`[scheduler] capture failed for ${schedule.slug}:`, err instanceof Error ? err.message : err);
-      }
-      return { ok: result.ok };
+    // Capture in-process via the same routine the HTTP /api/capture route uses.
+    // This keeps schedule-triggered captures deterministic and independent of the
+    // TCP port the server is bound to. The previous implementation self-fetched
+    // http://127.0.0.1:7777, so schedules silently failed to create pages
+    // whenever the server ran on any other port (e.g. 7778) or when a stale
+    // process held :7777 in the environment.
+    const result = performCapture(captureBody);
+    if (!result.ok) {
+      console.warn(`[scheduler] capture failed for ${schedule.slug}`);
     }
+    return { ok: result.ok };
   }
 
   async function runSchedule(schedule: Schedule): Promise<void> {

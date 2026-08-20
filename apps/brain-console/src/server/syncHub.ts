@@ -131,6 +131,24 @@ class SyncHub {
       clients: this.clients.size,
     });
   }
+
+  /** Stop the heartbeat interval and tear down all client sockets. Used for
+   *  graceful shutdown and in tests so the singleton does not keep the event
+   *  loop (and therefore the test process) alive after a suite finishes. */
+  stop(): void {
+    if (this.heartbeat) {
+      clearInterval(this.heartbeat);
+      this.heartbeat = null;
+    }
+    for (const client of this.clients) {
+      try {
+        client.socket.destroy();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.clients.clear();
+  }
 }
 
 // Encode a single unmasked text frame (server -> client).

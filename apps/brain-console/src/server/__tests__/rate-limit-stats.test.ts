@@ -77,6 +77,7 @@ describe("apps/brain-console/src/server runtime /api/rate-limit/stats", () => {
     app.use(express.json());
     app.use(await createRuntime());
     const srv = app.listen(0, "127.0.0.1");
+    await new Promise<void>((resolve) => srv.on("listening", () => resolve()));
     const p = (srv.address() as any).port;
     try {
       const { status, body } = await new Promise<{ status: number; body: any }>(
