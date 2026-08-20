@@ -6,10 +6,14 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { rateLimit, getRateLimitSnapshot } from "./ratelimit";
 import { loadServerFeatures } from "./features/loader";
+import { readAuditLog, toCsv, toJson, toSql } from "./auditExport";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "store.json");
+// Daily-rotated structured request logs written by server.ts (forgeos-<date>.log).
+// Override with FORGEOS_AUDIT_LOG_DIR to point at an alternate log directory.
+const LOG_DIR = path.resolve(__dirname, "..", "..", "logs");
 
 type Dict = Record<string, unknown>;
 type MaybePromise<T> = T | Promise<T>;
@@ -396,6 +400,41 @@ export async function createRuntime() {
     send();
     const timer = setInterval(send, 3000);
     _req.on("close", () => clearInterval(timer));
+  });
+
+  // Audit-log export: reads the daily-rotated structured request logs
+  // (forgeos-<date>.log) and returns them as CSV / JSON / SQL.
+  router.get("/api/audit/export", async (req, res) => {
+    const format = sanitizeString((req.query.format as string) ?? "", "");
+    if (!["csv", "json", "sql"].includes(format)) {
+      return badRequest(res, "format must be csv|json|sql");
+    }
+    const logDir = process.env.FORGEOS_AUDIT_LOG_DIR
+      ? path.resolve(process.env.FORGEOS_AUDIT_LOG_DIR)
+      : LOG_DIR;
+    try {
+      const entries = await readAuditLog(logDir);
+      let body: string;
+      let contentType: string;
+      let filename: string;
+      if (format === "csv") {
+        body = toCsv(entries);
+        contentType = "text/csv; charset=utf-8";
+        filename = "audit-export.csv";
+      } else if (format === "sql") {
+        body = toSql(entries);
+        contentType = "application/sql; charset=utf-8";
+        filename = `audit-export.sql`;
+      } else {
+        body = toJson(entries);
+        contentType = "application/json; charset=utf-8";
+        filename = "audit-export.json";
+      }
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.type(contentType).send(body);
+    } catch (err) {
+      return internalError(res, err instanceof Error ? err.message : "export failed");
+    }
   });
 
   router.get("/api/status", (_req, res) => {

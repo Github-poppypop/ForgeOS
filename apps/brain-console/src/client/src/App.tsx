@@ -1875,9 +1875,29 @@ function EmbedPanel({ data }: { data?: any }) {
 
 function AuditPanel({ data }: { data?: any }) {
   const events = (data?.events || []) as any[];
+  const [exportFormat, setExportFormat] = useState<'csv' | 'json' | 'sql'>('csv');
+  const downloadAuditLog = () => {
+    const a = document.createElement('a');
+    a.href = `/api/audit/export?format=${exportFormat}`;
+    a.download = `audit-export.${exportFormat}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
   return (
     <div className="fadein">
       <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 12 }}>
+        <select
+          className="select"
+          aria-label="Audit log export format"
+          value={exportFormat}
+          onChange={(e) => setExportFormat(e.target.value as 'csv' | 'json' | 'sql')}
+        >
+          <option value="csv">CSV</option>
+          <option value="json">JSON</option>
+          <option value="sql">SQL</option>
+        </select>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={downloadAuditLog}>Export log</button>
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportCsv('audit.csv', events)}>Export CSV</button>
         <span className="muted" style={{ marginLeft: 8 }}>{events.length} events</span>
       </div>
