@@ -2768,6 +2768,21 @@ function SelfImprovePanel({ data }: { data?: any }) {
   const learningRate = Math.round((data?.learning_rate || 0) * 100);
   const confidence = Math.round((data?.confidence || 0) * 100);
   const loading = !data;
+  const memoryApi = useApi<{ memory: Array<{ key: string; value: string; updated_at: string }>; count: number }>('/api/agent/memory');
+  const memoryEntries = (memoryApi.data?.memory || []) as Array<{ key: string; value: string; updated_at: string }>;
+  const [memKey, setMemKey] = useState('');
+  const [memValue, setMemValue] = useState('');
+  const [memBusy, setMemBusy] = useState(false);
+  const saveMemory = async () => {
+    if (!memKey.trim() || !memValue.trim() || memBusy) return;
+    setMemBusy(true);
+    try {
+      await api('/api/agent/memory', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: memKey.trim(), value: memValue.trim() }) });
+      setMemKey('');
+      setMemValue('');
+      memoryApi.reload();
+    } catch {} finally { setMemBusy(false); }
+  };
   const [agentStatus, setAgentStatus] = useState<string>('idle');
   useEffect(() => {
     let cancelled = false;
@@ -2953,6 +2968,30 @@ function SelfImprovePanel({ data }: { data?: any }) {
                   {[5, 4, 3, 2, 1].map((r) => <option key={r} value={r}>{r}/5</option>)}
                 </select>
                 <button className="btn primary" onClick={submit} disabled={!feedback.trim()}>Submit</button>
+              </div>
+            </div>
+        <div className="card">
+              <div className="section-header">
+                <h2>Agent memory</h2>
+                <span className="subtitle">Persisted context across sessions</span>
+              </div>
+              <div className="stack stack-sm" style={{ marginTop: 10 }}>
+                {memoryEntries.length === 0 ? (
+                  <p className="muted">No memory entries yet. Add one below.</p>
+                ) : (
+                  memoryEntries.map((m) => (
+                    <div key={m.key} className="card card-sm">
+                      <div className="h3 mono">{m.key}</div>
+                      <p className="muted" style={{ marginTop: 6 }}>{m.value}</p>
+                      <p className="muted mono" style={{ marginTop: 6, fontSize: 11 }}>updated {new Date(m.updated_at).toLocaleString()}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <input className="input" style={{ flex: 1, minWidth: 140 }} placeholder="key" value={memKey} onChange={(e) => setMemKey(e.target.value)} />
+                <input className="input" style={{ flex: 2, minWidth: 180 }} placeholder="value / note" value={memValue} onChange={(e) => setMemValue(e.target.value)} />
+                <button className="btn primary" onClick={saveMemory} disabled={!memKey.trim() || !memValue.trim() || memBusy}>{memBusy ? 'Saving…' : 'Save'}</button>
               </div>
             </div>
           </div>
