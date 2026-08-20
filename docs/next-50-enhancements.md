@@ -57,7 +57,7 @@ Ledgers drift — confirm in source before implementing.
 - 43. ⬜ Marketplace analytics for publishers
 - 44. ⬜ SDK publish helper in `apps/sdk`
 - 45. ⬜ First-app template selector in `apps/first-app`
-- 46. ⬜ Guided onboarding checklist tied to ROADMAP phases
+- 46. ✅ Guided onboarding checklist tied to ROADMAP phases → `features/feat-onboarding-checklist.tsx` (localStorage-persisted progress; mirrors ROADMAP Phase 0–5 tasks; Batch E #46, shipped 2026-08-20)
 - 47. ⬜ Role-based quickstart wizards for C-suite
 - 48. ⬜ Local demo data seeder for offline tours
 - 49. ⬜ Feature flags for staged rollout
