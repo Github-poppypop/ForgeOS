@@ -16,7 +16,7 @@
 11. Add saved views/filters for missions/vault/audit tables.
 12. Add command-palette fuzzy search across all panels.
 13. Add batch actions for missions/decisions/incidents.
-14. Add export-to-CSV for vault/audit/missions tables.
+14. ✅ Add export-to-CSV for vault/audit/missions tables (standalone /feature/export-csv panel).
 15. Add inline edit for decisions with optimistic rollback.
 16. ✅ Add time-travel diff viewer for decision history. (standalone /feature/diff-viewer; needed Express 5 /api/page/:slug wildcard fix in runtime.ts)
 17. Add keyboard shortcuts cheatsheet panel.
