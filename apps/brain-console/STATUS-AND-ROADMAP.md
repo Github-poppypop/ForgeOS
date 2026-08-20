@@ -35,9 +35,12 @@ repo `/opt/forgeos`). Prior STATUS-AND-ROADMAP.md was stale (referenced Bun and
 - CSV export on Ledger; **Vault/Missions/Audit CSV export + live rate-limit card (2026-08-19, commit `e43689b`)**.
 
 ## 3. Backlog (genuine gaps — see `.forgeos-todo.md`)
-- WebSocket/SSE live brain sync; OpenTelemetry tracing.
-- Agent memory persistence; mission scheduling; multi-agent workspaces.
-- Plugin marketplace registry; audit export to SQL/JSON.
+- OpenTelemetry distributed tracing (SSE live-sync scaffold already shipped in `feat-sse.tsx`).
+- Agent runtime hardening: retry/backoff, circuit breaker, sandbox guardrails, output schema validation, cost/token accounting, A/B canary routing, Ollama graceful degradation, runbook auto-select (Batch C 21-24,27-30).
+- Knowledge universe: incremental markdown sync, link-health, dup-merge, semantic bookmarking, page analytics, per-role ACL, page-mutation audit viewer, bulk page mover, graph viz (Batch D 31,33-35,37-40).
+- Audit export to SQL/JSON (CSV export already shipped via `feat-exportcsv`/panelkit; SQL/JSON still pending).
+- Marketplace review/approval + capability-compat + publisher analytics; SDK publish helper; first-app template; guided onboarding; role quickstart wizards; demo data seeder; release-notes generator (Batch E 41-48,50).
+- Inline decision edit w/ optimistic rollback; table column reorder (Batch B 15,19); wire `ContextMenu` to table rows (Batch B 20).
 - Snyk scanning; semantic release; visual regression; load testing; coverage.
 - Docker/K8s/Terraform/blue-green/CDN/WAF.
 - Published API reference + onboarding docs.
