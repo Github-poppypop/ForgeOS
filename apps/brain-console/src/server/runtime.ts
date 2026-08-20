@@ -381,6 +381,20 @@ export async function createRuntime() {
     });
   });
 
+  // Readiness probe for pm2 / container healthchecks: reports whether the
+  // runtime is fully mounted and its dependencies (in-memory store) are
+  // reachable. Distinct from /api/health (liveness) — a 200 here means the
+  // console is ready to serve traffic, not merely that the process is alive.
+  router.get("/api/health/ready", (_req, res) => {
+    const storeOk = Boolean(store) && Array.isArray((store as Store).roles);
+    jsonResponse(res, {
+      ok: storeOk,
+      service: "forgeos-brain-console",
+      ts: Date.now(),
+      deps: { store: storeOk ? "ok" : "degraded" },
+    });
+  });
+
   router.get("/api/health/stream", (_req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache, no-transform");
