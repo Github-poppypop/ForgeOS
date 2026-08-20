@@ -10,9 +10,18 @@ import { loadServerFeatures } from "./features/loader";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "store.json");
+const SCHEDULES_FILE = path.join(DATA_DIR, "schedules.json");
 
 type Dict = Record<string, unknown>;
 type MaybePromise<T> = T | Promise<T>;
+
+// Registry of active schedule timers (module-level so tests can stop them).
+const scheduleTimers = new Map<string, ReturnType<typeof setInterval>>();
+
+export function stopAllSchedules() {
+  for (const handle of scheduleTimers.values()) clearInterval(handle);
+  scheduleTimers.clear();
+}
 
 function sanitizeString(value: unknown, fallback = ""): string {
   if (typeof value !== "string") return fallback;
@@ -286,6 +295,19 @@ const defaultStore = {
 
 type Store = typeof defaultStore;
 
+interface Schedule {
+  id: string;
+  slug: string;
+  type: string;
+  title: string;
+  body: string;
+  status: string;
+  intervalMs: number;
+  enabled: boolean;
+  created_at: string;
+  lastRun: string | null;
+}
+
 function loadStore(): Store {
   return loadJson<Store>(DATA_FILE, defaultStore);
 }
@@ -496,34 +518,166 @@ export async function createRuntime() {
     jsonResponse(res, { query: q, type, results: results.slice(start, start + perPage), page: pageSafe, totalPages, total, perPage });
   });
 
-  router.post("/api/capture", express.json(), (req, res) => {
-    const missing = validateRequired(req.body ?? {}, ["slug", "type"]);
-    if (missing) return badRequest(res, missing);
-    const slug = sanitizeString((req.body as Dict).slug as string);
-    const type = sanitizeString((req.body as Dict).type as string, "note");
-    const title = sanitizeString((req.body as Dict).title as string, slug);
-    const body = sanitizeString((req.body as Dict).body as string, "");
-    const status = sanitizeString((req.body as Dict).status as string, "draft");
+  // --- Mission scheduling: cron-like, server-side timed captures -------------
+  // Each enabled schedule periodically triggers a capture POST to /api/capture.
+  // Schedules persist to data/schedules.json and are resumed on startup.
+  let schedules: Schedule[] = loadJson<Schedule[]>(SCHEDULES_FILE, []);
 
+  function performCapture(body: Dict): { ok: boolean; page: Dict; updated: boolean } {
+    const slug = sanitizeString(body.slug);
+    const type = sanitizeString(body.type, "note");
+    const title = sanitizeString(body.title, slug);
+    const bodyText = sanitizeString(body.body, "");
+    const status = sanitizeString(body.status, "draft");
+    if (!slug) return { ok: false, page: {}, updated: false };
     const pages = ensureArray(store.pages) as Dict[];
     const existing = pages.find((p) => p.slug === slug);
     if (existing) {
       existing.title = title || existing.title;
-      existing.body = body || existing.body;
+      existing.body = bodyText || existing.body;
       existing.type = type || existing.type;
       existing.status = status;
       existing.updated_at = new Date().toISOString().split("T")[0];
       persist();
       pushAudit("page.update", slug, "system");
-      return jsonResponse(res, { page: existing, updated: true });
+      return { ok: true, page: existing, updated: true };
     }
-
-    const entry = { slug, type, title, body, status, created_at: new Date().toISOString().split("T")[0], updated_at: new Date().toISOString().split("T")[0] };
+    const entry = {
+      slug,
+      type,
+      title,
+      body: bodyText,
+      status,
+      created_at: new Date().toISOString().split("T")[0],
+      updated_at: new Date().toISOString().split("T")[0],
+    };
     pages.push(entry);
     store.pages = pages;
     persist();
     pushAudit("page.create", slug, "system");
-    return res.status(201).json({ page: entry, updated: false });
+    return { ok: true, page: entry, updated: false };
+  }
+
+  function persistSchedules(list: Schedule[]) {
+    saveJson(SCHEDULES_FILE, list);
+  }
+
+  async function triggerCapture(schedule: Schedule): Promise<{ ok: boolean }> {
+    const captureBody: Dict = {
+      slug: schedule.slug,
+      type: schedule.type,
+      title: schedule.title,
+      body: schedule.body,
+      status: schedule.status,
+    };
+    const port = Number(process.env.PORT ?? 7777);
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/api/capture`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(captureBody),
+      });
+      if (!res.ok) throw new Error(`capture responded ${res.status}`);
+      return { ok: true };
+    } catch (err) {
+      // No HTTP server bound (standalone/test) — perform capture in-process.
+      const result = performCapture(captureBody);
+      if (!result.ok) {
+        console.warn(`[scheduler] capture failed for ${schedule.slug}:`, err instanceof Error ? err.message : err);
+      }
+      return { ok: result.ok };
+    }
+  }
+
+  async function runSchedule(schedule: Schedule): Promise<void> {
+    await triggerCapture(schedule);
+    schedule.lastRun = new Date().toISOString();
+    persistSchedules(schedules);
+  }
+
+  function startScheduleTimer(schedule: Schedule) {
+    if (!schedule.enabled) return;
+    const existing = scheduleTimers.get(schedule.id);
+    if (existing) {
+      clearInterval(existing);
+      scheduleTimers.delete(schedule.id);
+    }
+    const ms = clamp(sanitizeNumber(schedule.intervalMs, 60000), 1000, 1000 * 60 * 60 * 24);
+    const handle = setInterval(() => {
+      runSchedule(schedule).catch((err) =>
+        console.warn(`[scheduler] run failed for ${schedule.id}:`, err instanceof Error ? err.message : err),
+      );
+    }, ms);
+    (handle as any).unref?.();
+    scheduleTimers.set(schedule.id, handle);
+  }
+
+  function stopScheduleTimer(id: string) {
+    const handle = scheduleTimers.get(id);
+    if (handle) {
+      clearInterval(handle);
+      scheduleTimers.delete(id);
+    }
+  }
+
+  router.post("/api/capture", express.json(), (req, res) => {
+    const missing = validateRequired(req.body ?? {}, ["slug", "type"]);
+    if (missing) return badRequest(res, missing);
+    const result = performCapture(req.body as Dict);
+    if (!result.ok) return badRequest(res, "capture requires a non-empty slug");
+    if (result.updated) return jsonResponse(res, { page: result.page, updated: true });
+    return res.status(201).json({ page: result.page, updated: false });
+  });
+
+  router.get("/api/schedules", (_req, res) => {
+    jsonResponse(res, { schedules, count: schedules.length });
+  });
+
+  router.post("/api/schedules", express.json(), (req, res) => {
+    const missing = validateRequired(req.body ?? {}, ["slug", "type"]);
+    if (missing) return badRequest(res, missing);
+    const body = req.body as Dict;
+    const intervalMs = sanitizeNumber(body.intervalMs, 0);
+    if (!Number.isFinite(intervalMs) || intervalMs < 1000) {
+      return badRequest(res, "intervalMs must be a number >= 1000");
+    }
+    const schedule: Schedule = {
+      id: `sched_${nextId++}`,
+      slug: sanitizeString(body.slug),
+      type: sanitizeString(body.type, "note"),
+      title: sanitizeString(body.title, sanitizeString(body.slug)),
+      body: sanitizeString(body.body, ""),
+      status: sanitizeString(body.status, "draft"),
+      intervalMs: clamp(intervalMs, 1000, 1000 * 60 * 60 * 24),
+      enabled: sanitizeBoolean(body.enabled, true),
+      created_at: new Date().toISOString(),
+      lastRun: null,
+    };
+    schedules.push(schedule);
+    persistSchedules(schedules);
+    pushAudit("schedule.create", schedule.id, "system");
+    startScheduleTimer(schedule);
+    return res.status(201).json({ schedule });
+  });
+
+  router.post("/api/schedules/:id/run", (req, res) => {
+    const id = sanitizeString(req.params.id, "");
+    const schedule = schedules.find((s) => s.id === id);
+    if (!schedule) return notFound(res, "schedule not found");
+    runSchedule(schedule)
+      .then(() => jsonResponse(res, { ok: true, schedule }))
+      .catch((err) => internalError(res, err instanceof Error ? err.message : "run failed"));
+  });
+
+  router.delete("/api/schedules/:id", (req, res) => {
+    const id = sanitizeString(req.params.id, "");
+    const idx = schedules.findIndex((s) => s.id === id);
+    if (idx < 0) return notFound(res, "schedule not found");
+    schedules.splice(idx, 1);
+    stopScheduleTimer(id);
+    persistSchedules(schedules);
+    pushAudit("schedule.delete", id, "system");
+    return jsonResponse(res, { ok: true, id });
   });
 
   router.get("/api/page/{*slug}", (req, res) => {
@@ -1493,6 +1647,11 @@ export async function createRuntime() {
   });
 
   router.use((_req, res, next) => next());
+
+  // Resume persisted schedules on startup (re-arm enabled timers).
+  for (const s of schedules) {
+    if (s.enabled) startScheduleTimer(s);
+  }
 
   return router;
 }
