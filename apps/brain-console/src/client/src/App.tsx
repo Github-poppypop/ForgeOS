@@ -2279,10 +2279,106 @@ function WorkflowsPanel({ data }: { data?: any }) {
   );
 }
 
-function MarketplacePanel({ data }: { data?: any }) {
-  const packs = (data?.packs || []) as any[];
+function MarketplacePanel({ data, reload }: { data?: any; reload?: () => void }) {
+  const catalog = (data?.plugins || []) as any[];
+  // Charts stay driven by the registry catalog, falling back to legacy packages.
+  const packs = (catalog.length ? catalog : (data?.packages || data?.packs || [])) as any[];
+  const [q, setQ] = useState('');
+  const [category, setCategory] = useState('');
+  const [view, setView] = useState<'all' | 'installed' | 'available'>('all');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [form, setForm] = useState({ name: '', version: '0.1.0', description: '', author: 'CTO', category: 'plugin', tags: '' });
+
+  const categories = useMemo(
+    () => Array.from(new Set(catalog.map((p: any) => String(p.category || 'plugin')))).sort(),
+    [catalog],
+  );
+  const visible = useMemo(
+    () => catalog.filter((p: any) => {
+      const haystack = [p.name, p.description, p.author, p.category, ...(p.tags || [])].join(' ').toLowerCase();
+      if (q && !haystack.includes(q.toLowerCase())) return false;
+      if (category && String(p.category || '') !== category) return false;
+      if (view === 'installed' && !p.installed) return false;
+      if (view === 'available' && p.installed) return false;
+      return true;
+    }),
+    [catalog, q, category, view],
+  );
+  const installedCount = catalog.filter((p: any) => p.installed).length;
+
+  const install = async (plugin: any) => {
+    const id = String(plugin.id || plugin.name || '');
+    if (!id) return;
+    setBusy(id);
+    setNotice(null);
+    try {
+      const res = await api<any>(`/api/marketplace/${encodeURIComponent(id)}/install`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      });
+      setNotice(res?.already ? `${plugin.name} is already installed` : `Installed ${plugin.name} v${plugin.version}`);
+      reload?.();
+    } catch (e) {
+      setNotice(`Install failed: ${String((e as Error)?.message ?? e)}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const publish = async () => {
+    if (!form.name.trim()) { setNotice('Plugin name is required'); return; }
+    setPublishing(true);
+    setNotice(null);
+    try {
+      const payload = { ...form, tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean) };
+      await api('/api/marketplace', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      setNotice(`Published ${form.name} v${form.version}`);
+      setForm((p) => ({ ...p, name: '', description: '', tags: '' }));
+      reload?.();
+    } catch (e) {
+      setNotice(`Publish failed: ${String((e as Error)?.message ?? e)} — name+semver version required, duplicates rejected`);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   return (
     <div className="fadein">
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <input
+              type="search"
+              className="input"
+              style={{ width: 240 }}
+              placeholder="Discover plugins..."
+              data-tooltip="Search the registry by name, description, author or tag"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <select className="select" style={{ width: 160 }} data-tooltip="Filter by category" value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">All categories</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button className={cn('tab', view === 'all' && 'active')} onClick={() => setView('all')}>All</button>
+            <button className={cn('tab', view === 'available' && 'active')} onClick={() => setView('available')}>Available</button>
+            <button className={cn('tab', view === 'installed' && 'active')} onClick={() => setView('installed')}>Installed</button>
+          </div>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <span className="pill">{catalog.length} published</span>
+            <span className="pill">{installedCount} installed</span>
+            <button className="btn" onClick={() => reload?.()}>Refresh</button>
+          </div>
+        </div>
+        {notice && <p className="muted mono" style={{ marginTop: 8 }}>{notice}</p>}
+      </div>
       <div className="bento-grid">
         <div className="card">
           <div className="section-header">
@@ -2312,29 +2408,64 @@ function MarketplacePanel({ data }: { data?: any }) {
             <GaugeChart value={packs.filter((p) => p.updateAvailable).length ? 40 : 90} label="Freshness" />
           </div>
         </div>
-        <div className="card">
+        <div className="card" style={{ gridColumn: '1 / -1' }}>
           <div className="section-header">
-            <h2>Packs</h2>
-            <span className="subtitle">Available plugins</span>
+            <h2>Registry</h2>
+            <span className="subtitle">{visible.length} of {catalog.length} published plugins</span>
           </div>
           <div className="stack">
-            {packs.slice(0, 20).map((p: any, i: number) => (
-              <div key={i} className="card card-sm">
-                <div className="row" style={{ justifyContent: 'space-between' }}>
+            {visible.slice(0, 40).map((p: any, i: number) => (
+              <div key={p.id || `${p.name}-${i}`} className="card card-sm">
+                <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                   <div>
-                    <div className="h3">{p.name || `pack-${i + 1}`}</div>
-                    <p className="muted mono">{p.category || 'general'} • v{p.version || '1.0'}</p>
+                    <div className="h3">{p.name || `plugin-${i + 1}`}</div>
+                    <p className="muted mono">{p.category || 'plugin'} • v{p.version || '0.0.0'} • {p.author || 'unknown'}</p>
                   </div>
-                  <span className={cn('tag', p.installed ? 'success' : 'info')}>{p.installed ? 'installed' : 'available'}</span>
+                  <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+                    <span className={cn('tag', p.installed ? 'success' : 'info')}>{p.installed ? 'installed' : 'available'}</span>
+                    <button
+                      className={cn('btn', !p.installed && 'primary')}
+                      data-tooltip={p.installed ? 'Already installed' : `Install ${p.name}`}
+                      disabled={p.installed || busy === String(p.id || p.name)}
+                      onClick={() => install(p)}
+                    >
+                      {busy === String(p.id || p.name) ? 'Installing...' : p.installed ? 'Installed' : 'Install'}
+                    </button>
+                  </div>
                 </div>
-                <div className="row" style={{ marginTop: 8, gap: 8 }}>
+                {p.description && <p className="muted" style={{ marginTop: 8 }}>{p.description}</p>}
+                <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
                   <span className="pill">{p.downloads ?? 0} downloads</span>
-                  <span className="pill">{p.rating ?? '—'} rating</span>
+                  <span className="pill">{p.rating ? `${p.rating} rating` : 'unrated'}</span>
+                  {(p.tags || []).slice(0, 4).map((t: string) => <span key={t} className="tag">{t}</span>)}
                 </div>
               </div>
             ))}
           </div>
-          {!packs.length && <EmptyState title="Marketplace empty" body="Packs will appear here after publish." />}
+          {!catalog.length && <EmptyState title="Registry empty" body="Publish a plugin below and it will appear here." />}
+          {!!catalog.length && !visible.length && <EmptyState title="No matches" body="No published plugin matches the current search and filters." />}
+        </div>
+        <div className="card" style={{ gridColumn: '1 / -1' }}>
+          <div className="section-header">
+            <h2>Publish plugin</h2>
+            <span className="subtitle">Add an entry to the registry</span>
+          </div>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+            <input className="input" style={{ width: 200 }} placeholder="plugin name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+            <input className="input" style={{ width: 120 }} placeholder="0.1.0" data-tooltip="Semver x.y.z" value={form.version} onChange={(e) => setForm((p) => ({ ...p, version: e.target.value }))} />
+            <input className="input" style={{ width: 140 }} placeholder="author" value={form.author} onChange={(e) => setForm((p) => ({ ...p, author: e.target.value }))} />
+            <select className="select" style={{ width: 130 }} value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}>
+              <option value="plugin">plugin</option>
+              <option value="tool">tool</option>
+              <option value="theme">theme</option>
+              <option value="integration">integration</option>
+            </select>
+            <input className="input" style={{ flex: 1, minWidth: 200 }} placeholder="description" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+            <input className="input" style={{ width: 180 }} placeholder="tags (comma separated)" value={form.tags} onChange={(e) => setForm((p) => ({ ...p, tags: e.target.value }))} />
+            <button className="btn primary" disabled={publishing || !form.name.trim()} onClick={publish}>
+              {publishing ? 'Publishing...' : 'Publish'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -3103,7 +3234,7 @@ export default function App() {
       case '/workflows':
         return <WorkflowsPanel data={workflowsApi.data} />;
       case '/marketplace':
-        return <MarketplacePanel data={marketplaceApi.data} />;
+        return <MarketplacePanel data={marketplaceApi.data} reload={marketplaceApi.reload} />;
       case '/plugins':
         return <PluginsPanel data={pluginsApi.data} />;
       case '/projects':

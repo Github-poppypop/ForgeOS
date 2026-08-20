@@ -10,6 +10,7 @@ import { loadServerFeatures } from "./features/loader";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "store.json");
+const REGISTRY_FILE = path.join(DATA_DIR, "registry.json");
 
 type Dict = Record<string, unknown>;
 type MaybePromise<T> = T | Promise<T>;
@@ -294,6 +295,145 @@ function persistStore(store: Store) {
   saveJson(DATA_FILE, store);
 }
 
+// ── Plugin marketplace registry ─────────────────────────────────────────────
+// Published plugins live in their own `data/registry.json` file so the
+// marketplace catalog is portable and can be synced/shipped independently of
+// the console store. Discovery reads this registry; publish appends to it and
+// install flips the `installed` flag plus install metadata.
+type RegistryPlugin = {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  category: string;
+  tags: string[];
+  source: string;
+  homepage: string;
+  installed: boolean;
+  downloads: number;
+  rating: number;
+  published_at: string;
+  installed_at: string | null;
+};
+
+type Registry = { plugins: RegistryPlugin[] };
+
+function registrySlug(name: string, version: string): string {
+  const base = `${name}-${version}`
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return base || `plugin-${Date.now()}`;
+}
+
+const defaultRegistry: Registry = {
+  plugins: [
+    {
+      id: "embed-worker-0.3.0",
+      name: "embed-worker",
+      version: "0.3.0",
+      description: "Background embedding worker backed by local Ollama.",
+      author: "ForgeOS Core",
+      category: "plugin",
+      tags: ["embed", "worker", "ollama"],
+      source: "registry://forgeos/embed-worker",
+      homepage: "",
+      installed: false,
+      downloads: 41,
+      rating: 4.1,
+      published_at: "2026-08-05T10:00:00.000Z",
+      installed_at: null,
+    },
+    {
+      id: "theme-obsidian-0.9.1",
+      name: "theme-obsidian",
+      version: "0.9.1",
+      description: "Obsidian-inspired dark theme for the brain console.",
+      author: "ForgeOS Design",
+      category: "theme",
+      tags: ["theme", "dark", "ui"],
+      source: "registry://forgeos/theme-obsidian",
+      homepage: "",
+      installed: true,
+      downloads: 84,
+      rating: 4.4,
+      published_at: "2026-08-06T12:00:00.000Z",
+      installed_at: "2026-08-07T09:30:00.000Z",
+    },
+    {
+      id: "api-gateway-0.1.0",
+      name: "api-gateway",
+      version: "0.1.0",
+      description: "Reverse-proxy gateway exposing app routes under one origin.",
+      author: "ForgeOS Platform",
+      category: "tool",
+      tags: ["gateway", "proxy", "api"],
+      source: "registry://forgeos/api-gateway",
+      homepage: "",
+      installed: false,
+      downloads: 27,
+      rating: 3.9,
+      published_at: "2026-08-08T08:15:00.000Z",
+      installed_at: null,
+    },
+    {
+      id: "mission-scheduler-1.1.0",
+      name: "mission-scheduler",
+      version: "1.1.0",
+      description: "Cron-style scheduler that advances missions automatically.",
+      author: "ForgeOS Core",
+      category: "plugin",
+      tags: ["missions", "scheduler", "automation"],
+      source: "registry://forgeos/mission-scheduler",
+      homepage: "",
+      installed: false,
+      downloads: 63,
+      rating: 4.6,
+      published_at: "2026-08-10T16:45:00.000Z",
+      installed_at: null,
+    },
+  ],
+};
+
+function loadRegistry(): Registry {
+  return loadJson<Registry>(REGISTRY_FILE, defaultRegistry);
+}
+
+function saveRegistry(registry: Registry) {
+  saveJson(REGISTRY_FILE, registry);
+}
+
+function normalizeRegistryPlugin(value: unknown): RegistryPlugin | null {
+  if (!value || typeof value !== "object") return null;
+  const entry = value as Dict;
+  const name = sanitizeString(entry.name);
+  const version = sanitizeString(entry.version, "0.0.0");
+  if (!name) return null;
+  return {
+    id: sanitizeString(entry.id, registrySlug(name, version)),
+    name,
+    version,
+    description: sanitizeString(entry.description, `${name} plugin`),
+    author: sanitizeString(entry.author, "unknown"),
+    category: sanitizeString(entry.category, "plugin"),
+    tags: ensureArray<unknown>(entry.tags).map((t) => sanitizeString(t)).filter(Boolean),
+    source: sanitizeString(entry.source, "registry://local"),
+    homepage: sanitizeString(entry.homepage, ""),
+    installed: sanitizeBoolean(entry.installed, false),
+    downloads: Math.max(0, sanitizeNumber(entry.downloads, 0)),
+    rating: clamp(sanitizeNumber(entry.rating, 0), 0, 5),
+    published_at: sanitizeString(entry.published_at, new Date().toISOString()),
+    installed_at: typeof entry.installed_at === "string" ? sanitizeString(entry.installed_at) || null : null,
+  };
+}
+
+function registryPlugins(registry: Registry): RegistryPlugin[] {
+  return ensureArray<unknown>(registry.plugins)
+    .map((p) => normalizeRegistryPlugin(p))
+    .filter((p): p is RegistryPlugin => p !== null);
+}
+
 function validateRequired(body: Dict, fields: string[]): string | null {
   const missing: string[] = fields.filter((f) => !(f in body) || body[f] === null || body[f] === undefined || sanitizeString(body[f]) === "");
   if (missing.length) return `missing required fields: ${missing.join(", ")}`;
@@ -322,6 +462,7 @@ export async function createRuntime() {
   router.use("/api/telemetry", rateLimit());
   router.use("/api/self-improve/learning-loop", rateLimit());
   const store = loadStore();
+  const registry = loadRegistry();
   let nextId = Date.now();
 
   function get<T>(key: keyof Store): T {
@@ -877,8 +1018,81 @@ export async function createRuntime() {
     return jsonResponse(res, { plugin: target });
   });
 
-  router.get("/api/marketplace", (_req, res) => {
-    jsonResponse(res, store.marketplace);
+  // Marketplace discovery: lists published plugins from data/registry.json.
+  // Supports ?q= (name/description/author/tag match), ?category= and
+  // ?installed=true|false. Legacy store-backed fields (packages, approvals,
+  // analytics) are preserved so existing consumers keep working.
+  router.get("/api/marketplace", (req, res) => {
+    const q = sanitizeString(req.query.q, "").toLowerCase();
+    const category = sanitizeString(req.query.category, "").toLowerCase();
+    const installedFilter = sanitizeString(req.query.installed, "").toLowerCase();
+    const all = registryPlugins(registry);
+    let plugins = all;
+    if (q) {
+      plugins = plugins.filter((p) =>
+        [p.name, p.description, p.author, p.category, ...p.tags].some((v) => String(v).toLowerCase().includes(q)),
+      );
+    }
+    if (category) plugins = plugins.filter((p) => p.category.toLowerCase() === category);
+    if (installedFilter === "true") plugins = plugins.filter((p) => p.installed);
+    if (installedFilter === "false") plugins = plugins.filter((p) => !p.installed);
+    jsonResponse(res, {
+      ...store.marketplace,
+      plugins,
+      total: plugins.length,
+      published: all.length,
+      installedCount: all.filter((p) => p.installed).length,
+      categories: Array.from(new Set(all.map((p) => p.category))).sort(),
+    });
+  });
+
+  // Publish a plugin into the registry.
+  router.post("/api/marketplace", express.json(), (req, res) => {
+    const body = (req.body ?? {}) as Dict;
+    const missing = validateRequired(body, ["name", "version"]);
+    if (missing) return badRequest(res, missing);
+    const name = sanitizeString(body.name);
+    const version = sanitizeString(body.version);
+    if (!/^\d+\.\d+\.\d+$/.test(version)) return badRequest(res, "version must be semver (x.y.z)");
+    const plugins = registryPlugins(registry);
+    if (plugins.some((p) => p.name === name && p.version === version)) {
+      return res.status(409).json({ published: false, error: `${name}@${version} already published` });
+    }
+    const entry = normalizeRegistryPlugin({
+      ...body,
+      id: registrySlug(name, version),
+      name,
+      version,
+      installed: false,
+      downloads: 0,
+      published_at: new Date().toISOString(),
+      installed_at: null,
+    });
+    if (!entry) return badRequest(res, "invalid plugin payload");
+    plugins.push(entry);
+    registry.plugins = plugins;
+    saveRegistry(registry);
+    pushAudit("marketplace.publish", `${entry.name}@${entry.version}`, "system");
+    return res.status(201).json({ published: true, plugin: entry });
+  });
+
+  // Install a registry plugin by id (name also accepted) — marks it installed.
+  router.post("/api/marketplace/:id/install", express.json(), (req, res) => {
+    const id = sanitizeString(decodeURIComponent(String(req.params.id ?? "")));
+    if (!id) return badRequest(res, "plugin id required");
+    const plugins = registryPlugins(registry);
+    const target = plugins.find((p) => p.id === id) ?? plugins.find((p) => p.name === id);
+    if (!target) return notFound(res, "plugin not found in registry");
+    const already = target.installed;
+    if (!already) {
+      target.installed = true;
+      target.installed_at = new Date().toISOString();
+      target.downloads += 1;
+    }
+    registry.plugins = plugins;
+    saveRegistry(registry);
+    pushAudit("marketplace.install", `${target.name}@${target.version}`, "system");
+    return jsonResponse(res, { installed: true, already, plugin: target });
   });
 
   router.post("/api/marketplace/install", express.json(), (req, res) => {
