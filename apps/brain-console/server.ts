@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { match } from "path-to-regexp";
 import { createRuntime } from "./src/server/runtime.js";
 import { createSSEHub } from "./src/server/sse.js";
+import { createJsonErrorHandler } from "./src/server/jsonErrorHandler.js";
 import { exportAudit } from "./src/server/auditExport.js";
 
 const PORT = Number(process.env.PORT ?? 7777);
@@ -197,6 +198,8 @@ async function main() {
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  // Catch body-parser / JSON parse failures as clean 400 JSON (no HTML stack leak).
+  app.use(createJsonErrorHandler({ onError: (ctx) => structuredLog('warn', { event: 'request_error', ...ctx }) }));
   sseHub.register(app, "/api/stream");
 
   app.use((req, res, next) => {
