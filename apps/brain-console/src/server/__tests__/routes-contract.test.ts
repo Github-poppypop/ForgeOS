@@ -69,6 +69,7 @@ describe("apps/brain-console/src/server/runtime user-facing route contract", () 
   const GET_ROUTES = [
     "/api/health",
     "/api/health/detailed",
+    "/api/health/ready",
     "/api/status",
     "/api/roles",
     "/api/search",
