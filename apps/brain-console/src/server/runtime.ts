@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { rateLimit, getRateLimitSnapshot } from "./ratelimit";
 import { loadServerFeatures } from "./features/loader";
 import { syncHub } from "./syncHub.js";
@@ -1701,6 +1702,114 @@ export async function createRuntime() {
     saveAgentMemory(mem);
     pushAudit("agent.memory.save", key, "system");
     return res.status(201).json({ ok: true, entry });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Shared agent workspaces (multi-agent collaboration).
+  // Persisted to data/workspaces.json (separate from the main store.json) so
+  // collaboration state survives restarts.
+  // ---------------------------------------------------------------------------
+  const WORKSPACES_FILE = path.join(DATA_DIR, "workspaces.json");
+
+  interface WorkspaceMember {
+    name: string;
+    joinedAt: string;
+  }
+  interface WorkspaceFeedEntry {
+    ts: string;
+    agent: string;
+    text: string;
+  }
+  interface WorkspaceRecord {
+    id: string;
+    name: string;
+    createdAt: string;
+    members: WorkspaceMember[];
+    feed: WorkspaceFeedEntry[];
+  }
+
+  function loadWorkspaces(): WorkspaceRecord[] {
+    return loadJson<WorkspaceRecord[]>(WORKSPACES_FILE, []);
+  }
+
+  function saveWorkspaces(ws: WorkspaceRecord[]) {
+    saveJson(WORKSPACES_FILE, ws);
+  }
+
+  const WORKSPACE_FEED_CAP = 200;
+
+  router.get("/api/workspaces", (_req, res) => {
+    const ws = loadWorkspaces();
+    jsonResponse(res, {
+      ok: true,
+      workspaces: ws.map((w) => ({ id: w.id, name: w.name, createdAt: w.createdAt, members: w.members })),
+    });
+  });
+
+  router.post("/api/workspaces", express.json(), (req, res) => {
+    const name = sanitizeString((req.body as Dict).name as string);
+    if (!name) return badRequest(res, "name is required");
+    const current = loadWorkspaces();
+    const record: WorkspaceRecord = {
+      id: randomUUID(),
+      name,
+      createdAt: new Date().toISOString(),
+      members: [],
+      feed: [],
+    };
+    current.push(record);
+    saveWorkspaces(current);
+    pushAudit("workspace.create", record.id, "system");
+    return res.status(201).json({ ok: true, workspace: record });
+  });
+
+  router.get("/api/workspaces/:id", (_req, res) => {
+    const id = sanitizeString(_req.params.id);
+    const ws = loadWorkspaces().find((w) => w.id === id);
+    if (!ws) return notFound(res, "workspace not found");
+    jsonResponse(res, { ok: true, workspace: ws });
+  });
+
+  router.post("/api/workspaces/:id/members", express.json(), (req, res) => {
+    const id = sanitizeString(req.params.id);
+    const name = sanitizeString((req.body as Dict).name as string);
+    if (!name) return badRequest(res, "name is required");
+    const action = sanitizeString((req.body as Dict).action as string, "join");
+    const all = loadWorkspaces();
+    const ws = all.find((w) => w.id === id);
+    if (!ws) return notFound(res, "workspace not found");
+    if (action === "leave") {
+      ws.members = ws.members.filter((m) => m.name !== name);
+    } else {
+      if (!ws.members.some((m) => m.name === name)) {
+        ws.members.push({ name, joinedAt: new Date().toISOString() });
+      }
+    }
+    saveWorkspaces(all);
+    pushAudit("workspace.member", id, name);
+    jsonResponse(res, { ok: true, action, members: ws.members });
+  });
+
+  router.post("/api/workspaces/:id/feed", express.json(), (req, res) => {
+    const id = sanitizeString(req.params.id);
+    const agent = sanitizeString((req.body as Dict).agent as string);
+    const text = sanitizeString((req.body as Dict).text as string);
+    if (!agent || !text) return badRequest(res, "agent and text are required");
+    const all = loadWorkspaces();
+    const ws = all.find((w) => w.id === id);
+    if (!ws) return notFound(res, "workspace not found");
+    const entry: WorkspaceFeedEntry = { ts: new Date().toISOString(), agent, text };
+    ws.feed.push(entry);
+    if (ws.feed.length > WORKSPACE_FEED_CAP) ws.feed = ws.feed.slice(ws.feed.length - WORKSPACE_FEED_CAP);
+    saveWorkspaces(all);
+    return res.status(201).json({ ok: true, entry });
+  });
+
+  router.get("/api/workspaces/:id/feed", (_req, res) => {
+    const id = sanitizeString(_req.params.id);
+    const ws = loadWorkspaces().find((w) => w.id === id);
+    if (!ws) return notFound(res, "workspace not found");
+    jsonResponse(res, { ok: true, feed: ws.feed.slice(-WORKSPACE_FEED_CAP) });
   });
 
   router.use((_req, res, next) => next());

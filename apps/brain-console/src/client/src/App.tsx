@@ -3200,6 +3200,8 @@ export default function App() {
         return <SettingsPanel data={settingsApi.data} />;
       case '/poolleague':
         return <PoolLeaguePanel data={poolLeagueApi.data} />;
+      case '/workspaces':
+        return renderFeature('/feature/workspaces');
       default:
         return <NotFound />;
     }
