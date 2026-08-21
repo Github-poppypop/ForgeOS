@@ -44,7 +44,7 @@ Ledgers drift — confirm in source before implementing.
 - 32. ✅ (partial) GraphQL endpoint guard → `features/feat-graphql-guard.tsx`
 - 33. ⬜ Duplicate-page detection + merge tooling
 - 34. ✅ Semantic bookmarking and reading-list capture → `features/feat-readinglist.tsx` (localStorage; CSV export + JSON import; Batch D #34, shipped Wave 5)
-- 35. ⬜ Page-level analytics (views, edits, last accessed)
+- 35. ✅ Page-level analytics (views, last accessed) — `features/feat-pageanalytics.tsx` (client-side localStorage visit tracker + live session telemetry from `window.__forgeosTelemetry`; auto-registers at `/feature/page-analytics`; Wave 10, commit `2b63f30`)
 - 36. ✅ Mission scheduling executor → `features/feat-missionsched-exec.tsx`
 - 37. ⬜ Access-control lists per role on sensitive pages
 - 38. ⬜ Audit trail viewer for page mutations
