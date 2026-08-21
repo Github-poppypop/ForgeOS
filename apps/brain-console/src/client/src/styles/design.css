@@ -1109,3 +1109,11 @@ ul.mono { list-style: none; padding: 0; }
   text-transform: uppercase;
   color: rgba(255,255,255,0.7);
 }
+
+/* forgeos-driver (cron 2026-08-21): component classes referenced in JSX but undefined — verified absent via full-repo scan */
+.status-bar-title { font-weight: 700; color: var(--text); }
+.status-bar-meta { opacity: 0.72; }
+.status-bar-sep { opacity: 0.4; }
+.stat-value { font-family: var(--display); font-size: 28px; font-weight: 750; line-height: 1.2; color: var(--on-surface); letter-spacing: -0.02em; }
+.bento-shell { min-height: 100vh; }
+.changelog-release { padding: var(--s3); }
