@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ContextMenu, type CtxItem } from '../panelkit';
 
 interface VaultItem {
   id: number;
@@ -33,6 +34,7 @@ function BulkVaultPanel() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [menu, setMenu] = useState<{ x: number; y: number; item: VaultItem } | null>(null);
 
   useEffect(() => {
     void load();
@@ -95,6 +97,67 @@ function BulkVaultPanel() {
     }
   }
 
+  function contextMenuItems(item: VaultItem): CtxItem[] {
+    return [
+      {
+        label: selected.has(item.id) ? 'Deselect row' : 'Select row',
+        onClick: () => toggle(item.id),
+      },
+      {
+        label: 'Copy item ID',
+        onClick: () => {
+          void navigator.clipboard?.writeText(String(item.id));
+        },
+      },
+      {
+        label: 'Export row (JSON)',
+        onClick: () => {
+          const blob = new Blob([JSON.stringify(item, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `vault-${item.id}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+      },
+      {
+        label: 'Delete row',
+        danger: true,
+        onClick: () => void deleteRow(item.id),
+      },
+    ];
+  }
+
+  async function deleteRow(id: number): Promise<void> {
+    setBusy(true);
+    setMsg('');
+    try {
+      const r = await fetch('/api/vault/bulk', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', ids: [id] }),
+      });
+      const data = (await r.json()) as BulkResponse;
+      if (!r.ok) {
+        setMsg('Error: ' + (data.error ?? String(r.status)));
+        return;
+      }
+      setMsg(`Deleted ${data.deleted ?? 0} item(s)`);
+      setSelected((s) => {
+        const n = new Set(s);
+        n.delete(id);
+        return n;
+      });
+      await load();
+    } catch {
+      setMsg('Request failed');
+    } finally {
+      setBusy(false);
+      setMenu(null);
+    }
+  }
+
   return (
     <div className="card">
       <div className="section-header">
@@ -122,7 +185,13 @@ function BulkVaultPanel() {
           </thead>
           <tbody>
             {items.map((it) => (
-              <tr key={it.id}>
+              <tr
+                key={it.id}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenu({ x: e.clientX, y: e.clientY, item: it });
+                }}
+              >
                 <td>
                   <input type="checkbox" checked={selected.has(it.id)} onChange={() => toggle(it.id)} aria-label={`Select ${it.name}`} />
                 </td>
@@ -139,6 +208,14 @@ function BulkVaultPanel() {
           </tbody>
         </table>
       </div>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={contextMenuItems(menu.item)}
+        />
+      )}
     </div>
   );
 }
