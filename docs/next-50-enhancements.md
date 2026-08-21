@@ -29,7 +29,7 @@ Ledgers drift — confirm in source before implementing.
 ## Batch C — Agent Runtime Hardening (21–30)
 - 21. ✅ Retry/backoff wrapper for gbrain CLI spawns → `agents/retry.ts` (`withRetry`: exponential backoff + jitter, abort support, `NonRetryableError`); wired into `self-improve-loop.ts` `exec()` so transient spawn/timeout failures retry (default 1 retry) while clean non-zero exits resolve unretried; 13 `node:test` cases green (`agents/__tests__/retry.test.ts`)
 - 22. ✅ Circuit breaker for repeated gbrain failures → `agents/circuit-breaker.ts` (`CircuitBreaker` class: CLOSED/OPEN/HALF_OPEN states, `cooldownMs` probe, `successThreshold` to close, `CircuitOpenError` fast-fail; 8 `node:test` cases green in `agents/__tests__/circuit-breaker.test.ts`; pairs with `retry.ts` #21; Batch C #22, shipped Wave 12)
-- 23. ⬜ Agent sandbox policy enforcement in `agents/guardrails.ts`
+- 23. ✅ Agent sandbox policy enforcement → `agents/guardrails.ts` (`SandboxPolicy` + `defaultSandboxProfile`; allow/deny fs/exec/network/env with rooted-path + basename guards and a safe-by-default denylist; 12 `node:test` cases green in `agents/__tests__/guardrails.test.ts`; Batch C #23, shipped this tick)
 - 24. ✅ Structured agent output schema validation → `agents/schema-validator.ts` (`SchemaValidator` class + pre-registered `agent-result`/`dispatch-result` schemas, dependency-free JSON-Schema Draft-7 subset); portable `node:test` coverage in `agents/__tests__/schema-validator.test.ts` (9 cases, green via `npx tsx --test`); Batch C #24, verified this tick
 - 25. ✅ Agent memory cache with TTL eviction → `features/feat-agentcache.tsx`
 - 26. ✅ Dead-letter queue for failed agent tasks → `features/feat-deadletter.tsx`
