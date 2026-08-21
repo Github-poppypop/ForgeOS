@@ -23,7 +23,7 @@ Ledgers drift — confirm in source before implementing.
 - 16. ✅ Time-travel diff viewer for decision history → `features/feat-diffviewer.tsx` (needed Express 5 `/api/page/:slug` wildcard fix in `runtime.ts`)
 - 17. ✅ Keyboard shortcuts cheatsheet panel → `App.tsx` `ShortcutsOverlay` + `features/feat-keyboard-shortcuts.tsx`
 - 18. ✅ Offline mode queue with sync indicator → `features/offline.tsx` (`flushOfflineQueue`, `navigator.onLine`)
-- 19. ⬜ Panel resize + column reorder persistence — column *visibility* exists (`toggleCol`/`hiddenCols`) but no *reorder*/drag-handle
+- 19. ✅ Panel resize + column reorder persistence — `toggleCol`/`hiddenCols` column visibility + up/down reorder buttons persisted to localStorage (closes Batch B #19, Wave 11)
 - 20. ✅ Right-click context menus — `ContextMenu` wired to Bulk Vault table rows (Select/Deselect, Copy ID, Export row JSON, Delete) in `feat-bulkvault.tsx`; pattern reusable for other tables (Batch B #20, PR #42)
 
 ## Batch C — Agent Runtime Hardening (21–30)
