@@ -27,7 +27,7 @@ Ledgers drift — confirm in source before implementing.
 - 20. ✅ Right-click context menus — `ContextMenu` wired to Bulk Vault table rows (Select/Deselect, Copy ID, Export row JSON, Delete) in `feat-bulkvault.tsx`; pattern reusable for other tables (Batch B #20, PR #42)
 
 ## Batch C — Agent Runtime Hardening (21–30)
-- 21. ⬜ Retry/backoff wrapper for gbrain CLI spawns
+- 21. ✅ Retry/backoff wrapper for gbrain CLI spawns → `agents/retry.ts` (`withRetry`: exponential backoff + jitter, abort support, `NonRetryableError`); wired into `self-improve-loop.ts` `exec()` so transient spawn/timeout failures retry (default 1 retry) while clean non-zero exits resolve unretried; 13 `node:test` cases green (`agents/__tests__/retry.test.ts`)
 - 22. ⬜ Circuit breaker for repeated gbrain failures
 - 23. ⬜ Agent sandbox policy enforcement in `agents/guardrails.ts`
 - 24. ⬜ Structured agent output schema validation

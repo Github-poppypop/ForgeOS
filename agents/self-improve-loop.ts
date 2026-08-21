@@ -13,6 +13,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import { join, dirname, resolve as pathResolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { withRetry } from "./retry";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -183,38 +184,76 @@ async function getCurrentCommit(cwd: string): Promise<string> {
   return r.stdout.trim();
 }
 
-async function exec(cmd: string, args: string[], opts?: { cwd?: string; env?: NodeJS.ProcessEnv; input?: string; timeoutMs?: number }): Promise<{ ok: boolean; stdout: string; stderr: string; error?: string }> {
-  return new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd: opts?.cwd, env: opts?.env ?? process.env, stdio: ["pipe", "pipe", "pipe"] });
+/**
+ * Run a single CLI spawn, collecting stdout/stderr.
+ *
+ * Failure modes:
+ * - A clean non-zero exit → resolved `{ ok: false }` (a *real* failure; the
+ *   retry wrapper must NOT mask it).
+ * - A transient failure (spawn() throws synchronously, the child emits
+ *   "error", or the timeout fires) → rejected, so `withRetry` can retry it.
+ */
+function runSpawn(
+  cmd: string,
+  args: string[],
+  opts?: { cwd?: string; env?: NodeJS.ProcessEnv; input?: string; timeoutMs?: number }
+): Promise<{ ok: boolean; stdout: string; stderr: string; error?: string }> {
+  return new Promise((resolve, reject) => {
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(cmd, args, { cwd: opts?.cwd, env: opts?.env ?? process.env, stdio: ["pipe", "pipe", "pipe"] });
+    } catch (e) {
+      // spawn() threw synchronously (e.g. EMFILE/EAGAIN) — transient.
+      reject(e instanceof Error ? e : new Error(String(e)));
+      return;
+    }
     let stdout = "";
     let stderr = "";
     if (opts?.input !== undefined) {
-      child.stdin.write(opts.input);
-      child.stdin.end();
+      child.stdin?.write(opts.input);
+      child.stdin?.end();
     } else {
-      child.stdin.end();
+      child.stdin?.end();
     }
-    child.stdout.on("data", (d) => (stdout += d.toString()));
-    child.stderr.on("data", (d) => (stderr += d.toString()));
+    child.stdout?.on("data", (d) => (stdout += d.toString()));
+    child.stderr?.on("data", (d) => (stderr += d.toString()));
     const timeout = opts?.timeoutMs ?? 120_000;
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
-      resolve({ ok: false, stdout, stderr, error: `timeout after ${timeout}ms` });
+      // Timeout is transient: the command may simply have been slow/starved.
+      reject(new Error(`timeout after ${timeout}ms`));
     }, timeout);
-    child.on("exit", (code) => {
-      clearTimeout(timer);
-      resolve({
-        ok: code === 0,
-        stdout,
-        stderr,
-        error: code === 0 ? undefined : `exit ${code}`,
-      });
-    });
     child.on("error", (e) => {
       clearTimeout(timer);
-      resolve({ ok: false, stdout, stderr, error: e?.message ?? String(e) });
+      reject(e instanceof Error ? e : new Error(String(e)));
+    });
+    child.on("exit", (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve({ ok: true, stdout, stderr });
+      else resolve({ ok: false, stdout, stderr, error: `exit ${code}` });
     });
   });
+}
+
+async function exec(
+  cmd: string,
+  args: string[],
+  opts?: { cwd?: string; env?: NodeJS.ProcessEnv; input?: string; timeoutMs?: number; maxRetries?: number }
+): Promise<{ ok: boolean; stdout: string; stderr: string; error?: string }> {
+  try {
+    return await withRetry(() => runSpawn(cmd, args, opts), {
+      // maxRetries is the number of *retries*; +1 for the initial attempt.
+      maxAttempts: (opts?.maxRetries ?? 1) + 1,
+      baseDelayMs: 250,
+      maxDelayMs: 4000,
+      factor: 2,
+      // Transient errors (spawn throw / child error / timeout) reject and are
+      // retried; clean non-zero exits resolve and are intentionally NOT retried.
+    });
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    return { ok: false, stdout: "", stderr: "", error };
+  }
 }
 
 // Self-invoking bootstrap: when run directly via `tsx agents/self-improve-loop.ts`,
