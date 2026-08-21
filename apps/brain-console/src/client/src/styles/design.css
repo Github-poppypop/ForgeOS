@@ -1117,3 +1117,30 @@ ul.mono { list-style: none; padding: 0; }
 .stat-value { font-family: var(--display); font-size: 28px; font-weight: 750; line-height: 1.2; color: var(--on-surface); letter-spacing: -0.02em; }
 .bento-shell { min-height: 100vh; }
 .changelog-release { padding: var(--s3); }
+
+/* forgeos-driver (cron 2026-08-21): status/activity timeline, stepper, heatmap cells, tag list.
+   Classes referenced in App.tsx but undefined in any stylesheet (verified via full-repo CSS scan). */
+.timeline { display: flex; flex-direction: column; gap: var(--s2); }
+.tl-item {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--s2) var(--s3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.tl-time { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
+.tl-title { font-weight: 600; color: var(--text); }
+.tl-meta { font-size: 12px; color: var(--text-dim); }
+
+.step { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.step-line { flex: 1; height: 2px; background: var(--border); border-radius: 999px; min-width: 12px; }
+
+.heat-cell { width: 14px; height: 14px; border-radius: 3px; background: var(--surface-4); }
+.heat-cell.l1 { background: rgba(96,165,250,0.28); }
+.heat-cell.l2 { background: rgba(96,165,250,0.46); }
+.heat-cell.l3 { background: rgba(96,165,250,0.64); }
+.heat-cell.l4 { background: rgba(96,165,250,0.82); }
+.heat-cell.l5 { background: var(--info); }
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
