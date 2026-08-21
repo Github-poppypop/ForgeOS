@@ -72,6 +72,32 @@ function statusTag(s: Status): string {
   return s === "applied" ? "tag done" : "tag warn";
 }
 
+function auditToCsv(entries: AuditEntry[]): string {
+  const cols = ["ts", "page", "action", "actor", "role", "source", "status"];
+  const esc = (v: unknown): string => {
+    const s = v == null ? "" : String(v);
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const rows = entries.map((e) =>
+    [new Date(e.ts).toISOString(), e.page, e.action, e.actor, e.role, e.source, e.status]
+      .map(esc)
+      .join(",")
+  );
+  return cols.join(",") + "\n" + rows.join("\n") + "\n";
+}
+
+function triggerDownload(filename: string, content: string, mime: string): void {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 const ACTIONS: Action[] = ["create", "update", "delete", "rename", "move"];
 
 export default {
@@ -162,6 +188,32 @@ export default {
           </button>
           <button className="btn sm" onClick={clearAll}>
             Clear
+          </button>
+          <button
+            className="btn primary sm"
+            disabled={filtered.length === 0}
+            onClick={() =>
+              triggerDownload(
+                "page-mutation-audit.csv",
+                auditToCsv(filtered),
+                "text/csv;charset=utf-8;"
+              )
+            }
+          >
+            Export CSV
+          </button>
+          <button
+            className="btn secondary sm"
+            disabled={filtered.length === 0}
+            onClick={() =>
+              triggerDownload(
+                "page-mutation-audit.json",
+                JSON.stringify(filtered, null, 2),
+                "application/json"
+              )
+            }
+          >
+            Export JSON
           </button>
         </div>
 
