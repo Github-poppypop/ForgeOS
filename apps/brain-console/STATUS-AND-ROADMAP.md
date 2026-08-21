@@ -34,6 +34,7 @@ repo `/opt/forgeos`). Prior STATUS-AND-ROADMAP.md was stale (referenced Bun and
 - Playwright e2e + performance budgets.
 - CSV export on Ledger; **Vault/Missions/Audit CSV export + live rate-limit card (2026-08-19, commit `e43689b`)**.
 - **Reading List panel** (semantic bookmarking + reading-list capture; localStorage; CSV export/import) — Batch D #34, Wave 5 (2026-08-20).
+- **Demo Data Seeder panel** (one-click seed of sample data into localStorage-backed features for offline tours) — next-50 #48, Wave 9 (2026-08-20, f864cfa).
 
 ## 3. Backlog (genuine gaps — see `.forgeos-todo.md`)
 - OpenTelemetry distributed tracing (SSE live-sync scaffold already shipped in `feat-sse.tsx`).
