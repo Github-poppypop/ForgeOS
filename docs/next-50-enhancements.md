@@ -34,9 +34,9 @@ Ledgers drift — confirm in source before implementing.
 - 25. ✅ Agent memory cache with TTL eviction → `features/feat-agentcache.tsx`
 - 26. ✅ Dead-letter queue for failed agent tasks → `features/feat-deadletter.tsx`
 - 27. ✅ Agent cost/token accounting per role — `features/feat-agentcost.tsx` (per-role spend table + cost-share bars + summary tiles; mock-first telemetry, live `/api/agent-cost` accumulator is the backend follow-up; Batch C #27, shipped Wave 11)
-- 28. ⬜ Agent A/B routing for canary prompts
+- 28. ✅ Agent A/B routing for canary prompts → agents/ab-router.ts (canonical, deterministic, node:test) + features/feat-abrouting.tsx (operator panel); runtime dispatch wiring is the backend follow-up (Batch C #28, shipped this tick)
 - 29. ⬜ Graceful degradation when Ollama is offline
-- 30. ⬜ Agent runbook auto-selection by mission type
+- 30. ✅ Agent runbook auto-selection by mission type → agents/runbook-selector.ts + agents/__tests__/runbook-selector.test.ts (Batch C #30; was mis-marked ⬜ — ledger drift corrected this tick)
 - (also shipped: `feat-ratelimit.tsx`, `feat-ratelimit-telemetry.tsx`, `feat-alert-status.tsx`)
 
 ## Batch D — Knowledge Universe + Federation (31–40)
