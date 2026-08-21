@@ -24,7 +24,7 @@ Ledgers drift — confirm in source before implementing.
 - 17. ✅ Keyboard shortcuts cheatsheet panel → `App.tsx` `ShortcutsOverlay` + `features/feat-keyboard-shortcuts.tsx`
 - 18. ✅ Offline mode queue with sync indicator → `features/offline.tsx` (`flushOfflineQueue`, `navigator.onLine`)
 - 19. ⬜ Panel resize + column reorder persistence — column *visibility* exists (`toggleCol`/`hiddenCols`) but no *reorder*/drag-handle
-- 20. 🟡 Right-click context menus — `ContextMenu` component exists in `panelkit.tsx` but is NOT wired to table rows (`onContextMenu` absent)
+- 20. ✅ Right-click context menus — `ContextMenu` wired to Bulk Vault table rows (Select/Deselect, Copy ID, Export row JSON, Delete) in `feat-bulkvault.tsx`; pattern reusable for other tables (Batch B #20, PR #42)
 
 ## Batch C — Agent Runtime Hardening (21–30)
 - 21. ⬜ Retry/backoff wrapper for gbrain CLI spawns
