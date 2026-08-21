@@ -19,7 +19,7 @@ Ledgers drift — confirm in source before implementing.
 - 12. ✅ Command-palette fuzzy search across all panels → `App.tsx` Cmd/Ctrl+K (`useCommandPalette`)
 - 13. ✅ Batch actions for missions/decisions/incidents → `features/feat-bulkvault.tsx` + `panelkit.tsx` selection
 - 14. ✅ Export-to-CSV for vault/audit/missions/ledger → `features/feat-exportcsv.tsx` + `panelkit.exportCsv`
-- 15. ⬜ Inline edit for decisions with optimistic rollback — NO source evidence (no `contenteditable`/`inlineEdit`)
+- 15. ✅ Inline edit for decisions with optimistic rollback — `features/feat-inlineedit.tsx` (editable rows; optimistic update applied immediately, rolled back to snapshot on simulated upstream failure via `persistDecision`; `validateDecision` + `STATUSES` helpers; mock-first, Batch B #15, shipped Wave 11)
 - 16. ✅ Time-travel diff viewer for decision history → `features/feat-diffviewer.tsx` (needed Express 5 `/api/page/:slug` wildcard fix in `runtime.ts`)
 - 17. ✅ Keyboard shortcuts cheatsheet panel → `App.tsx` `ShortcutsOverlay` + `features/feat-keyboard-shortcuts.tsx`
 - 18. ✅ Offline mode queue with sync indicator → `features/offline.tsx` (`flushOfflineQueue`, `navigator.onLine`)
