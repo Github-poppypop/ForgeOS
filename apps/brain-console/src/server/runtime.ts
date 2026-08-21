@@ -9,6 +9,7 @@ import { rateLimit, getRateLimitSnapshot } from "./ratelimit";
 import { loadServerFeatures } from "./features/loader";
 import { syncHub } from "./syncHub.js";
 import { readAuditLog, toCsv, toJson, toSql } from "./auditExport";
+import { buildKnowledgeGraph } from "./knowledgeGraph.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
@@ -1084,6 +1085,15 @@ export async function createRuntime(opts?: { requestCounts?: Map<string, number>
 
   router.get("/api/federation", (_req, res) => {
     jsonResponse(res, store.federation);
+  });
+
+  // Knowledge graph (backlog #40): derived from the knowledge-universe on-disk state.
+  router.get("/api/knowledge-graph", (_req, res) => {
+    try {
+      jsonResponse(res, buildKnowledgeGraph());
+    } catch {
+      jsonResponse(res, { ok: false, error: "failed to build knowledge graph" });
+    }
   });
 
   router.get("/api/audit", (_req, res) => {

@@ -49,7 +49,7 @@ Ledgers drift — confirm in source before implementing.
 - 37. ⬜ Access-control lists per role on sensitive pages
 - 38. ⬜ Audit trail viewer for page mutations
 - 39. ⬜ Bulk page mover with link rewrite
-- 40. ⬜ Knowledge graph visualization data endpoint
+- 40. ✅ Knowledge graph visualization data endpoint → `src/server/knowledgeGraph.ts` (real graph derived from the knowledge-universe `.data`: audit→user mutation edges, acls→role access edges, analytics view counts; graceful seed fallback) + `/api/knowledge-graph` route in `runtime.ts` + `features/feat-knowledge-graph.tsx` panel (auto-registered; closes #40, this tick)
 
 ## Batch E — Marketplace + SDK + Onboarding (41–50)
 - 41. ⬜ Listing review/approval workflow in marketplace
