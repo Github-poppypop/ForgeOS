@@ -544,7 +544,7 @@ function Sidebar({ route, onNavigate }: { route: string; onNavigate: (r: string)
                 const label = r.replace(/^\//, '').charAt(0).toUpperCase() + r.replace(/^\//, '').slice(1);
                 if (r === '/api-docs') {
                   return (
-                    <a key={r} href={r} target="_blank" rel="noreferrer" className={route === r ? 'active' : ''}>
+                    <a key={r} href="/feature/api-docs" className={route === '/feature/api-docs' ? 'active' : ''} onClick={(e) => { e.preventDefault(); onNavigate('/feature/api-docs'); }}>
                       {label}
                     </a>
                   );
