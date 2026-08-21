@@ -47,7 +47,7 @@ Ledgers drift — confirm in source before implementing.
 - 35. ✅ Page-level analytics (views, last accessed) — `features/feat-pageanalytics.tsx` (client-side localStorage visit tracker + live session telemetry from `window.__forgeosTelemetry`; auto-registers at `/feature/page-analytics`; Wave 10, commit `2b63f30`)
 - 36. ✅ Mission scheduling executor → `features/feat-missionsched-exec.tsx`
 - 37. ⬜ Access-control lists per role on sensitive pages
-- 38. ⬜ Audit trail viewer for page mutations
+- 38. ✅ Audit trail viewer for page mutations → `features/feat-audit-trail.tsx` (localStorage mock-first: filter/search/seed/clear; backend persistence is a follow-up; #38, shipped Wave 12)
 - 39. ⬜ Bulk page mover with link rewrite
 - 40. ✅ Knowledge graph visualization data endpoint → `src/server/knowledgeGraph.ts` (real graph derived from the knowledge-universe `.data`: audit→user mutation edges, acls→role access edges, analytics view counts; graceful seed fallback) + `/api/knowledge-graph` route in `runtime.ts` + `features/feat-knowledge-graph.tsx` panel (auto-registered; closes #40, this tick)
 
