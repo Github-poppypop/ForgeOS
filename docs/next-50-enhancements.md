@@ -33,7 +33,7 @@ Ledgers drift — confirm in source before implementing.
 - 24. ⬜ Structured agent output schema validation
 - 25. ✅ Agent memory cache with TTL eviction → `features/feat-agentcache.tsx`
 - 26. ✅ Dead-letter queue for failed agent tasks → `features/feat-deadletter.tsx`
-- 27. ⬜ Agent cost/token accounting per role
+- 27. ✅ Agent cost/token accounting per role — `features/feat-agentcost.tsx` (per-role spend table + cost-share bars + summary tiles; mock-first telemetry, live `/api/agent-cost` accumulator is the backend follow-up; Batch C #27, shipped Wave 11)
 - 28. ⬜ Agent A/B routing for canary prompts
 - 29. ⬜ Graceful degradation when Ollama is offline
 - 30. ⬜ Agent runbook auto-selection by mission type
