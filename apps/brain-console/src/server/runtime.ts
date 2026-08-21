@@ -3,7 +3,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { rateLimit, getRateLimitSnapshot } from "./ratelimit";
 import { loadServerFeatures } from "./features/loader";
@@ -1120,8 +1120,29 @@ export async function createRuntime(opts?: { requestCounts?: Map<string, number>
     jsonResponse(res, { active: "forgeos", types: store.schemas });
   });
 
+  // Last-commit date of the repo that backs the governance "source of truth".
+  // Falls back to today's date when git is unavailable (e.g. a deployment without .git).
+  function getGovernanceDate(): string {
+    try {
+      const root = execSync("git rev-parse --show-toplevel", { stdio: ["ignore", "pipe", "ignore"] })
+        .toString()
+        .trim();
+      if (root) {
+        const d = execSync(`git -C ${JSON.stringify(root)} log -1 --format=%cs`, {
+          stdio: ["ignore", "pipe", "ignore"],
+        })
+          .toString()
+          .trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+      }
+    } catch {
+      // git missing or not a repo — fall back to today's date
+    }
+    return new Date().toISOString().slice(0, 10);
+  }
+
   router.get("/api/governance", (_req, res) => {
-    jsonResponse(res, store.governance);
+    jsonResponse(res, { ...(store.governance ?? {}), gitDate: getGovernanceDate() });
   });
 
   router.patch("/api/governance/rules/:id", express.json(), (req, res) => {
