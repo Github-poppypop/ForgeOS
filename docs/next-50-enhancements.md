@@ -28,7 +28,7 @@ Ledgers drift — confirm in source before implementing.
 
 ## Batch C — Agent Runtime Hardening (21–30)
 - 21. ✅ Retry/backoff wrapper for gbrain CLI spawns → `agents/retry.ts` (`withRetry`: exponential backoff + jitter, abort support, `NonRetryableError`); wired into `self-improve-loop.ts` `exec()` so transient spawn/timeout failures retry (default 1 retry) while clean non-zero exits resolve unretried; 13 `node:test` cases green (`agents/__tests__/retry.test.ts`)
-- 22. ⬜ Circuit breaker for repeated gbrain failures
+- 22. ✅ Circuit breaker for repeated gbrain failures → `agents/circuit-breaker.ts` (`CircuitBreaker` class: CLOSED/OPEN/HALF_OPEN states, `cooldownMs` probe, `successThreshold` to close, `CircuitOpenError` fast-fail; 8 `node:test` cases green in `agents/__tests__/circuit-breaker.test.ts`; pairs with `retry.ts` #21; Batch C #22, shipped Wave 12)
 - 23. ⬜ Agent sandbox policy enforcement in `agents/guardrails.ts`
 - 24. ⬜ Structured agent output schema validation
 - 25. ✅ Agent memory cache with TTL eviction → `features/feat-agentcache.tsx`
