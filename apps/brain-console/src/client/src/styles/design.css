@@ -967,6 +967,18 @@ ul.mono { list-style: none; padding: 0; }
   .card { break-inside: avoid; border: 1px solid #ccc; }
   pre.code, pre.json { white-space: pre-wrap; border: 1px solid #ccc; }
   a[href]::after { content: " (" attr(href) ")"; font-size: 11px; color: #555; }
+
+  /* forgeos-driver (2026-08-23): ledger/audit/vault print clarity + overlay cleanup */
+  .breadcrumb, .ctx-menu, .modal-backdrop, .status-bar, .cmd-palette { display: none !important; }
+  .main-canvas { padding: 0 !important; max-width: 100% !important; }
+  table { width: 100% !important; border-collapse: collapse !important; }
+  thead { display: table-header-group; }
+  th, td { border: 1px solid #999 !important; padding: 4px 7px !important;
+           background: #fff !important; color: #000 !important; }
+  tr { break-inside: avoid; }
+  .status, .tag, .badge, .alert-chip, .pill {
+    background: #fff !important; color: #000 !important; border: 1px solid #999 !important;
+  }
 }
 
 /* ---------- topology ---------- */
