@@ -41,7 +41,7 @@ repo `/opt/forgeos`). Prior STATUS-AND-ROADMAP.md was stale (referenced Bun and
 - OpenTelemetry distributed tracing (SSE live-sync scaffold already shipped in `feat-sse.tsx`).
 - Agent runtime hardening: retry/backoff, circuit breaker, sandbox guardrails, output schema validation, cost/token accounting, A/B canary routing, Ollama graceful degradation, runbook auto-select (Batch C 21-24,27-30).
 - Knowledge universe: incremental markdown sync, link-health, dup-merge, semantic bookmarking, page analytics, per-role ACL, page-mutation audit viewer, bulk page mover, graph viz (Batch D 31,33-35,37-40).
-- Audit export to SQL/JSON (CSV export already shipped via `feat-exportcsv`/panelkit; SQL/JSON still pending).
+- Audit export to SQL/JSON — **DONE**: server route `/api/audit/export?format=json|sql` (covered by `auditExport.test.ts`) and client "Export JSON" for Ledger/Missions/Vault tables (added this tick; see below).
 - Marketplace review/approval + capability-compat + publisher analytics; SDK publish helper; first-app template; guided onboarding; role quickstart wizards; demo data seeder; release-notes generator (Batch E 41-48,50).
 - Inline decision edit w/ optimistic rollback; table column reorder (Batch B 15,19); wire `ContextMenu` to table rows (Batch B 20).
 - Snyk scanning; semantic release; visual regression; load testing; coverage.
@@ -58,3 +58,4 @@ pm2 restart forgeos && curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:7
 ```
 
 - Alerting config-status + self-test endpoint shipped (`/api/alerting/status`, `/api/alerting/test`, `/feature/alert-status`).
+- **Client JSON export for Ledger/Missions/Vault tables** — `exportJson`/`rowsToJson` in `panelkit.tsx` + "Export JSON" buttons alongside the existing CSV buttons (mirrors CSV export; audit JSON/SQL server route already live). Unit-tested in `src/client/src/__tests__/exportJson.test.ts`.

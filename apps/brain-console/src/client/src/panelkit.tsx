@@ -31,6 +31,25 @@ export function exportCsv(filename: string, rows: any[]): void {
   URL.revokeObjectURL(url);
 }
 
+/** Serialize a list of row objects to a pretty-printed JSON string. */
+export function rowsToJson(rows: any[]): string {
+  return JSON.stringify(rows ?? [], null, 2);
+}
+
+/** Trigger a client-side JSON download from a list of row objects. */
+export function exportJson(filename: string, rows: any[]): void {
+  if (!rows || !rows.length) return;
+  const blob = new Blob([rowsToJson(rows)], { type: 'application/json;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename.endsWith('.json') ? filename : `${filename}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export interface CtxItem {
   label: string;
   onClick: () => void;

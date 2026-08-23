@@ -1,6 +1,6 @@
 import { Component, useEffect, useMemo, useCallback, useState } from 'react';
 import { createForgeOSClient } from '../../../../sdk/src/index.ts';
-import { exportCsv } from './panelkit';
+import { exportCsv, exportJson } from './panelkit';
 import { OfflineIndicator } from './offline';
 import { isFeatureRoute, renderFeature, FEATURE_CATEGORIES } from './features/dispatch';
 import RateLimitDashboard from './RateLimitDashboard';
@@ -1474,6 +1474,7 @@ function LedgerPanel({ data }: { data?: any }) {
       <div className="card">
         <div className="toolbar" style={{ justifyContent: 'flex-end', marginBottom: 12 }}>
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportCsv('ledger.csv', entries)}>Export CSV</button>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportJson('ledger.json', entries)}>Export JSON</button>
         </div>
         <div className="table-wrap">
           <table className="tbl">
@@ -1511,6 +1512,7 @@ function MissionsPanel({ data }: { data?: any }) {
     <div className="fadein">
       <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 12 }}>
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportCsv('missions.csv', missions)}>Export CSV</button>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportJson('missions.json', missions)}>Export JSON</button>
       </div>
       <div className="bento-grid">
         <div className="stats cols-3" style={{ marginBottom: 16 }}>
@@ -1851,6 +1853,7 @@ function VaultPanel({ data }: { data?: any }) {
     <div className="fadein">
       <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 12 }}>
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportCsv('vault.csv', items)}>Export CSV</button>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportJson('vault.json', items)}>Export JSON</button>
       </div>
       <div className="bento-grid">
         <div className="stats cols-3" style={{ marginBottom: 16 }}>
