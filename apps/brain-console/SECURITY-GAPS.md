@@ -1,4 +1,4 @@
-# Brain Console — Security Gap Notes (REFRESHED 2026-08-19)
+# Brain Console — Security Gap Notes (REFRESHED 2026-08-24)
 
 Verified live in `apps/brain-console/server.ts` against a running :7777 instance.
 
@@ -19,12 +19,18 @@ Verified live in `apps/brain-console/server.ts` against a running :7777 instance
   `/api/rate-limit/status` snapshot endpoint. Disable via `RATE_LIMIT_DISABLED=1`.
 
 ## Remaining recommendations
-1. **Auth in production**: ensure `CONSOLE_TOKEN` / `JWT_SECRET` are set; API is open
-   without them.
-2. **CORS**: currently permissive — restrict `access-control-allow-origin` to known
-   origins if exposed beyond localhost.
-3. **Reverse proxy**: if fronted by nginx/Cloudflare, let it own HSTS/CDN/WAF.
-4. **Activate alerting**: set `SENTRY_DSN` or `ALERT_WEBHOOK_URL` in the VPS env so
+1. **Reverse proxy**: if fronted by nginx/Cloudflare, let it own HSTS/CDN/WAF.
+2. **Activate alerting**: set `SENTRY_DSN` or `ALERT_WEBHOOK_URL` in the VPS env so
    `alertError` actually delivers.
-5. **CSRF**: `csrfMiddleware` is defined but not enforced on POST routes — enforce or
-   document as acceptable for same-origin token-auth API.
+
+> Auth, CORS, and CSRF (previously listed here) are now IMPLEMENTED and verified:
+> - **Auth gate** (`feat-auth-gate.ts` / `authGate.ts`): env-gated — enforces a
+>   `CONSOLE_TOKEN` (or `JWT_SECRET`-signed login token) on all `/api/*` except the
+>   public allowlist (`/api/health`, `/api/auth/login`, `/api/stream`,
+>   `/api/csrf/token`). No-op when neither env var is set (dev stays open). Verified
+>   live: `noTok=401, withTok=200, wrongTok=401`.
+> - **CORS restriction** (`feat-cors.ts` / `cors.ts`): when `ALLOWED_ORIGINS` is set,
+>   only those origins are permitted; permissive when unset.
+> - **CSRF enforcement** (`feat-csrf.ts` / `csrf.ts`): double-submit cookie on
+>   POST/PUT/PATCH/DELETE, env-gated to `CONSOLE_TOKEN` (no-op in dev/tests so the
+>   existing suite passes).
