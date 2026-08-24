@@ -7,7 +7,9 @@
 import type { Router, Request, Response } from "express";
 import { createCsrfMiddleware, CSRF_COOKIE, CSRF_HEADER } from "../csrf.js";
 
-const csrf = createCsrfMiddleware();
+// Env-gated: only enforce CSRF when the API is protected by CONSOLE_TOKEN.
+// When unset (dev/tests), CSRF is a no-op so the open dev server keeps working.
+const csrf = createCsrfMiddleware({ disabled: !process.env.CONSOLE_TOKEN });
 
 export default function registerCsrf(router: Router): void {
   router.get("/api/csrf/token", (_req: Request, res: Response) => {
