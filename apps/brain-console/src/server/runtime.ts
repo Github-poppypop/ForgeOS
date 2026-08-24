@@ -10,6 +10,7 @@ import { loadServerFeatures } from "./features/loader";
 import { syncHub } from "./syncHub.js";
 import { readAuditLog, toCsv, toJson, toSql } from "./auditExport";
 import { buildKnowledgeGraph } from "./knowledgeGraph.js";
+import { checkCompatibility, hostEnvironment, type CompatCandidate } from "./marketplaceCompat.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
@@ -360,6 +361,12 @@ type RegistryPlugin = {
   rating: number;
   published_at: string;
   installed_at: string | null;
+  // Compatibility declarations (backlog #42). Optional: legacy entries omit
+  // them and are treated as universally compatible.
+  engines?: { forgeos?: string; node?: string };
+  requires?: string[];
+  capabilities?: string[];
+  conflicts?: string[];
 };
 
 type Registry = { plugins: RegistryPlugin[] };
@@ -455,7 +462,17 @@ function normalizeRegistryPlugin(value: unknown): RegistryPlugin | null {
   const name = sanitizeString(entry.name);
   const version = sanitizeString(entry.version, "0.0.0");
   if (!name) return null;
-  return {
+  const capList = (v: unknown): string[] =>
+    ensureArray<unknown>(v)
+      .map((t) => sanitizeString(t))
+      .filter(Boolean);
+  const rawEngines = (entry.engines ?? {}) as Dict;
+  const forgeosRange = sanitizeString(rawEngines.forgeos ?? entry.minEngine, "");
+  const nodeRange = sanitizeString(rawEngines.node, "");
+  const requires = capList(entry.requires);
+  const capabilities = capList(entry.capabilities);
+  const conflicts = capList(entry.conflicts);
+  const normalized: RegistryPlugin = {
     id: sanitizeString(entry.id, registrySlug(name, version)),
     name,
     version,
@@ -471,12 +488,48 @@ function normalizeRegistryPlugin(value: unknown): RegistryPlugin | null {
     published_at: sanitizeString(entry.published_at, new Date().toISOString()),
     installed_at: typeof entry.installed_at === "string" ? sanitizeString(entry.installed_at) || null : null,
   };
+  // Only attach compatibility declarations when actually present so legacy
+  // entries stay byte-identical after a round-trip through the registry file.
+  if (forgeosRange || nodeRange) {
+    normalized.engines = {
+      ...(forgeosRange ? { forgeos: forgeosRange } : {}),
+      ...(nodeRange ? { node: nodeRange } : {}),
+    };
+  }
+  if (requires.length) normalized.requires = requires;
+  if (capabilities.length) normalized.capabilities = capabilities;
+  if (conflicts.length) normalized.conflicts = conflicts;
+  return normalized;
 }
 
 function registryPlugins(registry: Registry): RegistryPlugin[] {
   return ensureArray<unknown>(registry.plugins)
     .map((p) => normalizeRegistryPlugin(p))
     .filter((p): p is RegistryPlugin => p !== null);
+}
+
+// Host console version used as the `forgeos` engine when evaluating plugin
+// compatibility (#42). Read from package.json once, with a safe fallback.
+const CONSOLE_ENGINE_VERSION: string = (() => {
+  try {
+    const pkgPath = path.resolve(__dirname, "..", "..", "package.json");
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as { version?: string };
+    return typeof pkg.version === "string" && pkg.version ? pkg.version : "1.0.0";
+  } catch {
+    return "1.0.0";
+  }
+})();
+
+/**
+ * Host descriptor for compatibility checks: the console engine version plus the
+ * names of currently-installed registry plugins (for conflict detection).
+ * `excludeName` skips the candidate itself so re-installing is never a conflict.
+ */
+function marketplaceHost(registry: Registry, excludeName = ""): ReturnType<typeof hostEnvironment> {
+  const installed = registryPlugins(registry)
+    .filter((p) => p.installed && p.name !== excludeName)
+    .map((p) => p.name);
+  return hostEnvironment({ engine: CONSOLE_ENGINE_VERSION, installed });
 }
 
 function validateRequired(body: Dict, fields: string[]): string | null {
@@ -1322,6 +1375,21 @@ export async function createRuntime(opts?: { requestCounts?: Map<string, number>
     const plugins = registryPlugins(registry);
     const target = plugins.find((p) => p.id === id) ?? plugins.find((p) => p.name === id);
     if (!target) return notFound(res, "plugin not found in registry");
+    // Capability compatibility gate (#42): an explicit, unsatisfied declaration
+    // blocks the install unless the caller passes force:true. Plugins that
+    // declare nothing remain installable exactly as before.
+    const compat = checkCompatibility(target as CompatCandidate, marketplaceHost(registry, target.name));
+    const force = sanitizeBoolean((req.body as Dict)?.force, false);
+    if (!compat.compatible && !force) {
+      pushAudit("marketplace.install.blocked", `${target.name}@${target.version}`, "system");
+      return res.status(409).json({
+        installed: false,
+        error: compat.message,
+        compatible: false,
+        compat,
+        hint: "resolve the failed checks or retry with { \"force\": true }",
+      });
+    }
     const already = target.installed;
     if (!already) {
       target.installed = true;
@@ -1331,7 +1399,7 @@ export async function createRuntime(opts?: { requestCounts?: Map<string, number>
     registry.plugins = plugins;
     saveRegistry(registry);
     pushAudit("marketplace.install", `${target.name}@${target.version}`, "system");
-    return jsonResponse(res, { installed: true, already, plugin: target });
+    return jsonResponse(res, { installed: true, already, plugin: target, compat, forced: force && !compat.compatible });
   });
 
   router.post("/api/marketplace/install", express.json(), (req, res) => {
@@ -1352,11 +1420,33 @@ export async function createRuntime(opts?: { requestCounts?: Map<string, number>
     return jsonResponse(res, { installed: name });
   });
 
+  // Capability compatibility check (#42). Accepts an ad-hoc descriptor
+  // ({ name, version, engines, requires, conflicts }) or, when the plugin is
+  // already published, an { id } / { name } that is resolved against the
+  // registry so its declared requirements are used. Back-compat: the legacy
+  // `name` / `version` / `compatible` / `message` fields are preserved.
   router.post("/api/marketplace/compat", express.json(), (req, res) => {
-    const name = sanitizeString((req.body as Dict).name as string, "");
-    const version = sanitizeString((req.body as Dict).version as string, "");
-    const compatible = name.length > 0 && /^\d+\.\d+\.\d+$/.test(version);
-    return jsonResponse(res, { name, version, compatible, message: compatible ? "Compatible" : "Incompatible or missing fields" });
+    const body = (req.body ?? {}) as Dict;
+    const id = sanitizeString(body.id, "");
+    const name = sanitizeString(body.name, "");
+    const plugins = registryPlugins(registry);
+    const known =
+      (id ? plugins.find((p) => p.id === id) : undefined) ??
+      (name ? plugins.find((p) => p.name === name) : undefined);
+    // Explicit body fields win over the registry entry so callers can dry-run a
+    // candidate before publishing it.
+    const candidate: CompatCandidate = {
+      ...(known ?? {}),
+      ...(name ? { name } : {}),
+      ...("version" in body ? { version: sanitizeString(body.version, "") } : {}),
+      ...("engines" in body ? { engines: body.engines } : {}),
+      ...("minEngine" in body ? { minEngine: body.minEngine } : {}),
+      ...("requires" in body ? { requires: body.requires } : {}),
+      ...("capabilities" in body ? { capabilities: body.capabilities } : {}),
+      ...("conflicts" in body ? { conflicts: body.conflicts } : {}),
+    };
+    const report = checkCompatibility(candidate, marketplaceHost(registry, sanitizeString(candidate.name, "")));
+    return jsonResponse(res, { ...report, resolvedFromRegistry: Boolean(known) });
   });
 
   router.post("/api/marketplace/publish", express.json(), (req, res) => {
@@ -1383,12 +1473,155 @@ export async function createRuntime(opts?: { requestCounts?: Map<string, number>
     return res.status(201).json({ published: true });
   });
 
-  router.get("/api/marketplace/approvals", (_req, res) => {
-    jsonResponse(res, { submissions: store.marketplace.approvals });
+  // ── Listing review / approval workflow (#41) ───────────────────────────────
+  // Submissions move pending → approved | rejected exactly once. Approving runs
+  // the capability compatibility check (#42) so a listing cannot be approved
+  // into a host that cannot run it (override with force:true).
+  const approvalList = (): Dict[] => ensureArray<unknown>(store.marketplace.approvals) as Dict[];
+  const saveApprovals = (list: Dict[]): void => {
+    (store.marketplace as unknown as Dict).approvals = list;
+    persist();
+  };
+
+  router.get("/api/marketplace/approvals", (req, res) => {
+    const status = sanitizeString(req.query.status, "").toLowerCase();
+    const all = approvalList();
+    const submissions = status ? all.filter((s) => sanitizeString(s.status, "").toLowerCase() === status) : all;
+    const counts = all.reduce<Record<string, number>>((acc, s) => {
+      const key = sanitizeString(s.status, "unknown");
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    jsonResponse(res, { submissions, total: submissions.length, counts, statuses: ["pending", "approved", "rejected"] });
   });
 
+  // Submit a listing for review.
+  router.post("/api/marketplace/approvals", express.json(), (req, res) => {
+    const body = (req.body ?? {}) as Dict;
+    const missing = validateRequired(body, ["package", "requested_by"]);
+    if (missing) return badRequest(res, missing);
+    const list = approvalList();
+    const pkg = sanitizeString(body.package);
+    if (list.some((s) => sanitizeString(s.package) === pkg && sanitizeString(s.status) === "pending")) {
+      return res.status(409).json({ submitted: false, error: `${pkg} already has a pending submission` });
+    }
+    const entry: Dict = {
+      id: nextId++,
+      package: pkg,
+      version: sanitizeString(body.version, ""),
+      requested_by: sanitizeString(body.requested_by),
+      requested_at: new Date().toISOString(),
+      status: "pending",
+      reason: sanitizeString(body.reason, ""),
+      reviewer: null,
+      decided_at: null,
+      note: "",
+    };
+    list.push(entry);
+    saveApprovals(list);
+    pushAudit("marketplace.approval.submit", pkg, sanitizeString(body.requested_by));
+    return res.status(201).json({ submitted: true, submission: entry });
+  });
+
+  // Approve or reject a pending submission.
+  router.post("/api/marketplace/approvals/:id/decision", express.json(), (req, res) => {
+    const body = (req.body ?? {}) as Dict;
+    const id = Number(req.params.id);
+    const decision = sanitizeString(body.decision, "").toLowerCase();
+    if (decision !== "approve" && decision !== "reject") {
+      return badRequest(res, 'decision must be "approve" or "reject"');
+    }
+    const list = approvalList();
+    const target = list.find((s) => Number(s.id) === id);
+    if (!target) return notFound(res, "submission not found");
+    const currentStatus = sanitizeString(target.status, "pending");
+    if (currentStatus !== "pending") {
+      return res.status(409).json({
+        decided: false,
+        error: `submission ${id} is already ${currentStatus}`,
+        submission: target,
+      });
+    }
+
+    const pkgName = sanitizeString(target.package);
+    const known = registryPlugins(registry).find((p) => p.name === pkgName);
+    const compat = known
+      ? checkCompatibility(known as CompatCandidate, marketplaceHost(registry, known.name))
+      : null;
+    const force = sanitizeBoolean(body.force, false);
+    if (decision === "approve" && compat && !compat.compatible && !force) {
+      pushAudit("marketplace.approval.blocked", pkgName, "system");
+      return res.status(409).json({
+        decided: false,
+        error: `cannot approve: ${compat.message}`,
+        compat,
+        hint: 'resolve the failed checks or retry with { "force": true }',
+      });
+    }
+
+    target.status = decision === "approve" ? "approved" : "rejected";
+    target.reviewer = sanitizeString(body.reviewer, "system");
+    target.decided_at = new Date().toISOString();
+    target.note = sanitizeString(body.note, "");
+    saveApprovals(list);
+    pushAudit(`marketplace.approval.${target.status}`, pkgName, sanitizeString(target.reviewer as string, "system"));
+    return jsonResponse(res, { decided: true, submission: target, compat, forced: force && Boolean(compat && !compat.compatible) });
+  });
+
+  // ── Publisher analytics (#43) ─────────────────────────────────────────────
+  // Derived from the real registry rather than a static counter blob: per-author
+  // rollups of published versions, installs, downloads and ratings.
   router.get("/api/marketplace/analytics", (_req, res) => {
-    jsonResponse(res, { stats: store.marketplace.analytics });
+    const plugins = registryPlugins(registry);
+    type Row = {
+      author: string;
+      plugins: string[];
+      versions: number;
+      installs: number;
+      downloads: number;
+      ratingSum: number;
+      lastPublished: string;
+    };
+    const rows = new Map<string, Row>();
+    for (const p of plugins) {
+      const author = p.author || "unknown";
+      const row =
+        rows.get(author) ??
+        { author, plugins: [], versions: 0, installs: 0, downloads: 0, ratingSum: 0, lastPublished: "" };
+      if (!row.plugins.includes(p.name)) row.plugins.push(p.name);
+      row.versions += 1;
+      if (p.installed) row.installs += 1;
+      row.downloads += p.downloads;
+      row.ratingSum += p.rating;
+      if (!row.lastPublished || p.published_at > row.lastPublished) row.lastPublished = p.published_at;
+      rows.set(author, row);
+    }
+    const publishers = Array.from(rows.values())
+      .map((r) => ({
+        author: r.author,
+        plugins: r.plugins.sort(),
+        pluginCount: r.plugins.length,
+        versions: r.versions,
+        installs: r.installs,
+        downloads: r.downloads,
+        avgRating: r.versions ? Math.round((r.ratingSum / r.versions) * 100) / 100 : 0,
+        installRate: r.versions ? Math.round((r.installs / r.versions) * 100) / 100 : 0,
+        lastPublished: r.lastPublished,
+      }))
+      .sort((a, b) => b.downloads - a.downloads || a.author.localeCompare(b.author));
+    const approvals = approvalList();
+    jsonResponse(res, {
+      stats: store.marketplace.analytics,
+      publishers,
+      totals: {
+        publishers: publishers.length,
+        plugins: new Set(plugins.map((p) => p.name)).size,
+        versions: plugins.length,
+        installs: plugins.filter((p) => p.installed).length,
+        downloads: plugins.reduce((sum, p) => sum + p.downloads, 0),
+        pendingApprovals: approvals.filter((s) => sanitizeString(s.status) === "pending").length,
+      },
+    });
   });
 
   router.get("/api/workflows", (_req, res) => {

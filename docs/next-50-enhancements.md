@@ -52,9 +52,9 @@ Ledgers drift — confirm in source before implementing.
 - 40. ✅ Knowledge graph visualization data endpoint → `src/server/knowledgeGraph.ts` (real graph derived from the knowledge-universe `.data`: audit→user mutation edges, acls→role access edges, analytics view counts; graceful seed fallback) + `/api/knowledge-graph` route in `runtime.ts` + `features/feat-knowledge-graph.tsx` panel (auto-registered; closes #40, this tick)
 
 ## Batch E — Marketplace + SDK + Onboarding (41–50)
-- 41. ⬜ Listing review/approval workflow in marketplace
-- 42. ⬜ Capability compatibility checks before install
-- 43. ⬜ Marketplace analytics for publishers
+- 41. ✅ Listing review/approval workflow in marketplace → `GET /api/marketplace/approvals` (now `?status=` filterable with status `counts`), `POST /api/marketplace/approvals` (submit; 409 on duplicate pending), `POST /api/marketplace/approvals/:id/decision` (`approve`|`reject`, records `reviewer`/`decided_at`/`note`, 409 on re-deciding, 404 unknown, audit events) — approving is gated on the #42 compat report (`force:true` overrides); 19 HTTP tests in `src/server/__tests__/marketplace-governance.test.ts`
+- 42. ✅ Capability compatibility checks before install → `src/server/marketplaceCompat.ts` (pure `checkCompatibility` + real semver range engine: `*`/exact/`>=`/`>`/`<=`/`<`/`^`/`~`/AND/`||`; gates name, version, `engines.forgeos`, `engines.node`, required capabilities vs `HOST_CAPABILITIES`, and conflicts vs installed plugins; unknown *provided* caps are warn-only). Wired into `POST /api/marketplace/compat` (resolves declarations from the registry, `resolvedFromRegistry` flag) and now BLOCKS `POST /api/marketplace/:id/install` with 409 + report unless `force:true`. Declarations persist through `normalizeRegistryPlugin`. Permissive by default so legacy entries stay installable; 21 unit tests in `marketplaceCompat.test.ts`
+- 43. ✅ Marketplace analytics for publishers → `GET /api/marketplace/analytics` now derives per-author rollups from the real registry (pluginCount, versions, installs, downloads, avgRating, installRate, lastPublished; sorted by downloads desc) plus `totals` incl. `pendingApprovals`; legacy `stats` blob preserved
 - 44. ⬜ SDK publish helper in `apps/sdk`
 - 45. ⬜ First-app template selector in `apps/first-app`
 - 46. ✅ Guided onboarding checklist tied to ROADMAP phases → `features/feat-onboarding-checklist.tsx` (localStorage-persisted progress; mirrors ROADMAP Phase 0–5 tasks; Batch E #46, shipped 2026-08-20)
