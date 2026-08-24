@@ -96,6 +96,13 @@ export default function registerWorkspaces(router: Router): void {
     return json(res, { ok: true, workspace: ws });
   });
 
+  router.get("/api/workspaces/:id/members", (req: Request, res: Response) => {
+    const id = sanitize(req.params.id);
+    const ws = loadWorkspaces().find((w) => w.id === id);
+    if (!ws) return json(res, { error: "workspace not found" }, 404);
+    return json(res, { ok: true, members: ws.members });
+  });
+
   router.post("/api/workspaces/:id/members", (req: Request, res: Response) => {
     const id = sanitize(req.params.id);
     const name = sanitize((req.body as Record<string, unknown>).name);
