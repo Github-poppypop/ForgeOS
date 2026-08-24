@@ -25,6 +25,8 @@ import {
   PolicyContext,
 } from '../packages/shared/src/types';
 
+import * as path from 'node:path';
+
 /* ─────────────────────────────────────────────
  * Action classification
  * ───────────────────────────────────────────── */
@@ -98,22 +100,17 @@ export class Guardrails {
       });
     }
 
-    // 3. Irreversibility check — deploys/deletes/spend need sign-off
-    if (
-      action.category === 'irreversible' &&
-      !this.ctx.irreversibleRequires.includes(this.ctx.escalatesTo)
-    ) {
-      // Check if current tier qualifies; admin can often self-approve
-      // but we still require explicit sign-off by the named owner.
-      if (action.tier !== 'admin') {
-        violations.push({
-          rule: 'reversibility-check',
-          agent: action.agentId,
-          action: action.description,
-          detail: `Irreversible action requires sign-off from ${this.ctx.irreversibleRequires.join(', ')}.`,
-          severity: 'error',
-        });
-      }
+    // 3. Irreversibility check — deploys/deletes/spend need sign-off.
+    // A non-admin agent may not perform irreversible actions; they must be
+    // escalated to the named owner(s) for explicit sign-off.
+    if (action.category === 'irreversible' && action.tier !== 'admin') {
+      violations.push({
+        rule: 'reversibility-check',
+        agent: action.agentId,
+        action: action.description,
+        detail: `Irreversible action requires sign-off from ${this.ctx.irreversibleRequires.join(', ')}.`,
+        severity: 'error',
+      });
     }
 
     // 4. Delegate, don't abdicate — parent retains accountability
@@ -220,4 +217,168 @@ export function policyContextFromProfile(
     escalatesTo: delegation.escalatesTo,
     irreversibleRequires: delegation.irreversibleRequires,
   };
+}
+
+/* ─────────────────────────────────────────────
+ * Sandbox policy enforcement  (next-50 #23)
+ *
+ * Complements the constitutional guardrails above with a *runtime*
+ * sandbox. Before the agent runtime performs a capability — file
+ * access, subprocess spawn, network egress, or env reads — it should
+ * consult `SandboxPolicy` and abort when `allowed === false` so an
+ * agent can never read secrets, touch system files, or exec arbitrary
+ * binaries outside its allowlist.
+ * ───────────────────────────────────────────── */
+
+export type SandboxCapability = 'fs' | 'exec' | 'network' | 'env';
+
+export interface SandboxProfile {
+  /** Absolute roots an agent may touch. Empty = deny all fs access. */
+  allowedRoots: string[];
+  /** Path prefixes / basenames always denied (secrets, system files). */
+  deniedPaths: string[];
+  /** Allowlisted base commands. Use `['*']` to allow everything. */
+  allowExec: string[];
+  /** Allowlisted hosts. Use `['*']` to allow any host. */
+  allowNetwork: string[];
+  /** Env var names that must never be readable by an agent. */
+  deniedEnv: string[];
+}
+
+export interface SandboxRequest {
+  capability: SandboxCapability;
+  path?: string;
+  command?: string;
+  host?: string;
+  port?: number;
+  envKey?: string;
+}
+
+export interface SandboxVerdict {
+  allowed: boolean;
+  capability: SandboxCapability;
+  reason?: string;
+}
+
+/**
+ * A safe-by-default profile: nothing is permitted unless explicitly
+ * allowed. Denies all fs/exec/network by empty allowlists and blocks
+ * the usual secret + system-file locations.
+ */
+export function defaultSandboxProfile(): SandboxProfile {
+  return {
+    allowedRoots: [],
+    deniedPaths: [
+      '/etc',
+      '/proc',
+      '/sys',
+      'C:\\Windows',
+      'C:\\Users',
+      '/root',
+      '/Users',
+      '.env',
+      '.ssh',
+      'credentials',
+      'secrets',
+    ],
+    allowExec: [],
+    allowNetwork: [],
+    deniedEnv: [
+      'API_KEY',
+      'SECRET',
+      'TOKEN',
+      'PASSWORD',
+      'PRIVATE_KEY',
+      'DATABASE_URL',
+    ],
+  };
+}
+
+export class SandboxPolicy {
+  constructor(private readonly profile: SandboxProfile = defaultSandboxProfile()) {}
+
+  /** Route a request to the matching capability check. */
+  evaluate(req: SandboxRequest): SandboxVerdict {
+    switch (req.capability) {
+      case 'fs':
+        return this.checkFileAccess(req.path ?? '');
+      case 'exec':
+        return this.checkExec(req.command ?? '');
+      case 'network':
+        return this.checkNetwork(req.host ?? '');
+      case 'env':
+        return this.checkEnv(req.envKey ?? '');
+    }
+  }
+
+  checkFileAccess(p: string): SandboxVerdict {
+    if (!p) {
+      return { allowed: false, capability: 'fs', reason: 'empty path' };
+    }
+    const resolved = path.resolve(p);
+    for (const denied of this.profile.deniedPaths) {
+      const d = path.resolve(denied);
+      if (resolved === d || resolved.startsWith(d + path.sep)) {
+        return { allowed: false, capability: 'fs', reason: `denied path: ${denied}` };
+      }
+      // separator-free entries (e.g. ".env", "credentials", ".ssh") block by
+      // case-insensitive substring so "credentials.json" and "keys/.ssh/id_rsa" are caught
+      if (!/[\\/]/.test(denied) && resolved.toLowerCase().includes(denied.toLowerCase())) {
+        return { allowed: false, capability: 'fs', reason: `denied path component: ${denied}` };
+      }
+    }
+    if (this.profile.allowedRoots.length === 0) {
+      return { allowed: false, capability: 'fs', reason: 'no allowed roots configured' };
+    }
+    const inside = this.profile.allowedRoots.some((root) => {
+      const r = path.resolve(root);
+      return resolved === r || resolved.startsWith(r + path.sep);
+    });
+    if (!inside) {
+      return {
+        allowed: false,
+        capability: 'fs',
+        reason: `outside allowed roots: ${resolved}`,
+      };
+    }
+    return { allowed: true, capability: 'fs' };
+  }
+
+  checkExec(command: string): SandboxVerdict {
+    if (!command) {
+      return { allowed: false, capability: 'exec', reason: 'empty command' };
+    }
+    if (this.profile.allowExec.includes('*')) {
+      return { allowed: true, capability: 'exec' };
+    }
+    const base = command.trim().split(/\s+/)[0].replace(/^.*[\\/]/, '');
+    if (this.profile.allowExec.includes(base)) {
+      return { allowed: true, capability: 'exec' };
+    }
+    return { allowed: false, capability: 'exec', reason: `command not allowlisted: ${base}` };
+  }
+
+  checkNetwork(host: string): SandboxVerdict {
+    if (!host) {
+      return { allowed: false, capability: 'network', reason: 'empty host' };
+    }
+    if (this.profile.allowNetwork.includes('*')) {
+      return { allowed: true, capability: 'network' };
+    }
+    if (this.profile.allowNetwork.includes(host)) {
+      return { allowed: true, capability: 'network' };
+    }
+    return { allowed: false, capability: 'network', reason: `host not allowlisted: ${host}` };
+  }
+
+  checkEnv(envKey: string): SandboxVerdict {
+    if (!envKey) {
+      return { allowed: false, capability: 'env', reason: 'empty env key' };
+    }
+    const upper = envKey.toUpperCase();
+    if (this.profile.deniedEnv.some((k) => k.toUpperCase() === upper)) {
+      return { allowed: false, capability: 'env', reason: `denied env var: ${envKey}` };
+    }
+    return { allowed: true, capability: 'env' };
+  }
 }

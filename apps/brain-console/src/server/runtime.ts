@@ -3,12 +3,13 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { rateLimit, getRateLimitSnapshot } from "./ratelimit";
 import { loadServerFeatures } from "./features/loader";
 import { syncHub } from "./syncHub.js";
 import { readAuditLog, toCsv, toJson, toSql } from "./auditExport";
+import { buildKnowledgeGraph } from "./knowledgeGraph.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
@@ -1086,6 +1087,15 @@ export async function createRuntime(opts?: { requestCounts?: Map<string, number>
     jsonResponse(res, store.federation);
   });
 
+  // Knowledge graph (backlog #40): derived from the knowledge-universe on-disk state.
+  router.get("/api/knowledge-graph", (_req, res) => {
+    try {
+      jsonResponse(res, buildKnowledgeGraph());
+    } catch {
+      jsonResponse(res, { ok: false, error: "failed to build knowledge graph" });
+    }
+  });
+
   router.get("/api/audit", (_req, res) => {
     const limit = clamp(sanitizeNumber((_req.query.limit as string) ?? "50", 50), 1, 500);
     jsonResponse(res, { events: ensureArray(store.audit).slice(0, limit) });
@@ -1110,8 +1120,29 @@ export async function createRuntime(opts?: { requestCounts?: Map<string, number>
     jsonResponse(res, { active: "forgeos", types: store.schemas });
   });
 
+  // Last-commit date of the repo that backs the governance "source of truth".
+  // Falls back to today's date when git is unavailable (e.g. a deployment without .git).
+  function getGovernanceDate(): string {
+    try {
+      const root = execSync("git rev-parse --show-toplevel", { stdio: ["ignore", "pipe", "ignore"] })
+        .toString()
+        .trim();
+      if (root) {
+        const d = execSync(`git -C ${JSON.stringify(root)} log -1 --format=%cs`, {
+          stdio: ["ignore", "pipe", "ignore"],
+        })
+          .toString()
+          .trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+      }
+    } catch {
+      // git missing or not a repo — fall back to today's date
+    }
+    return new Date().toISOString().slice(0, 10);
+  }
+
   router.get("/api/governance", (_req, res) => {
-    jsonResponse(res, store.governance);
+    jsonResponse(res, { ...(store.governance ?? {}), gitDate: getGovernanceDate() });
   });
 
   router.patch("/api/governance/rules/:id", express.json(), (req, res) => {

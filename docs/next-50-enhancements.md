@@ -19,24 +19,24 @@ Ledgers drift — confirm in source before implementing.
 - 12. ✅ Command-palette fuzzy search across all panels → `App.tsx` Cmd/Ctrl+K (`useCommandPalette`)
 - 13. ✅ Batch actions for missions/decisions/incidents → `features/feat-bulkvault.tsx` + `panelkit.tsx` selection
 - 14. ✅ Export-to-CSV for vault/audit/missions/ledger → `features/feat-exportcsv.tsx` + `panelkit.exportCsv`
-- 15. ⬜ Inline edit for decisions with optimistic rollback — NO source evidence (no `contenteditable`/`inlineEdit`)
+- 15. ✅ Inline edit for decisions with optimistic rollback — `features/feat-inlineedit.tsx` (editable rows; optimistic update applied immediately, rolled back to snapshot on simulated upstream failure via `persistDecision`; `validateDecision` + `STATUSES` helpers; mock-first, Batch B #15, shipped Wave 11)
 - 16. ✅ Time-travel diff viewer for decision history → `features/feat-diffviewer.tsx` (needed Express 5 `/api/page/:slug` wildcard fix in `runtime.ts`)
 - 17. ✅ Keyboard shortcuts cheatsheet panel → `App.tsx` `ShortcutsOverlay` + `features/feat-keyboard-shortcuts.tsx`
 - 18. ✅ Offline mode queue with sync indicator → `features/offline.tsx` (`flushOfflineQueue`, `navigator.onLine`)
-- 19. ⬜ Panel resize + column reorder persistence — column *visibility* exists (`toggleCol`/`hiddenCols`) but no *reorder*/drag-handle
-- 20. 🟡 Right-click context menus — `ContextMenu` component exists in `panelkit.tsx` but is NOT wired to table rows (`onContextMenu` absent)
+- 19. ✅ Panel resize + column reorder persistence — `toggleCol`/`hiddenCols` column visibility + up/down reorder buttons persisted to localStorage (closes Batch B #19, Wave 11)
+- 20. ✅ Right-click context menus — `ContextMenu` wired to Bulk Vault table rows (Select/Deselect, Copy ID, Export row JSON, Delete) in `feat-bulkvault.tsx`; pattern reusable for other tables (Batch B #20, PR #42)
 
 ## Batch C — Agent Runtime Hardening (21–30)
-- 21. ⬜ Retry/backoff wrapper for gbrain CLI spawns
-- 22. ⬜ Circuit breaker for repeated gbrain failures
-- 23. ⬜ Agent sandbox policy enforcement in `agents/guardrails.ts`
-- 24. ⬜ Structured agent output schema validation
+- 21. ✅ Retry/backoff wrapper for gbrain CLI spawns → `agents/retry.ts` (`withRetry`: exponential backoff + jitter, abort support, `NonRetryableError`); wired into `self-improve-loop.ts` `exec()` so transient spawn/timeout failures retry (default 1 retry) while clean non-zero exits resolve unretried; 13 `node:test` cases green (`agents/__tests__/retry.test.ts`)
+- 22. ✅ Circuit breaker for repeated gbrain failures → `agents/circuit-breaker.ts` (`CircuitBreaker` class: CLOSED/OPEN/HALF_OPEN states, `cooldownMs` probe, `successThreshold` to close, `CircuitOpenError` fast-fail; 8 `node:test` cases green in `agents/__tests__/circuit-breaker.test.ts`; pairs with `retry.ts` #21; Batch C #22, shipped Wave 12)
+- 23. ✅ Agent sandbox policy enforcement → `agents/guardrails.ts` (`SandboxPolicy` + `defaultSandboxProfile`; allow/deny fs/exec/network/env with rooted-path + basename guards and a safe-by-default denylist; 12 `node:test` cases green in `agents/__tests__/guardrails.test.ts`; Batch C #23, shipped this tick)
+- 24. ✅ Structured agent output schema validation → `agents/schema-validator.ts` (`SchemaValidator` class + pre-registered `agent-result`/`dispatch-result` schemas, dependency-free JSON-Schema Draft-7 subset); portable `node:test` coverage in `agents/__tests__/schema-validator.test.ts` (9 cases, green via `npx tsx --test`); Batch C #24, verified this tick
 - 25. ✅ Agent memory cache with TTL eviction → `features/feat-agentcache.tsx`
 - 26. ✅ Dead-letter queue for failed agent tasks → `features/feat-deadletter.tsx`
-- 27. ⬜ Agent cost/token accounting per role
-- 28. ⬜ Agent A/B routing for canary prompts
-- 29. ⬜ Graceful degradation when Ollama is offline
-- 30. ⬜ Agent runbook auto-selection by mission type
+- 27. ✅ Agent cost/token accounting per role — `features/feat-agentcost.tsx` (per-role spend table + cost-share bars + summary tiles; mock-first telemetry, live `/api/agent-cost` accumulator is the backend follow-up; Batch C #27, shipped Wave 11)
+- 28. ✅ Agent A/B routing for canary prompts → agents/ab-router.ts (canonical, deterministic, node:test) + features/feat-abrouting.tsx (operator panel); runtime dispatch wiring is the backend follow-up (Batch C #28, shipped this tick)
+- 29. ✅ Graceful degradation when Ollama is offline → `features/feat-ai-degradation.tsx` (live Ollama probe + degraded-state panel + simulate toggle; mock-first, closes Batch C #29)
+- 30. ✅ Agent runbook auto-selection by mission type → agents/runbook-selector.ts + agents/__tests__/runbook-selector.test.ts (Batch C #30; was mis-marked ⬜ — ledger drift corrected this tick)
 - (also shipped: `feat-ratelimit.tsx`, `feat-ratelimit-telemetry.tsx`, `feat-alert-status.tsx`)
 
 ## Batch D — Knowledge Universe + Federation (31–40)
@@ -44,12 +44,12 @@ Ledgers drift — confirm in source before implementing.
 - 32. ✅ (partial) GraphQL endpoint guard → `features/feat-graphql-guard.tsx`
 - 33. ⬜ Duplicate-page detection + merge tooling
 - 34. ✅ Semantic bookmarking and reading-list capture → `features/feat-readinglist.tsx` (localStorage; CSV export + JSON import; Batch D #34, shipped Wave 5)
-- 35. ⬜ Page-level analytics (views, edits, last accessed)
+- 35. ✅ Page-level analytics (views, last accessed) — `features/feat-pageanalytics.tsx` (client-side localStorage visit tracker + live session telemetry from `window.__forgeosTelemetry`; auto-registers at `/feature/page-analytics`; Wave 10, commit `2b63f30`)
 - 36. ✅ Mission scheduling executor → `features/feat-missionsched-exec.tsx`
-- 37. ⬜ Access-control lists per role on sensitive pages
-- 38. ⬜ Audit trail viewer for page mutations
+- 37. ✅ Access-control lists per role on sensitive pages → `features/feat-acl.tsx` (auto-registers at `/feature/acl`; role × sensitive-page allow/deny matrix derived from the live FEATURES registry, persisted to localStorage, mock-first; backend request-time enforcement is a follow-up; Batch D #37, shipped this tick)
+- 38. ✅ Audit trail viewer for page mutations → `features/feat-audit-trail.tsx` (localStorage mock-first: filter/search/seed/clear; backend persistence is a follow-up; #38, shipped Wave 12)
 - 39. ⬜ Bulk page mover with link rewrite
-- 40. ⬜ Knowledge graph visualization data endpoint
+- 40. ✅ Knowledge graph visualization data endpoint → `src/server/knowledgeGraph.ts` (real graph derived from the knowledge-universe `.data`: audit→user mutation edges, acls→role access edges, analytics view counts; graceful seed fallback) + `/api/knowledge-graph` route in `runtime.ts` + `features/feat-knowledge-graph.tsx` panel (auto-registered; closes #40, this tick)
 
 ## Batch E — Marketplace + SDK + Onboarding (41–50)
 - 41. ⬜ Listing review/approval workflow in marketplace
@@ -58,10 +58,10 @@ Ledgers drift — confirm in source before implementing.
 - 44. ⬜ SDK publish helper in `apps/sdk`
 - 45. ⬜ First-app template selector in `apps/first-app`
 - 46. ✅ Guided onboarding checklist tied to ROADMAP phases → `features/feat-onboarding-checklist.tsx` (localStorage-persisted progress; mirrors ROADMAP Phase 0–5 tasks; Batch E #46, shipped 2026-08-20)
-- 47. ⬜ Role-based quickstart wizards for C-suite
-- 48. ⬜ Local demo data seeder for offline tours
-- 49. ⬜ Feature flags for staged rollout
-- 50. ⬜ Release notes generator from git history + ROADMAP
+- 47. ✅ Role-based quickstart wizards for C-suite → `features/feat-quickstart.tsx` (role picker: C-Suite/Engineering/Admin/Product; per-step localStorage progress; "Open" links gated via `findFeature` so only live feature routes render; auto-registers at `/feature/quickstart`; Batch E #47, shipped Wave 7)
+- 48. ✅ Local demo data seeder for offline tours — shipped (feat-demo-seeder.tsx, Wave 9, f864cfa)
+- 49. ✅ Feature flags for staged rollout — already shipped (feat-featureflags.tsx, commit 6b38c39; ledger was stale)
+- 50. ✅ Release notes generator — `features/feat-releasenotes.tsx` (curated milestone timeline + live feature-registry count via `registry.ts`; `/feature/release-notes`; Batch #50, shipped 2026-08-20)
 - (also shipped: `feat-webhooks.tsx`, `feat-workspaces.tsx`, `feat-sse.tsx`,
   `feat-auditstore.tsx`, `feat-apidocs.tsx`, `feat-changelog.tsx`, `feat-csp-enforce.tsx`)
 

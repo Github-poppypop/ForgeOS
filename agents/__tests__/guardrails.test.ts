@@ -1,7 +1,11 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
 import {
   Guardrails,
   classifyAction,
   policyContextFromProfile,
+  SandboxPolicy,
+  defaultSandboxProfile,
 } from '../guardrails';
 import {
   AuthorityTier,
@@ -47,8 +51,8 @@ describe('Guardrails engine', () => {
   it('allows reversible actions for write-tier agents', () => {
     const g = new Guardrails(makeCtx());
     const result = g.evaluate(action({ description: 'read service config' }));
-    expect(result.allowed).toBe(true);
-    expect(result.violations).toHaveLength(0);
+    assert.strictEqual(result.allowed, true);
+    assert.strictEqual(result.violations.length, 0);
   });
 
   it('blocks irreversible actions without admin tier', () => {
@@ -60,9 +64,9 @@ describe('Guardrails engine', () => {
         tier: 'write',
       }),
     );
-    expect(result.allowed).toBe(false);
-    expect(result.violations.some((v) => v.rule === 'reversibility-check')).toBe(true);
-    expect(result.mustEscalateTo).toBe('CEO');
+    assert.strictEqual(result.allowed, false);
+    assert.ok(result.violations.some((v) => v.rule === 'reversibility-check'));
+    assert.strictEqual(result.mustEscalateTo, 'CEO');
   });
 
   it('flags cross-domain writes requiring formal request', () => {
@@ -74,8 +78,8 @@ describe('Guardrails engine', () => {
         targetDomain: 'CMO',
       }),
     );
-    expect(result.allowed).toBe(false);
-    expect(result.violations.some((v) => v.rule === 'mandate-boundary')).toBe(true);
+    assert.strictEqual(result.allowed, false);
+    assert.ok(result.violations.some((v) => v.rule === 'mandate-boundary'));
   });
 
   it('marks delegated actions as needing a decision record', () => {
@@ -87,23 +91,101 @@ describe('Guardrails engine', () => {
         delegateTo: 'sub-infra-1',
       }),
     );
-    expect(result.mustWriteDecision).toBe(true);
+    assert.strictEqual(result.mustWriteDecision, true);
   });
 
   it('classifies irreversible verbs correctly', () => {
-    expect(classifyAction('deploy to prod')).toBe('irreversible');
-    expect(classifyAction('delete old records')).toBe('irreversible');
+    assert.strictEqual(classifyAction('deploy to prod'), 'irreversible');
+    assert.strictEqual(classifyAction('delete old records'), 'irreversible');
   });
 
   it('classifies delegation verbs correctly', () => {
-    expect(classifyAction('delegate task to minion')).toBe('delegated');
-    expect(classifyAction('assign sub-agent')).toBe('delegated');
+    assert.strictEqual(classifyAction('delegate task to minion'), 'delegated');
+    assert.strictEqual(classifyAction('assign sub-agent'), 'delegated');
   });
 
   it('builds a PolicyContext from a profile', () => {
     const ctx = policyContextFromProfile('agent-cfo', 'CFO', 'admin', baseDelegation);
-    expect(ctx.agentId).toBe('agent-cfo');
-    expect(ctx.authorityTier).toBe('admin');
-    expect(ctx.escalatesTo).toBe('CEO');
+    assert.strictEqual(ctx.agentId, 'agent-cfo');
+    assert.strictEqual(ctx.authorityTier, 'admin');
+    assert.strictEqual(ctx.escalatesTo, 'CEO');
+  });
+});
+
+describe('SandboxPolicy (next-50 #23)', () => {
+  const workRoot = process.platform === 'win32' ? 'C:\\agent-work' : '/opt/agent-work';
+
+  it('default profile denies fs access when no roots are configured', () => {
+    const policy = new SandboxPolicy();
+    const verdict = policy.evaluate({ capability: 'fs', path: '/tmp/hello.txt' });
+    assert.strictEqual(verdict.allowed, false);
+    assert.match(verdict.reason ?? '', /no allowed roots/i);
+  });
+
+  it('allows file access inside an allowed root', () => {
+    const policy = new SandboxPolicy({ ...defaultSandboxProfile(), allowedRoots: [workRoot] });
+    const verdict = policy.evaluate({ capability: 'fs', path: `${workRoot}/out/report.json` });
+    assert.strictEqual(verdict.allowed, true);
+  });
+
+  it('denies file access outside allowed roots', () => {
+    const policy = new SandboxPolicy({ ...defaultSandboxProfile(), allowedRoots: [workRoot] });
+    const verdict = policy.evaluate({ capability: 'fs', path: '/etc/passwd' });
+    assert.strictEqual(verdict.allowed, false);
+  });
+
+  it('denies system paths even when inside an allowed root branch', () => {
+    const policy = new SandboxPolicy({ ...defaultSandboxProfile(), allowedRoots: ['/'] });
+    const verdict = policy.evaluate({ capability: 'fs', path: '/etc/shadow' });
+    assert.strictEqual(verdict.allowed, false);
+    assert.match(verdict.reason ?? '', /denied path/);
+  });
+
+  it('blocks secrets by basename (.env, credentials, .ssh)', () => {
+    const policy = new SandboxPolicy({ ...defaultSandboxProfile(), allowedRoots: [workRoot] });
+    assert.strictEqual(policy.evaluate({ capability: 'fs', path: `${workRoot}/.env` }).allowed, false);
+    assert.strictEqual(policy.evaluate({ capability: 'fs', path: `${workRoot}/credentials.json` }).allowed, false);
+    assert.strictEqual(policy.evaluate({ capability: 'fs', path: `${workRoot}/keys/.ssh/id_rsa` }).allowed, false);
+  });
+
+  it('allows only allowlisted exec commands', () => {
+    const policy = new SandboxPolicy({
+      ...defaultSandboxProfile(),
+      allowExec: ['ls', 'cat', 'node'],
+    });
+    assert.strictEqual(policy.evaluate({ capability: 'exec', command: 'ls -la' }).allowed, true);
+    assert.strictEqual(policy.evaluate({ capability: 'exec', command: 'node server.ts' }).allowed, true);
+    assert.strictEqual(policy.evaluate({ capability: 'exec', command: 'rm -rf /' }).allowed, false);
+  });
+
+  it('"*" allowlist permits any exec command', () => {
+    const policy = new SandboxPolicy({ ...defaultSandboxProfile(), allowExec: ['*'] });
+    assert.strictEqual(policy.evaluate({ capability: 'exec', command: 'curl evil.sh' }).allowed, true);
+  });
+
+  it('denies empty exec commands', () => {
+    const policy = new SandboxPolicy({ ...defaultSandboxProfile(), allowExec: ['ls'] });
+    assert.strictEqual(policy.evaluate({ capability: 'exec', command: '' }).allowed, false);
+  });
+
+  it('allows only allowlisted network hosts', () => {
+    const policy = new SandboxPolicy({
+      ...defaultSandboxProfile(),
+      allowNetwork: ['api.forgeos.dev', '127.0.0.1'],
+    });
+    assert.strictEqual(policy.evaluate({ capability: 'network', host: 'api.forgeos.dev' }).allowed, true);
+    assert.strictEqual(policy.evaluate({ capability: 'network', host: 'evil.example.com' }).allowed, false);
+  });
+
+  it('"*" allows any network host', () => {
+    const policy = new SandboxPolicy({ ...defaultSandboxProfile(), allowNetwork: ['*'] });
+    assert.strictEqual(policy.evaluate({ capability: 'network', host: 'anything.test' }).allowed, true);
+  });
+
+  it('blocks reads of denied env vars regardless of case', () => {
+    const policy = new SandboxPolicy();
+    assert.strictEqual(policy.evaluate({ capability: 'env', envKey: 'DATABASE_URL' }).allowed, false);
+    assert.strictEqual(policy.evaluate({ capability: 'env', envKey: 'api_key' }).allowed, false);
+    assert.strictEqual(policy.evaluate({ capability: 'env', envKey: 'NODE_ENV' }).allowed, true);
   });
 });

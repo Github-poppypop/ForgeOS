@@ -30,7 +30,7 @@ Completion signal: the Brain Console SPA loads and status shows `brain ok`.
 
 ## Stage 2 — First Brain
 
-1. Seed C-suite roles: `POST /api/seed-roles` (or run `test-governance.mjs`).
+1. Seed C-suite roles: `POST /api/seed-roles` (or run `e2e-governance.mjs`).
 2. Capture a page: `POST /api/capture` with `{ slug, markdown }`.
 3. Search it: `GET /api/search?q=<query>`.
 4. Record a decision: `POST /api/decision` with `{ title, body }`.
