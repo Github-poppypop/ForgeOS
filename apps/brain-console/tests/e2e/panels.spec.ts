@@ -13,6 +13,13 @@
 // src/client/src/App.tsx and verified against the running console on :7777.
 import { test, expect, type Page } from '@playwright/test';
 
+// Dismiss the first-load onboarding tour (full-screen .cmdk.open overlay,
+// z-index 200) so it cannot intercept sidebar interactions — root cause of
+// the Wave 8 flake.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('forgeos-tour-done', 'true'));
+});
+
 // Mirrors the ROUTES array in src/client/src/App.tsx.
 const ROUTES = [
   '/dashboard',

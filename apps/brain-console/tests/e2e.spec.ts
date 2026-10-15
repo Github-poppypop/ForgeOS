@@ -7,6 +7,13 @@
 // shell and the real clean-path navigation behaviour.
 import { test, expect } from '@playwright/test';
 
+// Dismiss the first-load onboarding tour (full-screen .cmdk.open overlay,
+// z-index 200) so it cannot intercept sidebar clicks — root cause of the
+// intermittent "sidebar navigation" flake (Wave 8).
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('forgeos-tour-done', 'true'));
+});
+
 test('health endpoint is live', async ({ request }) => {
   const res = await request.get('/api/health');
   expect(res.status()).toBe(200);
